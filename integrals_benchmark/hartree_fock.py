@@ -14,7 +14,7 @@ basis2 = torch.tensor([0.5, 0.4, 0.3, 0.2], requires_grad=False)
 basis3 = torch.tensor([0.5, 0.4, 0.3, 0.2, 0.1, 0.05], requires_grad=False)
 basis4 = torch.tensor([0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.01, 0.001], requires_grad=False)
 basis5 = torch.rand(50)
-# Load converged Psi4 Densities for basis sets 1 through 4
+# Load converged Psi4 Densities for basis sets 0 through 4
 F0 = torch.from_numpy(np.load('psi4_fock_matrices/F0.npy'))
 F1 = torch.from_numpy(np.load('psi4_fock_matrices/F1.npy'))
 F2 = torch.from_numpy(np.load('psi4_fock_matrices/F2.npy'))
@@ -63,14 +63,11 @@ def hartree_fock_iterative(basis,geom,exact_energy,convergence=1e-9):
     G = vectorized_tei(full_basis,geom,nbf_per_atom)
     H = T + V
     # CORE GUESS
-    #Hp = torch.chain_matmul(A,H,A)
-    #e, C2 = torch.symeig(Hp, eigenvectors=True)
-    #C = torch.matmul(A,C2)
-    #Cocc = C[:, :ndocc]
-    #D = torch.einsum('pi,qi->pq', Cocc, Cocc)
-
-    # ZERO GUESS
-    D = torch.zeros_like(H) 
+    Hp = torch.chain_matmul(A,H,A)
+    e, C2 = torch.symeig(Hp, eigenvectors=True)
+    C = torch.matmul(A,C2)
+    Cocc = C[:, :ndocc]
+    D = torch.einsum('pi,qi->pq', Cocc, Cocc)
 
     for i in range(50):
         J = torch.einsum('pqrs,rs->pq', G, D)
