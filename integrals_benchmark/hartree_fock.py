@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from integrals import orthogonalizer, vectorized_oei, vectorized_tei, nuclear_repulsion
+from pyforce.transforms import differentiate_nn
 
 # Define coordinates in Bohr as Torch tensors, turn on gradient tracking.  
 tmpgeom1 = [0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]
@@ -44,7 +45,7 @@ def hartree_fock_old(basis,geom,F):
     E_scf = torch.einsum('pq,pq->', F + H, D) + Enuc
     return E_scf
 
-@torch.jit.script
+#@torch.jit.script
 def hartree_fock_iterative(basis,geom,exact_energy):
     """
     Takes basis, geometry, converged Psi4 hartree fock energy.
@@ -61,6 +62,13 @@ def hartree_fock_iterative(basis,geom,exact_energy):
     A = orthogonalizer(S)
     G = vectorized_tei(full_basis,geom,nbf_per_atom)
     H = T + V
+    # CORE GUESS
+    #Hp = torch.chain_matmul(A,H,A)
+    #e, C2 = torch.symeig(Hp, eigenvectors=True)
+    #C = torch.matmul(A,C2)
+    #Cocc = C[:, :ndocc]
+    #D = torch.einsum('pi,qi->pq', Cocc, Cocc)
+    # ZERO GUESS
     D = torch.zeros_like(H) 
     for i in range(50):
         J = torch.einsum('pqrs,rs->pq', G, D)
@@ -72,7 +80,11 @@ def hartree_fock_iterative(basis,geom,exact_energy):
         Cocc = C[:, :ndocc]
         D = torch.einsum('pi,qi->pq', Cocc, Cocc)
         E_scf = torch.einsum('pq,pq->', F + H, D) + Enuc
-        if torch.allclose(E_scf, exact_energy, rtol=1e-10, atol=1e-10):
+        #hess, cubic = differentiate_nn(E_scf,tmpgeom2,order=3) # arbitrary order derivatives
+        print(cubic)
+        #print(E_scf)
+        #if torch.allclose(E_scf, exact_energy, rtol=1e-10, atol=1e-10):
+        if torch.allclose(E_scf, exact_energy, rtol=1e-9, atol=1e-9):
             return E_scf
 
 def hartree_fock_derivatives(E,geom):
@@ -86,8 +98,12 @@ def hartree_fock_derivatives(E,geom):
     hess = torch.stack([h1,h2,h3,h4,h5,h6]).reshape(6,6)
     return grad, hess
 
-exact = torch.tensor(-0.9716855914049)
-E = hartree_fock_iterative(basis1,geom,exact)
+exact0 = torch.tensor(-0.931283011458994) 
+exact1 = torch.tensor(-0.971685591404988)
+exact2 = torch.tensor(-1.060859783988007)
+
+
+E = hartree_fock_iterative(basis2,geom,exact2)
 grad, hess = hartree_fock_derivatives(E,geom)
 print(E)
 print(grad)

@@ -57,11 +57,12 @@ def mp2(basis,geom,F):
     return E_mp2
 
 #E_= mp2(basis2, geom, F2)
-E_mp2 = mp2(basis1, geom, F1)
+E_mp2 = mp2(basis2, geom, F2)
 grad = torch.autograd.grad(E_mp2, geom,create_graph=True) 
 from pyforce.transforms import differentiate_nn
-hess = differentiate_nn(E_mp2,tmpgeom2,order=2) # arbitrary order derivatives
+hess, cubic = differentiate_nn(E_mp2,tmpgeom2,order=3) # arbitrary order derivatives
 print(E_mp2)
 print(grad)
 print(hess)
+print(cubic)
 
