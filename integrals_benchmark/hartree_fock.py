@@ -1,12 +1,12 @@
 import torch
 import numpy as np
 from integrals import orthogonalizer, vectorized_oei, vectorized_tei, nuclear_repulsion
-from pyforce.transforms import differentiate_nn
+from differentiate import differentiate
 
 # Define coordinates in Bohr as Torch tensors, turn on gradient tracking.  
-tmpgeom1 = [0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]
-tmpgeom2 = [torch.tensor(i, requires_grad=True) for i in tmpgeom1]
-geom = torch.stack(tmpgeom2).reshape(2,3)
+tmpgeom = [0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]
+geomlist = [torch.tensor(i, requires_grad=True) for i in tmpgeom]
+geom = torch.stack(geomlist).reshape(2,3)
 # Define some basis function exponents
 basis0 = torch.tensor([0.5], requires_grad=False)
 basis1 = torch.tensor([0.5, 0.4], requires_grad=False)
@@ -46,12 +46,12 @@ def hartree_fock_old(basis,geom,F):
     return E_scf
 
 #@torch.jit.script
-def hartree_fock_iterative(basis,geom,exact_energy):
+def hartree_fock_iterative(basis,geom,exact_energy,convergence=1e-9):
     """
-    Takes basis, geometry, converged Psi4 hartree fock energy.
+    Takes basis, geometry, and converged Psi4 hartree fock energy.
     In order to get exact analytic hessians, for some reason,
     you MUST iterate, even if the energy is converged on the first iteration.
-    The hessian is exact when the energy naturally reaches the exact energy.
+    All higher order derivatives are exact when the energy naturally reaches the exact energy.
     """
     ndocc = 1   #hard coded
     full_basis = torch.cat((basis,basis))
@@ -68,8 +68,10 @@ def hartree_fock_iterative(basis,geom,exact_energy):
     #C = torch.matmul(A,C2)
     #Cocc = C[:, :ndocc]
     #D = torch.einsum('pi,qi->pq', Cocc, Cocc)
+
     # ZERO GUESS
     D = torch.zeros_like(H) 
+
     for i in range(50):
         J = torch.einsum('pqrs,rs->pq', G, D)
         K = torch.einsum('prqs,rs->pq', G, D)
@@ -80,34 +82,19 @@ def hartree_fock_iterative(basis,geom,exact_energy):
         Cocc = C[:, :ndocc]
         D = torch.einsum('pi,qi->pq', Cocc, Cocc)
         E_scf = torch.einsum('pq,pq->', F + H, D) + Enuc
-        #hess, cubic = differentiate_nn(E_scf,tmpgeom2,order=3) # arbitrary order derivatives
-        print(cubic)
-        #print(E_scf)
-        #if torch.allclose(E_scf, exact_energy, rtol=1e-10, atol=1e-10):
-        if torch.allclose(E_scf, exact_energy, rtol=1e-9, atol=1e-9):
+        print(E_scf)
+        if torch.allclose(E_scf, exact_energy, rtol=convergence, atol=convergence):
             return E_scf
 
-def hartree_fock_derivatives(E,geom):
-    grad = torch.autograd.grad(E, geom, create_graph=True)[0]
-    h1 = torch.autograd.grad(grad[0,0],geom,create_graph=True)[0]
-    h2 = torch.autograd.grad(grad[0,1],geom,create_graph=True)[0]
-    h3 = torch.autograd.grad(grad[0,2],geom,create_graph=True)[0]
-    h4 = torch.autograd.grad(grad[1,0],geom,create_graph=True)[0]
-    h5 = torch.autograd.grad(grad[1,1],geom,create_graph=True)[0]
-    h6 = torch.autograd.grad(grad[1,2],geom,create_graph=True)[0]
-    hess = torch.stack([h1,h2,h3,h4,h5,h6]).reshape(6,6)
-    return grad, hess
 
 exact0 = torch.tensor(-0.931283011458994) 
 exact1 = torch.tensor(-0.971685591404988)
 exact2 = torch.tensor(-1.060859783988007)
 
-
 E = hartree_fock_iterative(basis2,geom,exact2)
-grad, hess = hartree_fock_derivatives(E,geom)
+grad, hess = differentiate(E, geomlist, order=2)
 print(E)
 print(grad)
 print(hess)
 
-# For arbitrary
 
