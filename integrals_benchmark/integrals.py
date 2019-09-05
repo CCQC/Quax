@@ -284,72 +284,6 @@ def orthogonalizer(S):
     A = torch.chain_matmul(vec, torch.diag(val), vec.t())
     return A
 
-# Define coordinates in Bohr as Torch tensors, turn on gradient tracking.  
-tmpgeom1 = [0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]
-tmpgeom2 = [torch.tensor(i, requires_grad=True) for i in tmpgeom1]
-geom = torch.stack(tmpgeom2).reshape(2,3)
-# Define some basis function exponents
-basis0 = torch.tensor([0.5], requires_grad=False)
-basis1 = torch.tensor([0.5, 0.4], requires_grad=False)
-basis2 = torch.tensor([0.5, 0.4, 0.3, 0.2], requires_grad=False)
-basis3 = torch.tensor([0.5, 0.4, 0.3, 0.2, 0.1, 0.05], requires_grad=False)
-basis4 = torch.tensor([0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.01, 0.001], requires_grad=False)
-basis5 = torch.rand(50)
-# Load converged Psi4 Densities for basis sets 1 through 4
-F0 = torch.from_numpy(np.load('psi4_fock_matrices/F0.npy'))
-F1 = torch.from_numpy(np.load('psi4_fock_matrices/F1.npy'))
-F2 = torch.from_numpy(np.load('psi4_fock_matrices/F2.npy'))
-F3 = torch.from_numpy(np.load('psi4_fock_matrices/F3.npy'))
-F4 = torch.from_numpy(np.load('psi4_fock_matrices/F4.npy'))
-
-@torch.jit.script
-def hartree_fock(basis,geom,F):
-    """Takes basis, geometry, converged Psi4 Fock matrix wfn.Fa()"""
-    ndocc = 1                 #hard coded
-    full_basis = torch.cat((basis,basis))
-    nbf_per_atom = torch.tensor([basis.size()[0],basis.size()[0]])
-    charge_per_atom = torch.tensor([1.0,1.0])
-    Enuc = nuclear_repulsion(geom[0], geom[1])
-    S, T, V = vectorized_oei(full_basis, geom, nbf_per_atom, charge_per_atom)
-    A = orthogonalizer(S)
-    G = vectorized_tei(full_basis,geom,nbf_per_atom)
-    H = T + V
-    Fp = torch.chain_matmul(A, F, A)
-    eps, C2 = torch.symeig(Fp, eigenvectors=True)       
-    C = torch.matmul(A, C2)
-    Cocc = C[:, :ndocc]
-    # This density is now 'connected' in a computation graph to the input geometry, compute energy
-    D = torch.einsum('pi,qi->pq', Cocc, Cocc)
-    J = torch.einsum('pqrs,rs->pq', G, D)
-    K = torch.einsum('prqs,rs->pq', G, D)
-    F = H + J * 2 - K
-    E_scf = torch.einsum('pq,pq->', F + H, D) + Enuc
-    return E_scf
-
-@torch.jit.script
-def mp2(eps, G, C):
-    ndocc = 1 #hard coded
-    eps_occ, eps_vir = eps[:ndocc], eps[ndocc:]
-    e_denom = 1 / (eps_occ.reshape(-1, 1, 1, 1) - eps_vir.reshape(-1, 1, 1) + eps_occ.reshape(-1, 1) - eps_vir)
-    Gmo = torch.einsum('pqrs,sl,rk,qj,pi->ijkl', G, C[:,ndocc:],C[:,:ndocc],C[:,ndocc:],C[:,:ndocc])
-    E_mp2 = torch.einsum('iajb,iajb,iajb->', Gmo, Gmo, e_denom) + torch.einsum('iajb,iajb,iajb->', Gmo - Gmo.permute(0,3,2,1), Gmo, e_denom)
-    return E_mp2
-
-
-#from pyforce.transforms import differentiate_nn
-#hess = differentiate_nn(E, tmpgeom2, order=2) # arbitrary order derivatives
-def hartree_fock_derivatives(basis,geom,F):
-    E = hartree_fock(basis, geom, F)
-    grad = torch.autograd.grad(E, geom, create_graph=True)[0]
-    h1 = torch.autograd.grad(grad[0,0],geom,create_graph=True)[0]
-    h2 = torch.autograd.grad(grad[0,1],geom,create_graph=True)[0]
-    h3 = torch.autograd.grad(grad[0,2],geom,create_graph=True)[0]
-    h4 = torch.autograd.grad(grad[1,0],geom,create_graph=True)[0]
-    h5 = torch.autograd.grad(grad[1,1],geom,create_graph=True)[0]
-    h6 = torch.autograd.grad(grad[1,2],geom,create_graph=True)[0]
-    hess = torch.stack([h1,h2,h3,h4,h5,h6]).reshape(6,6)
-    return E, grad, hess
-
 # Vectorized tei's vs naive tei's
 def benchmark_tei(basis,geom):
     full_basis = torch.cat((basis,basis))
@@ -378,15 +312,3 @@ def benchmark_oei_old(basis,geom):
     result = torch.einsum('ij,jk,kl,lm,im->', H,H,H,H,H)
     grad = torch.autograd.grad(result, geom)
     return S2, T2, V2
-
-
-E, grad, hess = hartree_fock_derivatives(basis0,geom,F0)
-print(E)
-print(grad)
-E, grad, hess = hartree_fock_derivatives(basis1,geom,F1)
-print(E)
-print(grad)
-E, grad, hess = hartree_fock_derivatives(basis2,geom,F2)
-print(E)
-print(grad)
-
