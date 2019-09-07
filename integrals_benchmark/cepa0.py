@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+np.set_printoptions(linewidth=200)
 import opt_einsum
 torch.set_default_dtype(torch.float64)
 
@@ -26,36 +27,33 @@ F2 = torch.from_numpy(np.load('psi4_fock_matrices/F2.npy'))
 F3 = torch.from_numpy(np.load('psi4_fock_matrices/F3.npy'))
 F4 = torch.from_numpy(np.load('psi4_fock_matrices/F4.npy'))
 
-
-#def spin_block_tei(I):
-#    identity = torch.tensor([[1.0,0.0],[0.0,1.0]])
-#    I = kronecker(identity, I)
-#    return kronecker(identity, I.T)
 def spin_block_tei(I):
-    """  
-    Function that spin blocks two-electron integrals
-    Using np.kron, we project I into the space of the 2x2 identity, tranpose the result
-    and project into the space of the 2x2 identity again. This doubles the size of each axis.
-    The result is our two electron integral tensor in the spin orbital form.
-    """
     identity = np.eye(2)
     I = np.kron(identity, I)
     return np.kron(identity, I.T)
-
 
 def cepa_corr(eps, G, C):
     eps = torch.cat((eps,eps))
     nocc = 2 #hard coded
     nvirt = torch.numel(eps) - nocc
+    nbf = C.size()[0]
+
     Czero = torch.zeros_like(C)
-    Ctmp = torch.stack((C, Czero),dim=0).reshape(8,4)
-    Ctmp2 = torch.stack((Czero, C),dim=0).reshape(8,4)
+    Ctmp = torch.stack((C, Czero),dim=0).reshape(2*nbf,nbf)
+    Ctmp2 = torch.stack((Czero, C),dim=0).reshape(2*nbf,nbf)
     Cs = torch.cat((Ctmp,Ctmp2),dim=1)
-    ndocc = 1 #hard coded
+
     Cs = Cs[:, torch.argsort(eps)]
     eps = torch.sort(eps)[0]
-    # Is this the same as spin block?
-    G2 = torch.from_numpy(spin_block_tei(G.detach().numpy()))
+
+    # Old way to spin block- no gradients
+    #G2 = torch.from_numpy(spin_block_tei(G.detach().numpy()))
+    # New way: Generate a spin block of 1's and 0's and multiply by 2x expanded G
+    dum = torch.ones_like(G).numpy()
+    dum2 = torch.tensor(spin_block_tei(dum))
+    Gexpanded = G.repeat(2,2,2,2)
+    G2 = Gexpanded * dum2
+    
     tmp = G2.permute(0, 2, 1, 3)
     gao = tmp - tmp.permute(0,1,3,2)
 
@@ -69,9 +67,11 @@ def cepa_corr(eps, G, C):
           torch.einsum('pqrs, sl -> pqrl', gao, Cs), Cs), Cs), Cs)
     e_denom = 1 / (-eps_vir.reshape(-1, 1, 1, 1) - eps_vir.reshape(-1, 1, 1) + eps_occ.reshape(-1, 1) + eps_occ)
 
-    t_amp = torch.zeros((nvirt, nvirt, nocc, nocc))
+    #t_amp = torch.zeros((nvirt, nvirt, nocc, nocc))
+    t_amp = torch.load('tamp.pt')
+    oldg = torch.zeros_like(gmo)
 
-    for i in range(20):
+    for i in range(50):
         # Collect terms
         mp2    = gmo[v, v, o, o]
         cepa1  = (1 / 2) * torch.einsum('abcd, cdij -> abij', gmo[v, v, v, v], t_amp)
@@ -82,12 +82,33 @@ def cepa_corr(eps, G, C):
         cepa3d =  cepa3a.permute(1, 0, 3, 2)
         cepa3  =  cepa3a + cepa3b + cepa3c + cepa3d
         # Update t amplitude
-        t_amp_new = e_denom * (mp2 + cepa1 + cepa2 + cepa3)
+        #t_amp_new = e_denom * (mp2 + cepa1 + cepa2 + cepa3)
+        t_amp = e_denom * (mp2 + cepa1 + cepa2 + cepa3)
         # Evaluate Energy
-        cepa_correlation_e = (1 / 4) * torch.einsum('ijab, abij ->', gmo[o, o, v, v], t_amp_new)
-        print(cepa_correlation_e)
-        t_amp = t_amp_new
+        cepa_correlation_e = (1 / 4) * torch.einsum('ijab, abij ->', gmo[o, o, v, v], t_amp)
 
+        # Track stationarity of CEPA energy derivatives 
+        var_to_track = t_amp
+        newg = torch.autograd.grad(cepa_correlation_e,var_to_track,create_graph=True)[0]
+        if i > 0:
+            print('stationary?',torch.allclose(newg,oldg))
+        oldg = torch.autograd.grad(cepa_correlation_e,var_to_track,create_graph=True)[0]
+        if i == 0:
+            firstg = torch.autograd.grad(cepa_correlation_e,var_to_track,create_graph=True)[0]
+        if i == 45:
+            laterg = torch.autograd.grad(cepa_correlation_e,var_to_track,create_graph=True)[0]
+            print("long term stationary?", torch.allclose(firstg,laterg))
+
+        #g = torch.autograd.grad(cepa_correlation_e,e_denom,create_graph=True)[0]
+        #print(g)
+        #print(cepa_correlation_e)
+           
+        #grad, hess = differentiate(cepa_correlation_e, geomlist, order=2)
+        #print(hess[2,-1])
+        #print('\n')
+        #t_amp = t_amp_new
+
+    #torch.save(t_amp, 'tamp.pt')
     return cepa_correlation_e
 
 
@@ -111,9 +132,9 @@ exact4 = torch.tensor(-1.06888692908086)
 E_cepa = cepa(basis1, geom, exact1)
 print(E_cepa)
 
-#grad, hess = differentiate(E_mp2, geomlist, order=2)
+grad, hess = differentiate(E_cepa, geomlist, order=2)
 #print(E_mp2)
-#print(grad)
-#print(hess)
+print(grad)
+print(hess)
 
 
