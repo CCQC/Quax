@@ -24,16 +24,15 @@ class RHF(torch.autograd.Function):
         ## warning: no epsilon computation
         ##Fp = torch.chain_matmul(A, F, A)
         ##eps1, Cp1 = torch.symeig(Fp1, eigenvectors=True)       
-        #with torch.enable_grad():
-        #    for i in range(5):
-        #        J = torch.tensordot(G, D, dims=([2,3], [0,1])) 
-        #        K = torch.tensordot(G, D, dims=([1,3], [0,1])) 
-        #        F = H + J * 2 - K
-        #        Fp = torch.chain_matmul(A, F, A)
-        #        eps, Cp = torch.symeig(Fp, eigenvectors=True)       
-        #        C = torch.matmul(A,Cp) 
-        #        Cocc = C[:, :ndocc]
-        #        D = torch.matmul(Cocc, Cocc.T)
+        #for i in range(5):
+        #    J = torch.tensordot(G, D, dims=([2,3], [0,1])) 
+        #    K = torch.tensordot(G, D, dims=([1,3], [0,1])) 
+        #    F = H + J * 2 - K
+        #    Fp = torch.chain_matmul(A, F, A)
+        #    eps, Cp = torch.symeig(Fp, eigenvectors=True)       
+        #    C = torch.matmul(A,Cp) 
+        #    Cocc = C[:, :ndocc]
+        #    D = torch.matmul(Cocc, Cocc.T)
         ctx.save_for_backward(geom,basis,C,ndocc)
         E_scf = torch.tensordot(F + H, D, dims=([0,1],[0,1])) + Enuc 
         return E_scf
@@ -46,7 +45,7 @@ class RHF(torch.autograd.Function):
         # Implement RHF gradients by hand
         # Compute HF nuclear gradient 
         # (Pseudocode for now)
-        grad_geom = grad_output.expand(2,3)
+        #grad_geom = grad_output.expand(2,3)
 
         full_basis = torch.cat((basis,basis))
         nbf = torch.numel(full_basis)
@@ -64,85 +63,56 @@ class RHF(torch.autograd.Function):
                   torch.einsum('pqkl, qj -> pjkl',
                   torch.einsum('pqrl, rk -> pqkl',
                   torch.einsum('pqrs, sl -> pqrl', G, C), C), C), C)
+            # Physicist notation    
+            gmo = gmo.permute(0,2,1,3)
+            #gmophys = gmo.permute(0,2,1,3)
+            nuc_grad = torch.autograd.grad(Enuc, geom,create_graph=True)[0]
+            # Warning: really inefficient, high memory consumption. Need a more 'integral direct' approach, coordinate by coordinate mayb
+            s_mo_grad = jacobian(s_mo, geom)
+            t_mo_grad = jacobian(t_mo, geom)
+            v_mo_grad = jacobian(v_mo, geom)
+            # YIKES so expensive 
+            #g_mo_grad = jacobian(gmo, geom)
 
-        Hao = T + V
-        H = torch.einsum('uj,vi,uv',C,C,Hao)
-        #gmo = torch.einsum('pjkl, pi -> ijkl',
-        #      torch.einsum('pqkl, qj -> pjkl',
-        #      torch.einsum('pqrl, rk -> pqkl',
-        #      torch.einsum('pqrs, sl -> pqrl', G, C), C), C), C)
-        # Physicist notation    
-        gmophys = gmo.permute(0,2,1,3)
-        F = H + 2 * torch.einsum('pmqm->pq', gmophys[:, :ndocc, :, :ndocc]) -\
-            torch.einsum('pmmq->pq', gmophys[:, :ndocc, :ndocc, :])
+            # This is correct, matches CFOUR TEI grad for some reason accident maybe? since its just one element
+            #TODO TODO TODO this is a cheap trick just for rapid testing. The above is the correct, general code for gradient #TODO #TODO #TODO
+            g_final = torch.autograd.grad(gmo[:ndocc,:ndocc,:ndocc,:ndocc], geom, grad_outputs=torch.ones(1,1,1,1), create_graph=True)[0]
 
+            Hao = T + V
+            H = torch.einsum('uj,vi,uv',C,C,Hao)
+            F = H + 2 * torch.einsum('pmqm->pq', gmo[:, :ndocc, :, :ndocc]) -\
+                torch.einsum('pmmq->pq', gmo[:, :ndocc, :ndocc, :])
 
-        # A single cartesian derivative of a single OEI
-        #2.0 * torch.einsum("ii->", deriv1_np[map_key][:occ,:occ])
-        # These gradients CHANGE if you iterate
-        nuc_grad = torch.autograd.grad(Enuc, geom,create_graph=True)[0]
-        print("Nuc grad")
-        print(nuc_grad)
-        #s_ao_grad = torch.autograd.grad(S[:ndocc,:ndocc], geom, grad_outputs=torch.ones(1,1), create_graph=True)[0] #grad_outputs=torch.ones(nbf,nbf), create_graph=True)[0]
-        ##s_ao_grad = torch.autograd.grad(S, geom, grad_outputs=torch.ones(nbf,nbf), create_graph=True)[0] #grad_outputs=torch.ones(nbf,nbf), create_graph=True)[0]
-        ##s_ao_grad = torch.autograd.grad(S, geomlist[0], grad_outputs=torch.ones(nbf,nbf), create_graph=True)[0]
-        #print('S ao')
-        #print(s_ao_grad)
+            s_final = -2.0 * torch.einsum("ii,iijk->jk", F[:ndocc,:ndocc], s_mo_grad[:ndocc,:ndocc])
+            t_final = 2.0 * torch.einsum("iijk->jk", t_mo_grad[:ndocc,:ndocc])  
+            v_final = 2.0 * torch.einsum("iijk->jk", v_mo_grad[:ndocc,:ndocc])  
+            #g_final =  2.0 * torch.einsum("iijjkl->kl", g_mo_grad[:ndocc,:ndocc,:ndocc,:ndocc]) + -1.0 * torch.einsum("ijijkl->kl", g_mo_grad[:ndocc,:ndocc,:ndocc,:ndocc])
+            gradient = s_final + t_final + v_final + g_final + nuc_grad
+
+        #s_ao_grad = torch.autograd.grad(S, geom, grad_outputs=torch.ones(nbf,nbf), create_graph=True)[0] 
         #t_ao_grad = torch.autograd.grad(T, geom, grad_outputs=torch.ones(nbf,nbf), create_graph=True)[0]
-        #print('T ao')
-        #print(t_ao_grad)
         #v_ao_grad = torch.autograd.grad(V, geom, grad_outputs=torch.ones(nbf,nbf), create_graph=True)[0]
-        #print('V ao'),
-        #print(v_ao_grad)
-        #print('oei ao')
-        #print(s_ao_grad + t_ao_grad + v_ao_grad)
         #g_ao_grad = torch.autograd.grad(G, geom, grad_outputs=torch.ones(nbf,nbf,nbf,nbf), create_graph=True)[0]
-        #print('tei ao')
-        #print(g_ao_grad)
-        
 
-        # Warning: really inefficient
-        s_mo_grad = jacobian(s_mo, geom)
-        t_mo_grad = jacobian(t_mo, geom)
-        v_mo_grad = jacobian(v_mo, geom)
-        s_final = -2.0 * torch.einsum("ii,iijk->jk", F[:ndocc,:ndocc], s_mo_grad[:ndocc,:ndocc])
-        print(s_final)
+        # Warning: really inefficient, high memory consumption. Need a more 'integral direct' approach, coordinate by coordinate mayb
+        #nuc_grad = torch.autograd.grad(Enuc, geom,create_graph=True)[0]
+        #s_mo_grad = jacobian(s_mo, geom)
+        #t_mo_grad = jacobian(t_mo, geom)
         #v_mo_grad = jacobian(v_mo, geom)
-        #print(jac)
-        #print(jac.size())
-        #s_mo_grad = torch.autograd.grad(s_mo, geom, grad_outputs=torch.ones(nbf,nbf), create_graph=True)[0]
-        # You really just need the JACOBIAN of each integral array and geom parameter d(integral)/dx for all integral and all x
-        #tmpgeom = geom.flatten().repeat(nbf*nbf,1)
-        #print(tmpgeom)
-        #print(s_mo.size())
-        #s_mo = s_mo.expand(6,-1,-1)
-        #print(s_mo.size())
-    
-        #s_mo_grad = torch.autograd.grad(s_mo[:,:ndocc,:ndocc], geom, grad_outputs=torch.ones(6,1,1), create_graph=True)[0]
-        #s_mo_grad = torch.autograd.grad(s_mo[:,:2,:2], geom, grad_outputs=torch.ones(6,1,1), create_graph=True)[0]
-        #s_mo_grad = torch.autograd.grad(s_mo[:ndocc,:ndocc], geom, grad_outputs=torch.ones(1,1), create_graph=True)[0]
-        #s_mo_grad = torch.autograd.grad(s_mo[:2,:2], geom, grad_outputs=torch.ones(2,2), create_graph=True)[0]
-        #t_mo_grad = torch.autograd.grad(t_mo[:ndocc,:ndocc], geom, grad_outputs=torch.ones(1,1), create_graph=True)[0]
-        #v_mo_grad = torch.autograd.grad(v_mo[:ndocc,:ndocc], geom, grad_outputs=torch.ones(1,1), create_graph=True)[0]
-        #print(s_mo_grad * trace + v_mo_grad + t_mo_grad)
-        #v_mo_grad = torch.autograd.grad(v_mo[:2,:2], geom, grad_outputs=torch.ones(2,2), create_graph=True)[0]
-        #print(v_mo_grad)
-        #print("OEI")
-        #print(s_mo_grad + t_mo_grad + v_mo_grad)
+        # CFOUR calls this the 'reorthonormalization gradient'
+        #s_final = -2.0 * torch.einsum("ii,iijk->jk", F[:ndocc,:ndocc], s_mo_grad[:ndocc,:ndocc])
+        #t_final = 2.0 * torch.einsum("iijk->jk", t_mo_grad[:ndocc,:ndocc])  
+        #v_final = 2.0 * torch.einsum("iijk->jk", v_mo_grad[:ndocc,:ndocc])  
+
+        # YIKES so expensive 
+        #g_mo_grad = jacobian(gmo, geom)
+        #g_final =  2.0 * torch.einsum("iijjkl->kl", g_mo_grad[:ndocc,:ndocc,:ndocc,:ndocc]) + -1.0 * torch.einsum("ijijkl->kl", g_mo_grad[:ndocc,:ndocc,:ndocc,:ndocc])
 
         # This is correct, matches CFOUR TEI grad for some reason accident maybe? since its just one element
-        g_mo_grad = torch.autograd.grad(gmo[:ndocc,:ndocc,:ndocc,:ndocc], geom, grad_outputs=torch.ones(1,1,1,1), create_graph=True)[0]
-        print(g_mo_grad)
-
-        #print(s_mo_grad + t_mo_grad + v_mo_grad + g_mo_grad + nuc_grad)
-        #print(s_mo_grad + t_mo_grad + v_mo_grad + g_mo_grad + nuc_grad)
-        #print(s_mo_grad + t_mo_grad + v_mo_grad + g_mo_grad )
-
-        #t_ao_grad = torch.autograd.grad(T, geom, grad_outputs=torch.ones((nbf,nbf), create_graph=True))
-        #v_ao_grad = torch.autograd.grad(V, geom, grad_outputs=torch.ones((nbf,nbf), create_graph=True))
-            
+        #TODO TODO TODO this is a cheap trick just for rapid testing. The above is the correct, general code for gradient #TODO #TODO #TODO
+        #g_final = torch.autograd.grad(gmo[:ndocc,:ndocc,:ndocc,:ndocc], geom, grad_outputs=torch.ones(1,1,1,1), create_graph=True)[0]
         # Must return same number number of inputs
-        return grad_geom, None, None, None
+        return gradient, None, None, None
 
 def jacobian(outputs, inputs, create_graph=True):
     """Computes the jacobian of outputs with respect to inputs
@@ -155,7 +125,8 @@ def jacobian(outputs, inputs, create_graph=True):
     """
     jac = outputs.new_zeros(outputs.size() + inputs.size()
                             ).view((-1,) + inputs.size())
-    for i, out in enumerate(outputs.view(-1)):
+    #for i, out in enumerate(outputs.view(-1)):
+    for i, out in enumerate(outputs.reshape(-1)):
         col_i = torch.autograd.grad(out, inputs, retain_graph=True,
                               create_graph=create_graph, allow_unused=True)[0]
         if col_i is None:
@@ -185,5 +156,9 @@ C = torch.stack(Clist).reshape(8,8)
 
 E_scf = hartree_fock(geom,basis2,C,torch.tensor(1))
 print(E_scf)
-grad = torch.autograd.grad(E_scf, geom)
+grad = torch.autograd.grad(E_scf, geom)[0]
 print(grad)
+for g in grad.flatten(): 
+    h = torch.autograd.grad(g, geom, create_graph=True)[0]
+    print(h)
+#h1 = torch.autograd.grad(grad[0,0
