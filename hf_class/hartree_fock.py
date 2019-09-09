@@ -45,8 +45,8 @@ class RHF(torch.autograd.Function):
         # Implement RHF gradients by hand
         # Compute HF nuclear gradient 
         # (Pseudocode for now)
-        #grad_geom = grad_output.expand(2,3)
-        print(grad_output)
+        grad_geom = grad_output.expand(2,3)
+        #print(grad_output)
 
         full_basis = torch.cat((basis,basis))
         nbf = torch.numel(full_basis)
@@ -65,24 +65,23 @@ class RHF(torch.autograd.Function):
                   torch.einsum('pqkl, qj -> pjkl',
                   torch.einsum('pqrl, rk -> pqkl',
                   torch.einsum('pqrs, sl -> pqrl', G, C), C), C), C)
-            # Physicist notation    
-            gmo = gmo.permute(0,2,1,3)
-            #gmophys = gmo.permute(0,2,1,3)
-            nuc_grad = torch.autograd.grad(Enuc, geom,create_graph=True)[0]
-            # Warning: really inefficient, high memory consumption. Need a more 'integral direct' approach, coordinate by coordinate mayb
-            s_mo_grad = jacobian(s_mo, geom)
-            t_mo_grad = jacobian(t_mo, geom)
-            v_mo_grad = jacobian(v_mo, geom)
-            # YIKES so expensive 
-            g_mo_grad = jacobian(gmo, geom)
-        # This is correct, matches CFOUR TEI grad for some reason accident maybe? since its just one element
-        #TODO TODO TODO this is a cheap trick just for rapid testing. The above is the correct, general code for gradient #TODO #TODO #TODO
-        #g_final = torch.autograd.grad(gmo[:ndocc,:ndocc,:ndocc,:ndocc], geom, grad_outputs=torch.ones(1,1,1,1), create_graph=True)[0]
 
         Hao = T + V
         H = torch.einsum('uj,vi,uv',C,C,Hao)
-        F = H + 2 * torch.einsum('pmqm->pq', gmo[:, :ndocc, :, :ndocc]) -\
-            torch.einsum('pmmq->pq', gmo[:, :ndocc, :ndocc, :])
+        gmophys = gmo.permute(0,2,1,3)
+        F = H + 2 * torch.einsum('pmqm->pq', gmophys[:, :ndocc, :, :ndocc]) -\
+            torch.einsum('pmmq->pq', gmophys[:, :ndocc, :ndocc, :])
+
+        nuc_grad = torch.autograd.grad(Enuc, geom,create_graph=True)[0]
+            # Warning: really inefficient, high memory consumption. Need a more 'integral direct' approach, coordinate by coordinate mayb
+        s_mo_grad = jacobian(s_mo, geom)
+        t_mo_grad = jacobian(t_mo, geom)
+        v_mo_grad = jacobian(v_mo, geom)
+        # YIKES so expensive 
+        g_mo_grad = jacobian(gmo, geom)
+        # This is correct, matches CFOUR TEI grad for some reason accident maybe? since its just one element
+        #TODO TODO TODO this is a cheap trick just for rapid testing. The above is the correct, general code for gradient #TODO #TODO #TODO
+        #g_final = torch.autograd.grad(gmo[:ndocc,:ndocc,:ndocc,:ndocc], geom, grad_outputs=torch.ones(1,1,1,1), create_graph=True)[0]
 
         s_final = -2.0 * torch.einsum("ii,iijk->jk", F[:ndocc,:ndocc], s_mo_grad[:ndocc,:ndocc])
         print(s_final)
