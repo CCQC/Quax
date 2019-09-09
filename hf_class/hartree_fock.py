@@ -46,6 +46,7 @@ class RHF(torch.autograd.Function):
         # Compute HF nuclear gradient 
         # (Pseudocode for now)
         #grad_geom = grad_output.expand(2,3)
+        print(grad_output)
 
         full_basis = torch.cat((basis,basis))
         nbf = torch.numel(full_basis)
@@ -56,6 +57,7 @@ class RHF(torch.autograd.Function):
             Enuc = nuclear_repulsion(geom[0], geom[1])
             S, T, V = vectorized_oei(full_basis, geom, nbf_per_atom, charge_per_atom)
             G = vectorized_tei(full_basis,geom,nbf_per_atom)
+            # Transform first, then differentiate
             s_mo = torch.einsum('pq,pi,qj->ij', S, C, C)
             t_mo = torch.einsum('pq,pi,qj->ij', T, C, C)
             v_mo = torch.einsum('pq,pi,qj->ij', V, C, C)
@@ -72,22 +74,25 @@ class RHF(torch.autograd.Function):
             t_mo_grad = jacobian(t_mo, geom)
             v_mo_grad = jacobian(v_mo, geom)
             # YIKES so expensive 
-            #g_mo_grad = jacobian(gmo, geom)
+            g_mo_grad = jacobian(gmo, geom)
+        # This is correct, matches CFOUR TEI grad for some reason accident maybe? since its just one element
+        #TODO TODO TODO this is a cheap trick just for rapid testing. The above is the correct, general code for gradient #TODO #TODO #TODO
+        #g_final = torch.autograd.grad(gmo[:ndocc,:ndocc,:ndocc,:ndocc], geom, grad_outputs=torch.ones(1,1,1,1), create_graph=True)[0]
 
-            # This is correct, matches CFOUR TEI grad for some reason accident maybe? since its just one element
-            #TODO TODO TODO this is a cheap trick just for rapid testing. The above is the correct, general code for gradient #TODO #TODO #TODO
-            g_final = torch.autograd.grad(gmo[:ndocc,:ndocc,:ndocc,:ndocc], geom, grad_outputs=torch.ones(1,1,1,1), create_graph=True)[0]
+        Hao = T + V
+        H = torch.einsum('uj,vi,uv',C,C,Hao)
+        F = H + 2 * torch.einsum('pmqm->pq', gmo[:, :ndocc, :, :ndocc]) -\
+            torch.einsum('pmmq->pq', gmo[:, :ndocc, :ndocc, :])
 
-            Hao = T + V
-            H = torch.einsum('uj,vi,uv',C,C,Hao)
-            F = H + 2 * torch.einsum('pmqm->pq', gmo[:, :ndocc, :, :ndocc]) -\
-                torch.einsum('pmmq->pq', gmo[:, :ndocc, :ndocc, :])
-
-            s_final = -2.0 * torch.einsum("ii,iijk->jk", F[:ndocc,:ndocc], s_mo_grad[:ndocc,:ndocc])
-            t_final = 2.0 * torch.einsum("iijk->jk", t_mo_grad[:ndocc,:ndocc])  
-            v_final = 2.0 * torch.einsum("iijk->jk", v_mo_grad[:ndocc,:ndocc])  
-            #g_final =  2.0 * torch.einsum("iijjkl->kl", g_mo_grad[:ndocc,:ndocc,:ndocc,:ndocc]) + -1.0 * torch.einsum("ijijkl->kl", g_mo_grad[:ndocc,:ndocc,:ndocc,:ndocc])
-            gradient = s_final + t_final + v_final + g_final + nuc_grad
+        s_final = -2.0 * torch.einsum("ii,iijk->jk", F[:ndocc,:ndocc], s_mo_grad[:ndocc,:ndocc])
+        print(s_final)
+        t_final = 2.0 * torch.einsum("iijk->jk", t_mo_grad[:ndocc,:ndocc])  
+        print(t_final)
+        v_final = 2.0 * torch.einsum("iijk->jk", v_mo_grad[:ndocc,:ndocc])  
+        print(v_final)
+        g_final =  2.0 * torch.einsum("iijjkl->kl", g_mo_grad[:ndocc,:ndocc,:ndocc,:ndocc]) + -1.0 * torch.einsum("ijijkl->kl", g_mo_grad[:ndocc,:ndocc,:ndocc,:ndocc])
+        print(g_final)
+        gradient = s_final + t_final + v_final + g_final + nuc_grad
 
         #s_ao_grad = torch.autograd.grad(S, geom, grad_outputs=torch.ones(nbf,nbf), create_graph=True)[0] 
         #t_ao_grad = torch.autograd.grad(T, geom, grad_outputs=torch.ones(nbf,nbf), create_graph=True)[0]
