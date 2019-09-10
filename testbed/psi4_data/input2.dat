@@ -1,0 +1,51 @@
+import psi4
+import numpy as np
+
+basis {
+assign s_orb
+[ s_orb ]
+cartesian
+****
+H     0
+S   1   1.00
+      0.50000000000      1.0000000000
+S   1   1.00
+      0.40000000000      1.0000000000
+S   1   1.00
+      0.30000000000      1.0000000000
+S   1   1.00
+      0.20000000000      1.0000000000
+****
+}
+
+molecule h2o {
+symmetry c1
+units bohr
+0 1
+H 0.000000000000 0.000000000000 -0.849220457955
+H 0.000000000000 0.000000000000  0.849220457955
+}
+
+set scf_type pk
+set puream false
+set mp2_type conv
+set e_convergence 10
+set d_convergence 10
+e, wfn = gradient('hf', return_wfn=True, dertype='gradient')
+e, mp2wfn = gradient('mp2', return_wfn=True, dertype='gradient')
+e, cepawfn = gradient('lccd', return_wfn=True)
+
+print('HF Gradient')
+print(np.asarray(wfn.gradient()))
+print('MP2 Gradient')
+print(np.asarray(mp2wfn.gradient()))
+print('CEPA0 Gradient')
+print(np.asarray(cepawfn.gradient()))
+
+mol = wfn.molecule()
+bs = wfn.basisset()
+basis = psi4.core.BasisSet.build(mol)
+mints = psi4.core.MintsHelper(basis)
+F = np.asarray(wfn.Fa())
+np.save('F2', F)
+
