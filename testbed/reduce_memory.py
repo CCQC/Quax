@@ -1,7 +1,8 @@
 import torch
 import numpy as np
 import math
-torch.set_printoptions(precision=12,linewidth=300)
+import tracemalloc
+torch.set_printoptions(precision=8,linewidth=300)
 torch.set_default_dtype(torch.float64)
 ang2bohr = 1 / 0.52917720859
 
@@ -45,7 +46,7 @@ def boys(nu, arg):
     return boys
 
 
-@torch.jit.script
+#@torch.jit.script
 def vectorized_oei(basis, geom, nbf_per_atom, charge_per_atom):
     '''Computes overlap, kinetic, and potential energy integrals over s orbital basis functions
        Parameters
@@ -98,19 +99,13 @@ def vectorized_oei(basis, geom, nbf_per_atom, charge_per_atom):
     boys_arg = torch.einsum('ijk,jk->ijk', contracted, aa_plus_bb)
     # Now evaluate the boys function on all elements, multiply by charges, and then sum the atom dimension
     # it is safe to sum here, since every other operation in the integral expression is linear
-    #F = boys(torch.tensor(0.0), boys_arg)
-    F = torch.zeros_like(boys_arg)
-    mask1 = boys_arg <= 1e-8
-    mask2 = boys_arg > 1e-8
-    F[mask1] = 1 - boys_arg[mask1] / 3 
-    F[mask2] = torch.erf(torch.sqrt(boys_arg[mask2])) * math.sqrt(math.pi) / (2 * torch.sqrt(boys_arg[mask2]))
-
+    F = boys(torch.tensor(0.0), boys_arg)
     Fcharge = -charge_per_atom[:,None,None] * F[:,...]
     Ffinal = torch.sum(Fcharge, dim=0)
     V = Ffinal * normtensor * coeff * 2 * math.pi / aa_plus_bb
     return S, T, V
 
-@torch.jit.script
+#@torch.jit.script
 def vectorized_tei(basis, geom, nbf_per_atom):
     '''Computes two electron integrals over s orbital basis functions
        Parameters
@@ -125,42 +120,33 @@ def vectorized_tei(basis, geom, nbf_per_atom):
     '''
     nbf = torch.numel(basis)
     # 'centers' are the cartesian centers ((nbf,3) array) corresponding to each basis function, in the same order as the 'basis' vector
-    centers = geom.repeat_interleave(nbf_per_atom, dim=0).reshape(-1,3)
-    # Construct every combination of normalization constants 
-    norm = (2 * basis / math.pi)**(3/4)
-    normtensor = torch.einsum('i,j,k,l',norm,norm,norm,norm) 
-    # Obtain miscellaneous terms 
-    # (i,l,j,k) + (l,i,j,k) ---> (i+l,i+l,j+j,k+k) ---> (A+D,D+A,C+C,B+B) which is just (A+D,A+D,C+C,B+B)
+    centers = geom.repeat_interleave(nbf_per_atom, dim=0).reshape(-1,3) # TODO convert this to expand() op
     tmp1 = basis.expand(nbf,nbf,nbf,-1)
-    aa_plus_bb = tmp1.permute(0,3,1,2) + tmp1.permute(3,0,1,2)
-    cc_plus_dd = aa_plus_bb.permute(2,3,0,1)
-    aa_times_bb = tmp1.permute(0,3,1,2) * tmp1.permute(3,0,1,2)
-    cc_times_dd = aa_times_bb.permute(2,3,0,1)  
-    # Obtain gaussian product coefficients
     tmp2 = centers.expand(nbf,nbf,nbf,nbf,3)
+    weighted_centers = torch.einsum('ijkl,ijklm->ijklm', tmp1, tmp2)
+    aa_plus_bb = tmp1.permute(0,3,1,2) + tmp1.permute(3,0,1,2)
+    aa_times_bb = tmp1.permute(0,3,1,2) * tmp1.permute(3,0,1,2)
     AminusB = tmp2.permute(0,3,1,2,4) - tmp2.permute(3,0,1,2,4) 
-    CminusD = AminusB.permute(2,3,0,1,4)
-    # 'dot' the cartesian dimension
     contract_AminusB = torch.einsum('ijklm,ijklm->ijkl', AminusB,AminusB)
     c1 = torch.exp(contract_AminusB * -aa_times_bb / aa_plus_bb)
-    contract_CminusD = torch.einsum('ijklm,ijklm->ijkl', CminusD,CminusD)
-    c2 = torch.exp(contract_CminusD * -cc_times_dd / cc_plus_dd)
-    # Obtain gaussian product centers Rp = (aa * A + bb * B) / (aa + bb);  Rq = (cc * C + dd * D) / (cc + dd)
-    weighted_centers = torch.einsum('ijkl,ijklm->ijklm', tmp1, tmp2)
-    #del tmp1; del tmp2
+    c1c2 = c1 * c1.permute(2,3,0,1)
+    norm = (2 * basis / math.pi)**(3/4)
+
     tmpAB = weighted_centers.permute(0,3,1,2,4) + weighted_centers.permute(3,0,1,2,4) 
-    tmpCD = tmpAB.permute(2,3,0,1,4)                                                  
-    Rp = torch.einsum('ijklm,ijkl->ijklm', tmpAB, 1/aa_plus_bb) 
-    Rq = torch.einsum('ijklm,ijkl->ijklm', tmpCD, 1/cc_plus_dd) 
-    delta = 1 / (4 * aa_plus_bb) + 1 / (4 * cc_plus_dd)
-    boys_arg = torch.einsum('ijklm,ijklm->ijkl', Rp-Rq, Rp-Rq) / (4 * delta)
-    #F = boys(torch.tensor(0.0), boys_arg)
+    del tmp1, tmp2, weighted_centers, aa_times_bb, AminusB, contract_AminusB, c1 
+
+    Rp_minus_Rq = torch.einsum('ijklm,ijkl->ijklm', tmpAB, 1/aa_plus_bb) - torch.einsum('ijklm,ijkl->ijklm', tmpAB, 1/aa_plus_bb).permute(2,3,0,1,4)
+    boys_arg = torch.einsum('ijklm,ijklm->ijkl', Rp_minus_Rq, Rp_minus_Rq) *\
+               4 * (4 * aa_plus_bb) + 1 / (4 * aa_plus_bb.permute(3,2,0,1))
+    del Rp_minus_Rq
     F = torch.zeros_like(boys_arg)
     mask1 = boys_arg <= 1e-8
     mask2 = boys_arg > 1e-8
-    F[mask1] = 1 - boys_arg[mask1] / 3 
+    F[mask1] = 1 / (2 * 0.0 + 1) - boys_arg[mask1] / (2 * 0.0 + 3)
     F[mask2] = torch.erf(torch.sqrt(boys_arg[mask2])) * math.sqrt(math.pi) / (2 * torch.sqrt(boys_arg[mask2]))
-    G = F * c1 * c2 * normtensor * 2 * math.pi**2 / (aa_plus_bb * cc_plus_dd) * torch.sqrt(math.pi / (aa_plus_bb + cc_plus_dd))
+    #F = boys(torch.tensor(0.0), boys_arg)
+    del boys_arg
+    G = F * c1c2 * torch.einsum('i,j,k,l',norm,norm,norm,norm) * 2 * math.pi**2 / (aa_plus_bb * aa_plus_bb.permute(3,2,0,1)) * torch.sqrt(math.pi / (aa_plus_bb + aa_plus_bb.permute(3,2,0,1)))
     return G
 
 # Naive (non-vectorized) implementation
@@ -285,100 +271,115 @@ def orthogonalizer(S):
     A = torch.chain_matmul(vec, torch.diag(val), vec.t())
     return A
 
-def matrix_sqrt(S):
-    '''Compute matrix to 1/2 power'''
-    eigval, eigvec = torch.symeig(S, eigenvectors=True)
-    cutoff = 1.0e-12
-    above_cutoff = (abs(eigval) > cutoff * torch.max(abs(eigval)))
-    val = torch.sqrt(eigval[above_cutoff])
-    vec = eigvec[:, above_cutoff]
-    A = torch.chain_matmul(vec, torch.diag(val), vec.t())
-    return A
-
-
 # Define coordinates in Bohr as Torch tensors, turn on gradient tracking.  
 tmpgeom1 = [0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]
 tmpgeom2 = [torch.tensor(i, requires_grad=True) for i in tmpgeom1]
 geom = torch.stack(tmpgeom2).reshape(2,3)
 # Define some basis function exponents
-basis0 = torch.tensor([0.5], requires_grad=False)
 basis1 = torch.tensor([0.5, 0.4], requires_grad=False)
 basis2 = torch.tensor([0.5, 0.4, 0.3, 0.2], requires_grad=False)
 basis3 = torch.tensor([0.5, 0.4, 0.3, 0.2, 0.1, 0.05], requires_grad=False)
 basis4 = torch.tensor([0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.01, 0.001], requires_grad=False)
 basis5 = torch.rand(50)
 # Load converged Psi4 Densities for basis sets 1 through 4
-#D0 = torch.from_numpy(np.load('psi4_densities/D0.npy'))
-#D1 = torch.from_numpy(np.load('psi4_densities/D1.npy'))
-#D2 = torch.from_numpy(np.load('psi4_densities/D2.npy'))
-#D3 = torch.from_numpy(np.load('psi4_densities/D3.npy'))
-#D4 = torch.from_numpy(np.load('psi4_densities/D4.npy'))
+D1 = torch.from_numpy(np.load('psi4_densities/D1.npy'))
+D2 = torch.from_numpy(np.load('psi4_densities/D2.npy'))
+D3 = torch.from_numpy(np.load('psi4_densities/D3.npy'))
+D4 = torch.from_numpy(np.load('psi4_densities/D4.npy'))
 
-
-#@torch.jit.script
-def hartree_fock(basis,geom,F):
-    ndocc = 1 #hard coded
+def benchmark_hartree_fock(basis,geom,D):
+    nbf = basis.size()[0] * 2 #hard coded
+    ndocc = 1                 #hard coded
     full_basis = torch.cat((basis,basis))
     nbf_per_atom = torch.tensor([basis.size()[0],basis.size()[0]])
     charge_per_atom = torch.tensor([1.0,1.0])
-    Enuc = nuclear_repulsion(geom[0], geom[1])
+    # Integrals (TODO potential and TEI's are inexact due to boys function)
     S, T, V = vectorized_oei(full_basis, geom, nbf_per_atom, charge_per_atom)
-    G = vectorized_tei(full_basis,geom,nbf_per_atom)
     A = orthogonalizer(S)
+    G = vectorized_tei(full_basis,geom,nbf_per_atom)
+    print("integrals done")
 
+    Enuc = nuclear_repulsion(geom[0], geom[1])
     H = T + V
-    for i in range(15):
-        Fp = torch.chain_matmul(A, F, A)
-        eps, C2 = torch.symeig(Fp, eigenvectors=True)       
-        #C2 = C2.detach()
-        #eps = eps.detach()
-        C = torch.matmul(A, C2) # At this point, the MO coefficients, and therefore the density, become connected to the Geometry
-        #C = C.detach()        # We know this because if you detach here it breaks SCF gradients, but if you don't the scf gradients are correct
-        D = torch.einsum('pi,qi->pq', C[:,:ndocc], C[:,:ndocc])
-        # Density determined. Build fock
-        J = torch.einsum('pqrs,rs->pq', G, D)
-        K = torch.einsum('prqs,rs->pq', G, D)
-        F = H + J * 2 - K
-        E_scf = torch.einsum('pq,pq->', F + H, D) + Enuc
-        E_mp2 = mp2(eps,G,C)
-        mp2_grad = torch.autograd.grad(E_mp2, geom, create_graph=True)[0]
-        print(mp2_grad)
-        print('\n')
-        #scf_grad = torch.autograd.grad(E_scf, geom,create_graph=True)[0]
-        #E_mp2 = mp2(eps,G,C)
-        #mp2_grad = torch.autograd.grad(E_mp2, geom, create_graph=True)[0]
-    #E_mp2 = mp2(eps,G,C)
-    #mp2_grad = torch.autograd.grad(E_mp2, geom, create_graph=True)[0]
-    #print(mp2_grad)
-    #print('\n')
+    J = torch.einsum('pqrs,rs->pq', G, D)
+    K = torch.einsum('prqs,rs->pq', G, D)
+    F = H + J * 2 - K
+    Fp = torch.chain_matmul(A, F, A)
+    e, C2 = torch.symeig(Fp, eigenvectors=True)       
+    C = torch.matmul(A, C2)
+    Cocc = C[:, :ndocc]
+    # This density is now 'connected' in a computation graph to the input geometry
+    D = torch.einsum('pi,qi->pq', Cocc, Cocc)
+    J = torch.einsum('pqrs,rs->pq', G, D)
+    K = torch.einsum('prqs,rs->pq', G, D)
+    F = H + J * 2 - K
+    E = torch.einsum('pq,pq->', F + H, D) + Enuc
+    #grad = torch.autograd.grad(E, geom, create_graph=True)
+    return E
 
-    # Now get MP2 stuff 
-    #Fp = torch.chain_matmul(A, F, A)
-    #eps, C = torch.symeig(Fp, eigenvectors=True)       
-    #C = torch.matmul(A, C)
-    #E_mp2 = mp2(eps,G,C)
-    #grad = torch.autograd.grad(E_mp2, geom, create_graph=True)
-    #print(grad)
+from pyforce.transforms import differentiate_nn
+def compute_HF_derivatives(basis,geom,D):
+    E = benchmark_hartree_fock(basis, geom, D)
+    grad = torch.autograd.grad(E, geom, create_graph=True)[0]
+    h1 = torch.autograd.grad(grad[0,0],geom,create_graph=True)[0]
+    h2 = torch.autograd.grad(grad[0,1],geom,create_graph=True)[0]
+    h3 = torch.autograd.grad(grad[0,2],geom,create_graph=True)[0]
+    h4 = torch.autograd.grad(grad[1,0],geom,create_graph=True)[0]
+    h5 = torch.autograd.grad(grad[1,1],geom,create_graph=True)[0]
+    h6 = torch.autograd.grad(grad[1,2],geom,create_graph=True)[0]
+    hess = torch.stack([h1,h2,h3,h4,h5,h6])
+    #hess = differentiate_nn(E, tmpgeom2, order=2)
+    return E, grad, hess
 
-@torch.jit.script
-def mp2(eps, G, C):
-    ndocc = 1 #hard coded
-    eps_occ, eps_vir = eps[:ndocc], eps[ndocc:]
-    e_denom = 1 / (eps_occ.reshape(-1, 1, 1, 1) - eps_vir.reshape(-1, 1, 1) + eps_occ.reshape(-1, 1) - eps_vir)
-    Gmo = torch.einsum('pqrs,sl,rk,qj,pi->ijkl', G, C[:,ndocc:],C[:,:ndocc],C[:,ndocc:],C[:,:ndocc])
-    E_mp2 = torch.einsum('iajb,iajb,iajb->', Gmo, Gmo, e_denom) + torch.einsum('iajb,iajb,iajb->', Gmo - Gmo.permute(0,3,2,1), Gmo, e_denom) 
-    return E_mp2
+# Vectorized tei's vs naive tei's
+def benchmark_tei(basis,geom):
+    full_basis = torch.cat((basis,basis))
+    nbf_per_atom = torch.tensor([basis.size()[0],basis.size()[0]])
+    G = vectorized_tei(full_basis,geom,nbf_per_atom)
+    return G
+def benchmark_tei_old(basis,geom):
+    G2 = build_tei(basis, basis, basis, basis, geom[0], geom[1], geom[0], geom[1])
+    return G2
+
+# Vectorized oei's vs naive oei's
+def benchmark_oei(basis,geom):
+    full_basis = torch.cat((basis,basis))
+    nbf_per_atom = torch.tensor([basis.size()[0],basis.size()[0]])
+    charge_per_atom = torch.tensor([1.0,1.0])
+    S, T, V = vectorized_oei(full_basis, geom, nbf_per_atom, charge_per_atom)
+    H = T + V
+    result = torch.einsum('ij,jk,kl,lm,im->', H,H,H,H,H)
+    grad = torch.autograd.grad(result, geom)
+    return S, T, V
+def benchmark_oei_old(basis,geom):
+    S2 = build_oei(basis, basis, geom[0], geom[1], 'overlap')
+    T2 = build_oei(basis, basis, geom[0], geom[1], 'kinetic')
+    V2 = build_oei(basis, basis, geom[0], geom[1], 'potential')
+    H = T2 + V2
+    result = torch.einsum('ij,jk,kl,lm,im->', H,H,H,H,H)
+    grad = torch.autograd.grad(result, geom)
+    return S2, T2, V2
 
 
-#D = torch.from_numpy(np.load('D2.npy'))
-#C = torch.from_numpy(np.load('C2.npy'))
-#eps = torch.from_numpy(np.load('eps2.npy'))
-F = torch.from_numpy(np.load('F2.npy'))
-#print(F)
-#dumb_hartree_fock(basis2,geom,C)
-hartree_fock(basis2,geom,F)
-#print(E)
-#print(torch.autograd.grad(E,geom))
+#E,grad, hess = compute_HF_derivatives(basis1,geom,D1)
+#G = benchmark_tei(basis1,geom)
+#G2 = benchmark_tei(basis1,geom)
+#print(torch.allclose(G, G2, rtol=1e-4, atol=1e-4))
+G = benchmark_tei(basis2,geom)
+#G2 = benchmark_tei(basis2,geom)
+#print(torch.allclose(G, G2, rtol=1e-4, atol=1e-4))
 
-#mp2(basis2,geom,C,eps)
+#compute_HF_derivatives(basis1,geom,D1)
+#S2,T2,V2 = benchmark_old(basis4,geom)
+#print(torch.allclose(S, S2))
+#print(torch.allclose(T, T2))
+#print(torch.allclose(V, V2, rtol=1e-5, atol=1e-5))
+#E = benchmark_hartree_fock(torch.rand(40), geom,torch.rand(80,80))
+#E = benchmark_hartree_fock(torch.rand(50), geom,torch.rand(100,100))
+#E = benchmark_hartree_fock(torch.rand(40), geom,torch.rand(80,80))
+
+#print(cpu_peak)
+#print(cpu_current)
+#tracemalloc.stop()
+#G = benchmark_tei(torch.rand(50), geom)
 
