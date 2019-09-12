@@ -119,12 +119,18 @@ def vectorized_tei(basis, geom, nbf_per_atom):
                   torch.einsum('ijklm,ijkl->ijklm', tmpCD, 1/aa_plus_bb.permute(3,2,0,1))
     boys_arg = torch.einsum('ijklm,ijklm->ijkl', Rp_minus_Rq, Rp_minus_Rq)
     boys_arg.div_(1 / (aa_plus_bb) + 1 / (aa_plus_bb.permute(3,2,0,1)))
-    F = torch.zeros_like(boys_arg)
-    mask1 = boys_arg <= 1e-8
-    mask2 = boys_arg > 1e-8
-    F[mask1] = 1 - boys_arg[mask1] / 3 
-    F[mask2] = torch.erf(torch.sqrt(boys_arg[mask2])) * math.sqrt(math.pi) / (2 * torch.sqrt(boys_arg[mask2]))
-    G.mul_(F)
+    # If small, set to be 1.0, else evaluate F0 boys function
+    boys_arg.clamp_(min=1e-12)
+    boys_arg.sqrt_()
+    G.mul_(0.8862269254527580)
+    G.div_(boys_arg)
+    G.mul_(torch.erf(boys_arg))
+    #F = torch.zeros_like(boys_arg)
+    #mask1 = boys_arg <= 1e-8
+    #mask2 = boys_arg > 1e-8
+    #F[mask1] = 1 - boys_arg[mask1] / 3 
+    #F[mask2] = torch.erf(torch.sqrt(boys_arg[mask2])) * math.sqrt(math.pi) / (2 * torch.sqrt(boys_arg[mask2]))
+    #G.mul_(F)
     return G
 
 @torch.jit.script
