@@ -45,7 +45,7 @@ class RHF(nn.Module):
         return E_scf
 
     def forward(self, geom):
-        E_scf = cp(self.everything, geom)
+        E_scf = cp(self.everything, geom, row_idx=0, preserve_rng_state=False)
         return E_scf
 
 model = RHF()

@@ -3,10 +3,11 @@ import torch
 class HessCheckpointFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, run_function, preserve_rng_state, *args):
+    def forward(ctx, run_function, row_idx, preserve_rng_state, *args):
         check_backward_validity(args)
         ctx.run_function = run_function
         ctx.preserve_rng_state = preserve_rng_state
+        ctx.row_idx = row_idx
         if preserve_rng_state:
             ctx.fwd_cpu_state = torch.get_rng_state()
             # Don't eagerly initialize the cuda context by accident.
@@ -52,17 +53,18 @@ class HessCheckpointFunction(torch.autograd.Function):
         gradient = detached_inputs[0].grad.clone().flatten()
         detached_inputs[0].grad.zero_()
         # Hessian of 0th,1st, --->2nd<--- gradient
-        gradient[2].backward(create_graph=True)
+        #gradient[2].backward(create_graph=True)
+        gradient[ctx.row_idx].backward(create_graph=True)
         grads = (detached_inputs[0].grad,)
-        return (None, None) + grads
+        return (None, None, None) + grads
 
 def hesscheckpoint(function, *args, **kwargs):
     # Hack to mix *args with **kwargs in a python 2.7-compliant way
     preserve = kwargs.pop('preserve_rng_state', True)
+    row_idx = kwargs.pop('row_idx', True)
     if kwargs:
         raise ValueError("Unexpected keyword arguments: " + ",".join(arg for arg in kwargs))
-
-    return HessCheckpointFunction.apply(function, preserve, *args)
+    return HessCheckpointFunction.apply(function, row_idx, preserve, *args)
 
 def detach_variable(inputs):
     if isinstance(inputs, tuple):
