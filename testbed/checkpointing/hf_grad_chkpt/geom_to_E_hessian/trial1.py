@@ -42,18 +42,17 @@ class RHF(nn.Module):
             Cocc = C[:, :ndocc]
             D = torch.einsum('pi,qi->pq', Cocc, Cocc)
             E_scf = torch.einsum('pq,pq->', F + H, D) + Enuc
-        return E_scf
+        return E_scf, eps, C
 
-    def forward(self, geom):
-        E_scf = cp(self.everything, geom, row_idx=0, preserve_rng_state=False)
-        return E_scf
+    def forward(self, geom, row_idx):
+        E_scf, eps, C = cp(self.everything, geom, row_idx=row_idx, preserve_rng_state=False)
+        return E_scf, eps, C
 
-model = RHF()
-E = model(mygeom)
+hessian = RHF()
+E, eps, C = hessian(mygeom, 0)
 E.backward(create_graph=True, retain_graph=True)
 hessian_row = mygeom.grad.clone().flatten()
 print(hessian_row)
-
-
+mygeom.grad.zero_()
 
 
