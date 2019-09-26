@@ -117,7 +117,7 @@ def orthogonalizer(S):
 
 geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
 basis2 = np.array([0.5, 0.4, 0.3, 0.2])
-basis = basis2.repeat(4)
+basis = basis2.repeat(8)
 #basis = np.array([0.5, 0.4, 0.3, 0.2])
 full_basis = np.concatenate((basis,basis))
 print(full_basis.shape)
@@ -126,7 +126,7 @@ print(full_basis.shape)
 nbf_per_atom = int(basis.shape[0])
 charge_per_atom = np.array([1.0,1.0])
 
-#@jax.jit
+@jax.jit
 def hartree_fock_iter(D, A, H, G, Enuc):
     ndocc = 1
     J = np.einsum('pqrs,rs->pq', G, D)
@@ -153,7 +153,7 @@ def naive(geom):
     for i in range(12):
         E_scf, D = hartree_fock_iter(D, A, H, G, Enuc)
         #E_scf, D = fast_hartree_fock_iter(D, A, H, G, Enuc)
-    return E_scf, D
+    return E_scf
 
 def hartree_fock(geom):
     ndocc = 1
@@ -185,22 +185,56 @@ def hartree_fock(geom):
     print(E_scf)
     return E_scf
 
+#gradfunc = jax.jacrev(hartree_fock)
+#print(gradfunc(geom))
+
+#gradfunc = jax.jacfwd(hartree_fock)
+##print(gradfunc(geom))
+#hessfunc = jax.jacfwd(gradfunc)
+#print(hessfunc(geom))
 
 
 #v1, v2 = jax.jvp(hartree_fock, (geom,), (np.ones_like(geom),))
 #print(geom.shape)
+# METHOD 1
+#val, gradjunk = jax.jvp(hartree_fock, (geom,), (np.array([[1.0,0.0,0.0],[0.0,0.0,0.0]]),))
+#print(gradjunk)
+#val, gradjunk = jax.jvp(hartree_fock, (geom,), (np.array([[0.0,1.0,0.0],[0.0,0.0,0.0]]),))
+#print(gradjunk)
+#val, gradjunk = jax.jvp(hartree_fock, (geom,), (np.array([[0.0,0.0,1.0],[0.0,0.0,0.0]]),))
+#print(gradjunk)
+#val, gradjunk = jax.jvp(hartree_fock, (geom,), (np.array([[0.0,0.0,0.0],[1.0,0.0,0.0]]),))
+#print(gradjunk)
+#val, gradjunk = jax.jvp(hartree_fock, (geom,), (np.array([[0.0,0.0,0.0],[0.0,1.0,0.0]]),))
+#print(gradjunk)
 #val, gradjunk = jax.jvp(hartree_fock, (geom,), (np.array([[0.0,0.0,0.0],[0.0,0.0,1.0]]),))
-#print(val)
 #print(gradjunk)
 
 #METHOD 2
 #one_hots = (np.array([[0.0,0.0,0.0],[0.0,0.0,1.0]]), np.array([[0.0,0.0,1.0],[0.0,0.0,0.0]]))
 #one_hots = np.array([[[0.0,0.0,0.0],[0.0,0.0,1.0]],[[0.0,0.0,1.0],[0.0,0.0,0.0]]])
-one_hots = np.array([[[1.0,0.0,0.0],[0.0,0.0,0.0]],[[0.0,1.0,0.0],[0.0,0.0,0.0]],[[0.0,0.0,1.0],[0.0,0.0,0.0]],[[0.0,0.0,0.0],[1.0,0.0,0.0]],[[0.0,0.0,0.0],[0.0,1.0,0.0]],[[0.0,0.0,0.0],[0.0,0.0,1.0]]])
-pushfwd = partial(jax.jvp, hartree_fock, (geom,))
-y, out_tangents = jax.vmap(pushfwd, in_axes=(0,), out_axes=(None,1))((one_hots,))
-print(out_tangents)
+#one_hots = np.array([[[1.0,0.0,0.0],[0.0,0.0,0.0]],[[0.0,1.0,0.0],[0.0,0.0,0.0]],[[0.0,0.0,1.0],[0.0,0.0,0.0]],[[0.0,0.0,0.0],[1.0,0.0,0.0]],[[0.0,0.0,0.0],[0.0,1.0,0.0]],[[0.0,0.0,0.0],[0.0,0.0,1.0]]])
+#pushfwd = partial(jax.jvp, hartree_fock, (geom,))
+#y, out_tangents = jax.vmap(pushfwd, in_axes=(0,), out_axes=(None,1))((one_hots,))
+#print(out_tangents)
 
+#METHOD 3
+#one_hots = np.array([[[1.0,0.0,0.0],[0.0,0.0,0.0]],[[0.0,1.0,0.0],[0.0,0.0,0.0]],[[0.0,0.0,1.0],[0.0,0.0,0.0]],[[0.0,0.0,0.0],[1.0,0.0,0.0]],[[0.0,0.0,0.0],[0.0,1.0,0.0]],[[0.0,0.0,0.0],[0.0,0.0,1.0]]])
+#pushfwd = partial(jax.jvp, hartree_fock, (geom,))
+#func = jax.vmap(pushfwd, in_axes=(0,), out_axes=(None,1))
+#y, out_tangents = func((one_hots,))
+#print(out_tangents)
+
+def hvp(f, primals, tangents):
+    #return jax.jvp(jax.grad(f), primals, tangents)[1]
+    return jax.jvp(jax.jit(jax.grad(f)), primals, tangents)[1]
+
+one_hot2 = np.zeros((2,3,2,3))
+jax.ops.index_update(one_hot2, [0,0,0,0], 1.0)
+
+test = hvp(hartree_fock, (geom,), (np.array([[0.0,0.0,0.0],[0.0,0.0,1.0]]),))
+print(test)
+#hvp(hartree_fock, (geom,), (one_hot2,))
 
 #TODO
 #gradfunc = jax.jacrev(hartree_fock)
