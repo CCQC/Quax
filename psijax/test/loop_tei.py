@@ -4,14 +4,15 @@ import numpy as onp
 from jax.config import config; config.update("jax_enable_x64", True)
 np.set_printoptions(linewidth=200)
 
-#@jax.jit
-@jax.jarrett
+#@jax.jarrett
+@jax.jit
 def normalize(aa):
     '''Normalization constant for s primitive basis functions. Argument is orbital exponent coefficient'''
     aa = ((2*aa)/np.pi)**(3/4)
     return aa
 
 @jax.jarrett
+#@jax.jit
 def boys(arg):
     return jax.scipy.special.erf(np.sqrt(arg + 1e-9)) * np.sqrt(np.pi) / (2 * np.sqrt(arg + 1e-9))
 
@@ -87,7 +88,6 @@ def cartesian_product(*arrays):
     return arr.reshape(-1, la)
 
 
-
 #@jax.jit
 # Still too slow, try making array of unique indices, and unrolling the loop with lax.scan
 def build_tei(basis, centers):
@@ -127,13 +127,92 @@ def fast_tei(basis, centers, nbf):
 #@jax.jit
 def fast_tei2(basis,centers,nbf):
     indices = find_indices(nbf)
-    def body_func(idx):
+
+    # Compute unique ERIs
+    def compute_eri(idx):
         i,j,k,l = idx
         tei = eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l])
         return tei
-    test = jax.vmap(body_func, (0,)) 
-    unique_teis = test(indices)
-    #print(unique_teis)
+    vectorized_eri = jax.jit(jax.vmap(compute_eri, (0,)))
+    unique_teis = vectorized_eri(indices)
+
+    # Fill ERI array
+    I = np.empty((nbf,nbf,nbf,nbf))
+    i,j,k,l = np.split(indices, 4, axis=1)
+    def fill_I(I, idx_info):
+        #idx, a = id_info
+        i,j,k,l,a = idx_info
+        I  = jax.ops.index_update(I, jax.ops.index[i,j,k,l], unique_teis[a]) 
+        return I, ()
+    I, _ = jax.lax.scan(fill_I, I, (i,j,k,l, np.arange(indices.shape[0])))
+    I, _ = jax.lax.scan(fill_I, I, (k,l,i,j, np.arange(indices.shape[0])))
+    I, _ = jax.lax.scan(fill_I, I, (j,i,l,k, np.arange(indices.shape[0])))
+    I, _ = jax.lax.scan(fill_I, I, (l,k,j,i, np.arange(indices.shape[0])))
+    I, _ = jax.lax.scan(fill_I, I, (j,i,k,l, np.arange(indices.shape[0])))
+    I, _ = jax.lax.scan(fill_I, I, (l,k,i,j, np.arange(indices.shape[0])))
+    I, _ = jax.lax.scan(fill_I, I, (i,j,l,k, np.arange(indices.shape[0])))
+    I, _ = jax.lax.scan(fill_I, I, (k,l,j,i, np.arange(indices.shape[0])))
+
+
+    #def fill_I(I, id_info):
+    #    idx, a = id_info
+    #    i,j,k,l = idx
+    #    I  = jax.ops.index_update(I, jax.ops.index[i,j,k,l], unique_teis[a]) 
+    #    return I, ()
+    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+
+    #def fill_I(I, id_info):
+    #    idx, a = id_info
+    #    i,j,k,l = idx
+    #    I  = jax.ops.index_update(I, jax.ops.index[k,l,i,j], unique_teis[a]) 
+    #    return I, ()
+    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+
+    #def fill_I(I, id_info):
+    #    idx, a = id_info
+    #    i,j,k,l = idx
+    #    I  = jax.ops.index_update(I, jax.ops.index[j,i,l,k], unique_teis[a]) 
+    #    return I, ()
+    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+
+    #def fill_I(I, id_info):
+    #    idx, a = id_info
+    #    i,j,k,l = idx
+    #    I  = jax.ops.index_update(I, jax.ops.index[l,k,j,i], unique_teis[a]) 
+    #    return I, ()
+    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+
+    #def fill_I(I, id_info):
+    #    idx, a = id_info
+    #    i,j,k,l = idx
+    #    I  = jax.ops.index_update(I, jax.ops.index[j,i,k,l], unique_teis[a]) 
+    #    return I, ()
+    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+
+    #def fill_I(I, id_info):
+    #    idx, a = id_info
+    #    i,j,k,l = idx
+    #    I  = jax.ops.index_update(I, jax.ops.index[l,k,i,j], unique_teis[a]) 
+    #    return I, ()
+    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+
+    #def fill_I(I, id_info):
+    #    idx, a = id_info
+    #    i,j,k,l = idx
+    #    I  = jax.ops.index_update(I, jax.ops.index[i,j,l,k], unique_teis[a]) 
+    #    return I, ()
+    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+
+    #def fill_I(I, id_info):
+    #    idx, a = id_info
+    #    i,j,k,l = idx
+    #    I  = jax.ops.index_update(I, jax.ops.index[k,l,j,i], unique_teis[a]) 
+    #    return I, ()
+    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+
+    return I 
+    
+
     #I  = jax.ops.index_update(I, jax.ops.index[i,j,k,l], eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l]))
     #I  = jax.ops.index_update(I, jax.ops.index[k,l,i,j], eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l]))
     #I  = jax.ops.index_update(I, jax.ops.index[j,i,l,k], eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l]))
@@ -154,14 +233,14 @@ def fast_tei2(basis,centers,nbf):
 geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
 
 def build_basis(geom):
-    atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),4)
-    atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),4)
+    #atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),10)
+    #atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),10)
     #atom1_basis = np.array([0.5, 0.4, 0.3, 0.2])
     #atom2_basis = np.array([0.5, 0.4, 0.3, 0.2])
     #atom1_basis = np.array([0.5, 0.4])
     #atom2_basis = np.array([0.5, 0.4])
-    #atom1_basis = np.array([0.5])
-    #atom2_basis = np.array([0.4])
+    atom1_basis = np.array([0.5])
+    atom2_basis = np.array([0.4])
     basis = np.concatenate((atom1_basis, atom2_basis))
     centers = np.concatenate((np.tile(geom[0],atom1_basis.size).reshape(-1,3), np.tile(geom[1],atom2_basis.size).reshape(-1,3)))
     return basis, centers
@@ -175,15 +254,21 @@ def benchmark(geom):
     return fake
 
 #val = benchmark(geom)
-#basis, centers = build_basis(geom)
-#I = build_tei(basis, centers)
 
 basis, centers = build_basis(geom)
+I = build_tei(basis, centers)
+print(I)
 #print(basis.size)
 #I = fast_tei(basis, centers, 24)
-#print(I)
 I = fast_tei2(basis, centers, basis.shape[0])
 print(I)
+
+#nbf = 4
+#print(nbf)
+#a = find_indices(nbf)
+#sym = np.vstack(np.tril_indices(nbf)).T
+#print(a.shape)
+#print(sym.shape)
 
 #basis, centers = build_basis(geom)
 #print(basis.shape)
