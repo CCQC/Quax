@@ -139,18 +139,23 @@ def fast_tei2(basis,centers,nbf):
     # Fill ERI array
     I = np.empty((nbf,nbf,nbf,nbf))
     i,j,k,l = np.split(indices, 4, axis=1)
+    print(i)
+    print(indices)
+    tmp, = i[0]
+    print(tmp)
     def fill_I(I, idx_info):
         i,j,k,l,a = idx_info
+        print(i)
         I  = jax.ops.index_update(I, jax.ops.index[i,j,k,l], unique_teis[a]) 
         return I, ()
     I, _ = jax.lax.scan(fill_I, I, (i,j,k,l, np.arange(indices.shape[0])))
-    I, _ = jax.lax.scan(fill_I, I, (k,l,i,j, np.arange(indices.shape[0])))
-    I, _ = jax.lax.scan(fill_I, I, (j,i,l,k, np.arange(indices.shape[0])))
-    I, _ = jax.lax.scan(fill_I, I, (l,k,j,i, np.arange(indices.shape[0])))
-    I, _ = jax.lax.scan(fill_I, I, (j,i,k,l, np.arange(indices.shape[0])))
-    I, _ = jax.lax.scan(fill_I, I, (l,k,i,j, np.arange(indices.shape[0])))
-    I, _ = jax.lax.scan(fill_I, I, (i,j,l,k, np.arange(indices.shape[0])))
-    I, _ = jax.lax.scan(fill_I, I, (k,l,j,i, np.arange(indices.shape[0])))
+    #I, _ = jax.lax.scan(fill_I, I, (k,l,i,j, np.arange(indices.shape[0])))
+    #I, _ = jax.lax.scan(fill_I, I, (j,i,l,k, np.arange(indices.shape[0])))
+    #I, _ = jax.lax.scan(fill_I, I, (l,k,j,i, np.arange(indices.shape[0])))
+    #I, _ = jax.lax.scan(fill_I, I, (j,i,k,l, np.arange(indices.shape[0])))
+    #I, _ = jax.lax.scan(fill_I, I, (l,k,i,j, np.arange(indices.shape[0])))
+    #I, _ = jax.lax.scan(fill_I, I, (i,j,l,k, np.arange(indices.shape[0])))
+    #I, _ = jax.lax.scan(fill_I, I, (k,l,j,i, np.arange(indices.shape[0])))
 
     return I 
     
