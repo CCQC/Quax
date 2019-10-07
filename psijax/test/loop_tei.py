@@ -140,7 +140,6 @@ def fast_tei2(basis,centers,nbf):
     I = np.empty((nbf,nbf,nbf,nbf))
     i,j,k,l = np.split(indices, 4, axis=1)
     def fill_I(I, idx_info):
-        #idx, a = id_info
         i,j,k,l,a = idx_info
         I  = jax.ops.index_update(I, jax.ops.index[i,j,k,l], unique_teis[a]) 
         return I, ()
@@ -153,83 +152,8 @@ def fast_tei2(basis,centers,nbf):
     I, _ = jax.lax.scan(fill_I, I, (i,j,l,k, np.arange(indices.shape[0])))
     I, _ = jax.lax.scan(fill_I, I, (k,l,j,i, np.arange(indices.shape[0])))
 
-
-    #def fill_I(I, id_info):
-    #    idx, a = id_info
-    #    i,j,k,l = idx
-    #    I  = jax.ops.index_update(I, jax.ops.index[i,j,k,l], unique_teis[a]) 
-    #    return I, ()
-    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    #def fill_I(I, id_info):
-    #    idx, a = id_info
-    #    i,j,k,l = idx
-    #    I  = jax.ops.index_update(I, jax.ops.index[k,l,i,j], unique_teis[a]) 
-    #    return I, ()
-    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    #def fill_I(I, id_info):
-    #    idx, a = id_info
-    #    i,j,k,l = idx
-    #    I  = jax.ops.index_update(I, jax.ops.index[j,i,l,k], unique_teis[a]) 
-    #    return I, ()
-    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    #def fill_I(I, id_info):
-    #    idx, a = id_info
-    #    i,j,k,l = idx
-    #    I  = jax.ops.index_update(I, jax.ops.index[l,k,j,i], unique_teis[a]) 
-    #    return I, ()
-    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    #def fill_I(I, id_info):
-    #    idx, a = id_info
-    #    i,j,k,l = idx
-    #    I  = jax.ops.index_update(I, jax.ops.index[j,i,k,l], unique_teis[a]) 
-    #    return I, ()
-    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    #def fill_I(I, id_info):
-    #    idx, a = id_info
-    #    i,j,k,l = idx
-    #    I  = jax.ops.index_update(I, jax.ops.index[l,k,i,j], unique_teis[a]) 
-    #    return I, ()
-    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    #def fill_I(I, id_info):
-    #    idx, a = id_info
-    #    i,j,k,l = idx
-    #    I  = jax.ops.index_update(I, jax.ops.index[i,j,l,k], unique_teis[a]) 
-    #    return I, ()
-    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    #def fill_I(I, id_info):
-    #    idx, a = id_info
-    #    i,j,k,l = idx
-    #    I  = jax.ops.index_update(I, jax.ops.index[k,l,j,i], unique_teis[a]) 
-    #    return I, ()
-    #I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
     return I 
     
-
-    #I  = jax.ops.index_update(I, jax.ops.index[i,j,k,l], eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l]))
-    #I  = jax.ops.index_update(I, jax.ops.index[k,l,i,j], eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l]))
-    #I  = jax.ops.index_update(I, jax.ops.index[j,i,l,k], eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l]))
-    #I  = jax.ops.index_update(I, jax.ops.index[l,k,j,i], eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l]))
-    #I  = jax.ops.index_update(I, jax.ops.index[j,i,k,l], eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l]))
-    #I  = jax.ops.index_update(I, jax.ops.index[l,k,i,j], eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l]))
-    #I  = jax.ops.index_update(I, jax.ops.index[i,j,l,k], eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l]))
-
-    # Compute all unique indices for a given basis set size
-    # for each unique indices, 
-        # jax.ops.index_update(I), but up to 8 times, depending on the permutational species type
-        # Type 1: all same (00|00), (11|11), etc, none
-        # Type 2: 3a,1b (00|01)  (4 non redundant permutations)
-        # Type 3: 2a,1b,1c (00|12)
-        # Type 4: 2a,1b,1c (00|01)
-    # unroll it with lax.scan, or vectorized with vmap, or parallelize with pmap
-
 geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
 
 def build_basis(geom):
