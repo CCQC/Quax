@@ -130,24 +130,25 @@ def fast_tei(geom,basis):
     #print(all_teis)
 
     I = np.empty((nbf,nbf,nbf,nbf))
-    I = jax.ops.index_update(I, (indices[:,0], indices[:,1], indices[:,2], indices[:,3]) ,unique_teis)
-    I = jax.ops.index_update(I, (indices[:,2], indices[:,3], indices[:,0], indices[:,1]) ,unique_teis)
-    I = jax.ops.index_update(I, (indices[:,1], indices[:,0], indices[:,3], indices[:,2]) ,unique_teis)
-    I = jax.ops.index_update(I, (indices[:,3], indices[:,2], indices[:,1], indices[:,0]) ,unique_teis)
-    I = jax.ops.index_update(I, (indices[:,1], indices[:,0], indices[:,2], indices[:,3]) ,unique_teis)
-    I = jax.ops.index_update(I, (indices[:,3], indices[:,2], indices[:,0], indices[:,1]) ,unique_teis)
-    I = jax.ops.index_update(I, (indices[:,0], indices[:,1], indices[:,3], indices[:,2]) ,unique_teis)
-    I = jax.ops.index_update(I, (indices[:,2], indices[:,3], indices[:,1], indices[:,0]) ,unique_teis)
-#                                (indices[:,2], indices[:,3], indices[:,0], indices[:,1]
-#   
-#
-#
-#
-#                             ),
-#
-#                                 unique_teis)
-#
-#
+#    I = jax.ops.index_update(I, (indices[:,0], indices[:,1], indices[:,2], indices[:,3]) ,unique_teis)
+#    I = jax.ops.index_update(I, (indices[:,2], indices[:,3], indices[:,0], indices[:,1]) ,unique_teis)
+#    I = jax.ops.index_update(I, (indices[:,1], indices[:,0], indices[:,3], indices[:,2]) ,unique_teis)
+#    I = jax.ops.index_update(I, (indices[:,3], indices[:,2], indices[:,1], indices[:,0]) ,unique_teis)
+#    I = jax.ops.index_update(I, (indices[:,1], indices[:,0], indices[:,2], indices[:,3]) ,unique_teis)
+#    I = jax.ops.index_update(I, (indices[:,3], indices[:,2], indices[:,0], indices[:,1]) ,unique_teis)
+#    I = jax.ops.index_update(I, (indices[:,0], indices[:,1], indices[:,3], indices[:,2]) ,unique_teis)
+#    I = jax.ops.index_update(I, (indices[:,2], indices[:,3], indices[:,1], indices[:,0]) ,unique_teis)
+
+
+    I = jax.ops.index_update(I, (indices[:,0], indices[:,1], indices[:,2], indices[:,3], 
+                                 indices[:,2], indices[:,3], indices[:,0], indices[:,1], 
+                                 indices[:,1], indices[:,0], indices[:,3], indices[:,2], 
+                                 indices[:,3], indices[:,2], indices[:,1], indices[:,0], 
+                                 indices[:,1], indices[:,0], indices[:,2], indices[:,3], 
+                                 indices[:,3], indices[:,2], indices[:,0], indices[:,1], 
+                                 indices[:,0], indices[:,1], indices[:,3], indices[:,2], 
+                                 indices[:,2], indices[:,3], indices[:,1], indices[:,0]), (unique_teis,unique_teis,unique_teis,unique_teis,unique_teis,unique_teis,unique_teis,unique_teis))
+
 #[0,1,2,3]
 #[2,3,0,1]
 #[1,0,3,2]
@@ -243,12 +244,12 @@ def orthogonalizer(S):
 
 geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
 
-atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
-atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
+#atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
+#atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
 #atom1_basis = np.array([0.5, 0.4, 0.3, 0.2])
 #atom2_basis = np.array([0.5, 0.4, 0.3, 0.2])
-#atom1_basis = np.array([0.5, 0.4])
-#atom2_basis = np.array([0.5, 0.4])
+atom1_basis = np.array([0.5, 0.4])
+atom2_basis = np.array([0.5, 0.4])
 #atom1_basis = np.array([0.5])
 #atom2_basis = np.array([0.4])
 basis = np.concatenate((atom1_basis, atom2_basis))
