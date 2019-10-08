@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as np
+import itertools as it
 import numpy as onp
 from jax.config import config; config.update("jax_enable_x64", True)
 np.set_printoptions(linewidth=200)
@@ -92,76 +93,134 @@ def cartesian_product(*arrays):
         arr[...,i] = a
     return arr.reshape(-1, la)
 
+def permute(arr):
+    p1 = onp.array([0,1,2,3])
+    p2 = onp.array([2,3,0,1]) 
+    p3 = onp.array([1,0,3,2]) 
+    p4 = onp.array([3,2,1,0])
+    p5 = onp.array([1,0,2,3])
+    p6 = onp.array([3,2,0,1])
+    p7 = onp.array([0,1,3,2])
+    p8 = onp.array([2,3,1,0])
+    permutations = np.vstack((arr[p1],arr[p2],arr[p3],arr[p4],arr[p5],arr[p6],arr[p7],arr[p8]))
+    uniques = onp.unique(permutations,axis=0)
+    return uniques.shape[0]
 
-def fast_tei(basis,centers,nbf):
+
+#@jax.jit
+def fast_tei(geom,basis):
+    nbf = basis.shape[0]
+    nbf_per_atom = int(nbf / 2)
+    centers = np.repeat(geom, nbf_per_atom, axis=0) # TODO currently can only repeat each center the same number of times => only works for when all atoms have same # of basis functions
+
     indices = find_indices(nbf)
+    #orders = np.array([permute(i) for i in indices])
 
     # Compute unique ERIs
     def compute_eri(idx):
         i,j,k,l = idx
         tei = eri(basis[i], basis[j], basis[k], basis[l], centers[i], centers[j], centers[k], centers[l])
         return tei
-    #vectorized_eri = jax.jit(jax.vmap(compute_eri, (0,)))
-    vectorized_eri = jax.vmap(compute_eri, (0,))
+    vectorized_eri = jax.jit(jax.vmap(compute_eri, (0,)))
     unique_teis = vectorized_eri(indices)
+    #temp = vectorized_eri(indices)
+    #unique_teis = temp * orders
+    #all_teis = np.repeat(unique_teis, orders)
+    #I = np.repeat(unique_teis, orders).reshape(nbf,nbf,nbf,nbf)
+    #print(all_teis)
+
+    I = np.empty((nbf,nbf,nbf,nbf))
+
+    @jax.jit
+    def update(I,i,j,k,l,a):
+        I = jax.ops.index_update(I, (jax.ops.index[i,k,j,l,j,l,i,k], 
+                                     jax.ops.index[j,l,i,k,i,k,j,l],
+                                     jax.ops.index[k,i,l,j,k,i,l,j], 
+                                     jax.ops.index[l,j,k,i,l,j,k,i]),
+                                     np.array([unique_teis[a],unique_teis[a],unique_teis[a],unique_teis[a],unique_teis[a],unique_teis[a],unique_teis[a],unique_teis[a]]))
+        return I
+
+    for a,idx in enumerate(indices):
+        i,j,k,l = idx
+        I = update(I,i,j,k,l,a)
+    print(I)
+
+
+    #    I  = jax.ops.index_update(I, jax.ops.index[i,j,k,l], unique_teis[a])
+    #    I  = jax.ops.index_update(I, jax.ops.index[k,l,i,j], unique_teis[a])
+    #    I  = jax.ops.index_update(I, jax.ops.index[j,i,l,k], unique_teis[a])
+    #    I  = jax.ops.index_update(I, jax.ops.index[l,k,j,i], unique_teis[a])
+    #    I  = jax.ops.index_update(I, jax.ops.index[j,i,k,l], unique_teis[a])
+    #    I  = jax.ops.index_update(I, jax.ops.index[l,k,i,j], unique_teis[a])
+    #    I  = jax.ops.index_update(I, jax.ops.index[i,j,l,k], unique_teis[a])
+    #    I  = jax.ops.index_update(I, jax.ops.index[k,l,j,i], unique_teis[a])
+
+
 
     # Fill ERI array
-    I = np.empty((nbf,nbf,nbf,nbf))
-    def fill_I(I, id_info):
-        idx, a = id_info
-        i,j,k,l = idx
-        I  = jax.ops.index_update(I, jax.ops.index[i,j,k,l], unique_teis[a]) 
-        return I, ()
-    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+    #I = np.empty((nbf,nbf,nbf,nbf))
+        
+#    def fill_I(I, idx):
+#        i,j,k,l = indices[idx]
+#        I  = jax.ops.index_update(I, jax.ops.index[i,j,k,l], unique_teis[idx]) 
+#        return I, ()
+#    I, _ = jax.lax.scan(fill_I, I, np.arange(indices.shape[0])) 
 
-    def fill_I(I, id_info):
-        idx, a = id_info
-        i,j,k,l = idx
-        I  = jax.ops.index_update(I, jax.ops.index[k,l,i,j], unique_teis[a]) 
-        return I, ()
-    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    def fill_I(I, id_info):
-        idx, a = id_info
-        i,j,k,l = idx
-        I  = jax.ops.index_update(I, jax.ops.index[j,i,l,k], unique_teis[a]) 
-        return I, ()
-    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    def fill_I(I, id_info):
-        idx, a = id_info
-        i,j,k,l = idx
-        I  = jax.ops.index_update(I, jax.ops.index[l,k,j,i], unique_teis[a]) 
-        return I, ()
-    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    def fill_I(I, id_info):
-        idx, a = id_info
-        i,j,k,l = idx
-        I  = jax.ops.index_update(I, jax.ops.index[j,i,k,l], unique_teis[a]) 
-        return I, ()
-    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    def fill_I(I, id_info):
-        idx, a = id_info
-        i,j,k,l = idx
-        I  = jax.ops.index_update(I, jax.ops.index[l,k,i,j], unique_teis[a]) 
-        return I, ()
-    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    def fill_I(I, id_info):
-        idx, a = id_info
-        i,j,k,l = idx
-        I  = jax.ops.index_update(I, jax.ops.index[i,j,l,k], unique_teis[a]) 
-        return I, ()
-    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
-
-    def fill_I(I, id_info):
-        idx, a = id_info
-        i,j,k,l = idx
-        I  = jax.ops.index_update(I, jax.ops.index[k,l,j,i], unique_teis[a]) 
-        return I, ()
-    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+#    def fill_I(I, id_info):
+#        idx, a = id_info
+#        i,j,k,l = idx
+#        I  = jax.ops.index_update(I, jax.ops.index[i,j,k,l], unique_teis[a]) 
+#        return I, ()
+#    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+#
+#    def fill_I(I, id_info):
+#        idx, a = id_info
+#        i,j,k,l = idx
+#        I  = jax.ops.index_update(I, jax.ops.index[k,l,i,j], unique_teis[a]) 
+#        return I, ()
+#    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+#
+#    def fill_I(I, id_info):
+#        idx, a = id_info
+#        i,j,k,l = idx
+#        I  = jax.ops.index_update(I, jax.ops.index[j,i,l,k], unique_teis[a]) 
+#        return I, ()
+#    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+#
+#    def fill_I(I, id_info):
+#        idx, a = id_info
+#        i,j,k,l = idx
+#        I  = jax.ops.index_update(I, jax.ops.index[l,k,j,i], unique_teis[a]) 
+#        return I, ()
+#    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+#
+#    def fill_I(I, id_info):
+#        idx, a = id_info
+#        i,j,k,l = idx
+#        I  = jax.ops.index_update(I, jax.ops.index[j,i,k,l], unique_teis[a]) 
+#        return I, ()
+#    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+#
+#    def fill_I(I, id_info):
+#        idx, a = id_info
+#        i,j,k,l = idx
+#        I  = jax.ops.index_update(I, jax.ops.index[l,k,i,j], unique_teis[a]) 
+#        return I, ()
+#    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+#
+#    def fill_I(I, id_info):
+#        idx, a = id_info
+#        i,j,k,l = idx
+#        I  = jax.ops.index_update(I, jax.ops.index[i,j,l,k], unique_teis[a]) 
+#        return I, ()
+#    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
+#
+#    def fill_I(I, id_info):
+#        idx, a = id_info
+#        i,j,k,l = idx
+#        I  = jax.ops.index_update(I, jax.ops.index[k,l,j,i], unique_teis[a]) 
+#        return I, ()
+#    I, _ = jax.lax.scan(fill_I, I, (indices, np.arange(indices.shape[0])))
     return I
 
 def oei(geom,basis,nbf_per_atom,charge_per_atom):
@@ -236,21 +295,21 @@ def orthogonalizer(S):
     A = vec.dot(np.diag(val)).dot(vec.T)
     return A
 
-def build_basis(geom):
-    #atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),10)
-    #atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),10)
-    atom1_basis = np.array([0.5, 0.4, 0.3, 0.2])
-    atom2_basis = np.array([0.5, 0.4, 0.3, 0.2])
-    #atom1_basis = np.array([0.5, 0.4])
-    #atom2_basis = np.array([0.5, 0.4])
-    #atom1_basis = np.array([0.5])
-    #atom2_basis = np.array([0.4])
-    basis = np.concatenate((atom1_basis, atom2_basis))
-    centers = np.concatenate((np.tile(geom[0],atom1_basis.size).reshape(-1,3), np.tile(geom[1],atom2_basis.size).reshape(-1,3)))
-    return basis, centers
-
 geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
-basis, centers = build_basis(geom)
+
+#atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),4)
+#atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),4)
+#atom1_basis = np.array([0.5, 0.4, 0.3, 0.2])
+#atom2_basis = np.array([0.5, 0.4, 0.3, 0.2])
+#atom1_basis = np.array([0.5, 0.4])
+#atom2_basis = np.array([0.5, 0.4])
+atom1_basis = np.array([0.5])
+atom2_basis = np.array([0.4])
+basis = np.concatenate((atom1_basis, atom2_basis))
+print(basis.shape)
+#centers = np.concatenate((np.tile(geom[0],atom1_basis.size).reshape(-1,3), np.tile(geom[1],atom2_basis.size).reshape(-1,3)))
+
+
 nbf_per_atom = np.array([basis.shape[0],basis.shape[0]])
 charge_per_atom = np.array([1.0,1.0])
 
@@ -271,7 +330,8 @@ def hartree_fock_iter(D, A, H, G, Enuc):
 
 def hartree_fock(geom):
     S,T,V = oei(geom,basis,nbf_per_atom,charge_per_atom)
-    G = fast_tei(basis, centers, basis.shape[0])
+    #G = fast_tei(basis, centers, basis.shape[0])
+    G = fast_tei(geom,basis) 
     #G = tei_setup(geom,basis)
     H = T + V
     A = orthogonalizer(S)
@@ -283,30 +343,23 @@ def hartree_fock(geom):
     return E_scf
 
 
-#G1 = fast_tei(basis, centers, basis.shape[0])
-#G2 = tei_setup(geom,basis)
 
-def test1(geom):
-    G = fast_tei(basis, centers, basis.shape[0])
-    return G
 
-def test2(geom):
-    G = tei_setup(geom,basis)
-    return G
-
-G1 = jax.jacrev(test1)(geom)
-G2 = jax.jacrev(test2)(geom)
-print(np.allclose(G1,G2))
-print(G1[0])
-print(G2[0])
-
-#E = hartree_fock(geom)
-#print(E)
+E = hartree_fock(geom)
+print(E)
+#gradfunc = jax.jacfwd(hartree_fock)
 #gradfunc = jax.jacrev(hartree_fock)
 #hessfunc = jax.jacfwd(gradfunc)
+#cubefunc = jax.jacfwd(hessfunc)
+#quarfunc = jax.jacfwd(cubefunc)
 #
 #grad = gradfunc(geom)
-#hess = hessfunc(geom)
 #print(grad)
+#hess = hessfunc(geom)
 #print(hess)
+#cube = cubefunc(geom)
+#print(cube)
+#quar = quarfunc(geom)
+#print(quar)
+
 #
