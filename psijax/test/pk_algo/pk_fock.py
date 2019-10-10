@@ -145,7 +145,7 @@ def build_pj_pk(g, indices, nbf):
 
         if i != j and k != l:
             bra = index(i,l)
-            ket = index(i,l)
+            ket = index(j,k)
             braket = index(bra,ket)
         if i == l or j == k:
             pk[braket] += val
@@ -155,7 +155,7 @@ def build_pj_pk(g, indices, nbf):
         bra = index(i,k)
         ket = index(j,l)
         braket = index(bra,ket)
-        if i ==k or j == l:
+        if i == k or j == l:
             pk[braket] += val
         else:
             pk[braket] += 0.5 * val
