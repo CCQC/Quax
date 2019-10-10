@@ -167,43 +167,69 @@ def build_pj_pk(g, indices, nbf):
 
     return pj, pk
 
-def hartree_fock_iter(D, A, H, G, Enuc):
-    ndocc = 1
-    nbf = H.shape[0]
-    #TODO
+def build_fock(D, H, p_j, p_k):
+    nbf = D.shape[0]
+    D = onp.asarray(D)
+    # Multiply off diagonal of density by 2
+    b = onp.eye(nbf, dtype=bool)
+    D[~b] *= 2
+    
+    D = D.flatten()
+    J = onp.zeros_like(D)
+    K = onp.zeros_like(D)
+
+    # D_rs is an address in Density vector
+    D_rs = 0
+    # J_rs is an address in the Coulomb vector J 
+    J_rs = 0
+    K_rs = 0
+    for pq in range(nbf):
+        # D_pq is a value   
+        D_pq = D[pq]
+        # J_pq is a value
+        J_pq = 0.0
+        K_pq = 0.0
+        for rs in range(0, pq):
+            J_pq += p_j[J_rs] * D[D_rs]
+            J[J_rs] += p_j[J_rs] * D_pq
+
+            K_pq += p_k[K_rs] * D[D_rs]
+            K[K_rs] += p_k[K_rs] * D_pq
+
+            D_rs += 1
+            J_rs += 1
+            K_rs += 1
+        J[pq] += J_pq
+        K[pq] += K_pq
+
+    print(J)
+    J = J.reshape(nbf,nbf)
+    K = K.reshape(nbf,nbf)
     F = H + 2 * J + K
-    E_scf = np.einsum('pq,pq->', F + H, D) + Enuc
-    print(E_scf)
-    Fp = A.dot(F).dot(A)
-    eps, C2 = np.linalg.eigh(Fp)
-    C = np.dot(A, C2)
-    Cocc = C[:, :ndocc]
-    D = np.einsum('pi,qi->pq', Cocc, Cocc)
-    return E_scf, D
+    return F 
 
 def hartree_fock(x1,y1,z1,x2,y2,z2):
-    geom = np.hstack((x1,y1,z1,x2,y2,z2)).reshape(-1,3)
+    geom = onp.hstack((x1,y1,z1,x2,y2,z2)).reshape(-1,3)
     nbf = basis.shape[0]  
     S,T,V = oei(geom,basis,nbf_per_atom,charge_per_atom)
     G, indices = tei(geom,basis) 
     pj, pk = build_pj_pk(G, indices, nbf)  
-    print(pj)
-    print(pk)
-    #print("Two electron integrals generated")
-
-    #H = T + V
-    #nbf = H.shape[0]
-    #A = orthogonalizer(S)
-    #Enuc = nuclear_repulsion(geom[0],geom[1])
-    #D = np.zeros_like(H)
-
-    #ix, jx, kx, lx, ijkl = compound_indices(nbf)
-    #print('compound incies generated')
-
-    #for i in range(6):
-    #    #E_scf, D = hartree_fock_iter(D, A, H, G, Enuc)
-    #    E_scf, D = hartree_fock_iter(D, A, H, G, Enuc, ix,jx,kx,lx,ijkl)
-    #return E_scf
+    H = T + V
+    A = orthogonalizer(S)
+    Enuc = nuclear_repulsion(geom[0],geom[1])
+    D = onp.zeros((nbf,nbf))
+    print(type(D))
+    ndocc = 1
+    
+    for i in range(5):
+        F = build_fock(D, H, pj, pk)
+        E_scf = onp.einsum('pq,pq->', F + H, D) + Enuc
+        print(E_scf)
+        Fp = A.dot(F).dot(A)
+        eps, C2 = onp.linalg.eigh(Fp)
+        C = onp.dot(A, C2)
+        Cocc = C[:, :ndocc]
+        D = onp.einsum('pi,qi->pq', Cocc, Cocc)
 
 
 E = hartree_fock(0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955)
