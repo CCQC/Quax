@@ -52,6 +52,40 @@ def normalize(aa):
 def boys_eval(arg):
     return jax.scipy.special.erf(np.sqrt(arg + 1e-9)) * np.sqrt(np.pi) / (2 * np.sqrt(arg + 1e-9))
 
+
+#@jax.jarrett
+#def boys_eval(arg):
+#    '''Alternative boys function expansion. Not exact.'''
+#    boys = 0.5 * np.exp(-arg) * (1 / (0.5)) * (1 + (arg / (1.5)) *\
+#                                                          (1 + (arg / (2.5)) *\
+#                                                          (1 + (arg / (3.5)) *\
+#                                                          (1 + (arg / (4.5)) *\
+#                                                          (1 + (arg / (5.5)) *\
+#                                                          (1 + (arg / (6.5)) *\
+#                                                          (1 + (arg / (7.5)) *\
+#                                                          (1 + (arg / (8.5)) *\
+#                                                          (1 + (arg / (9.5)) *\
+#                                                          (1 + (arg / (10.5))*\
+#                                                          (1 + (arg / (11.5))*\
+#                                                          (1 + (arg / (12.5))*\
+#                                                          (1 + (arg / (13.5))*\
+#                                                          (1 + (arg / (14.5))*\
+#                                                          (1 + (arg / (15.5))*\
+#                                                          (1 + (arg / (16.5))*\
+#                                                          (1 + (arg / (17.5))*\
+#                                                          (1 + (arg / (18.5))*\
+#                                                          (1 + (arg / (19.5))*\
+#                                                          (1 + (arg / (20.5))*\
+#                                                          (1 + (arg / (21.5))*\
+#                                                          (1 + (arg / (22.5))*\
+#                                                          (1 + (arg / (23.5))*\
+#                                                          (1 + (arg / (24.5))*\
+#                                                          (1 + (arg / (25.5))*\
+#                                                          (1 + (arg / (26.5))))))))))))))))))))))))))))
+#    return boys
+
+
+
 @jax.jit
 def eri(aa,bb,cc,dd,A,B,C,D):
     '''Computes a single two electron integral over 4 s-orbital basis functions on 4 centers'''
@@ -79,7 +113,6 @@ def find_indices(nbf):
     cond2 = indices[:,2] >= indices[:,3]
     cond3 = indices[:,0] * (indices[:,0] + 1) / 2 + indices[:,1] >= indices[:,2]*(indices[:,2]+1)/2 + indices[:,3]
     mask = cond1 & cond2 & cond3
-    #return indices[mask,:]
     return np.asarray(indices[mask,:])
 
 def cartesian_product(*arrays):
@@ -107,14 +140,11 @@ def permute(arr):
     return uniques.shape[0]
 
 
-#@jax.jit
 def fast_tei(geom,basis):
     nbf = basis.shape[0]
     nbf_per_atom = int(nbf / 2)
     centers = np.repeat(geom, nbf_per_atom, axis=0) # TODO currently can only repeat each center the same number of times => only works for when all atoms have same # of basis functions
-
     indices = find_indices(nbf)
-    #orders = np.array([permute(i) for i in indices])
 
     # Compute unique ERIs
     def compute_eri(idx):
@@ -123,60 +153,36 @@ def fast_tei(geom,basis):
         return tei
     vectorized_eri = jax.jit(jax.vmap(compute_eri, (0,)))
     unique_teis = vectorized_eri(indices)
-    #temp = vectorized_eri(indices)
-    #unique_teis = temp * orders
-    #all_teis = np.repeat(unique_teis, orders)
-    #I = np.repeat(unique_teis, orders).reshape(nbf,nbf,nbf,nbf)
-    #print(all_teis)
 
-    I = np.empty((nbf,nbf,nbf,nbf))
-#    I = jax.ops.index_update(I, (indices[:,0], indices[:,1], indices[:,2], indices[:,3]) ,unique_teis)
-#    I = jax.ops.index_update(I, (indices[:,2], indices[:,3], indices[:,0], indices[:,1]) ,unique_teis)
-#    I = jax.ops.index_update(I, (indices[:,1], indices[:,0], indices[:,3], indices[:,2]) ,unique_teis)
-#    I = jax.ops.index_update(I, (indices[:,3], indices[:,2], indices[:,1], indices[:,0]) ,unique_teis)
-#    I = jax.ops.index_update(I, (indices[:,1], indices[:,0], indices[:,2], indices[:,3]) ,unique_teis)
-#    I = jax.ops.index_update(I, (indices[:,3], indices[:,2], indices[:,0], indices[:,1]) ,unique_teis)
-#    I = jax.ops.index_update(I, (indices[:,0], indices[:,1], indices[:,3], indices[:,2]) ,unique_teis)
-#    I = jax.ops.index_update(I, (indices[:,2], indices[:,3], indices[:,1], indices[:,0]) ,unique_teis)
+#this works, but is it memory inefficient due to making all these intermediates?
+#    I = jax.ops.index_update(I, (np.hstack((indices[:,0],indices[:,2],indices[:,1],indices[:,3],indices[:,1],indices[:,3],indices[:,0],indices[:,2])), 
+#                                 np.hstack((indices[:,1],indices[:,3],indices[:,0],indices[:,2],indices[:,0],indices[:,2],indices[:,1],indices[:,3])),
+#                                 np.hstack((indices[:,2],indices[:,0],indices[:,3],indices[:,1],indices[:,2],indices[:,0],indices[:,3],indices[:,1])),
+#                                 np.hstack((indices[:,3],indices[:,1],indices[:,2],indices[:,0],indices[:,3],indices[:,1],indices[:,2],indices[:,0]))),np.tile(unique_teis,8))
 
+#This also works, apparently same memory reqeuirement as above?
+#    I = jax.ops.index_update(I, (np.hstack((indices[:,0],indices[:,2],indices[:,1],indices[:,3],indices[:,1],indices[:,3],indices[:,0],indices[:,2])), 
+#                                 np.hstack((indices[:,1],indices[:,3],indices[:,0],indices[:,2],indices[:,0],indices[:,2],indices[:,1],indices[:,3])),
+#                                 np.hstack((indices[:,2],indices[:,0],indices[:,3],indices[:,1],indices[:,2],indices[:,0],indices[:,3],indices[:,1])),
+#                                 np.hstack((indices[:,3],indices[:,1],indices[:,2],indices[:,0],indices[:,3],indices[:,1],indices[:,2],indices[:,0]))),np.broadcast_to(unique_teis, (8,unique_teis.shape[0])).flatten())
 
-    I = jax.ops.index_update(I, (indices[:,0], indices[:,1], indices[:,2], indices[:,3], 
-                                 indices[:,2], indices[:,3], indices[:,0], indices[:,1], 
-                                 indices[:,1], indices[:,0], indices[:,3], indices[:,2], 
-                                 indices[:,3], indices[:,2], indices[:,1], indices[:,0], 
-                                 indices[:,1], indices[:,0], indices[:,2], indices[:,3], 
-                                 indices[:,3], indices[:,2], indices[:,0], indices[:,1], 
-                                 indices[:,0], indices[:,1], indices[:,3], indices[:,2], 
-                                 indices[:,2], indices[:,3], indices[:,1], indices[:,0]), (unique_teis,unique_teis,unique_teis,unique_teis,unique_teis,unique_teis,unique_teis,unique_teis))
-
-#[0,1,2,3]
-#[2,3,0,1]
-#[1,0,3,2]
-#[3,2,1,0]
-#[1,0,2,3]
-#[3,2,0,1]
-#[0,1,3,2]
-#[2,3,1,0]
-#
-#
-#[i,j,k,l]  
-#[k,l,i,j]
-#[j,i,l,k]
-#[l,k,j,i]
-#[j,i,k,l]
-#[l,k,i,j]
-#[i,j,l,k]
-#[k,l,j,i]
-
+# best so far, though still a lot of redundancy, index 0,0,0,0 for instances gets assigned a value 8 times.
+    @jax.jit
+    def fill_I():
+        I = np.empty((nbf,nbf,nbf,nbf))
+        I = jax.ops.index_update(I, ((indices[:,0],indices[:,2],indices[:,1],indices[:,3],indices[:,1],indices[:,3],indices[:,0],indices[:,2]), 
+                                     (indices[:,1],indices[:,3],indices[:,0],indices[:,2],indices[:,0],indices[:,2],indices[:,1],indices[:,3]),
+                                     (indices[:,2],indices[:,0],indices[:,3],indices[:,1],indices[:,2],indices[:,0],indices[:,3],indices[:,1]),
+                                     (indices[:,3],indices[:,1],indices[:,2],indices[:,0],indices[:,3],indices[:,1],indices[:,2],indices[:,0])),np.broadcast_to(unique_teis, (8,unique_teis.shape[0])))
+        return I
+    I = fill_I()
     return I
 
 def oei(geom,basis,nbf_per_atom,charge_per_atom):
     # SETUP AND OVERLAP INTEGRALS
     nbf = basis.shape[0]
-    nbf_per_atom = int(nbf / 2)
-    # 'centers' are the cartesian centers ((nbf,3) array) corresponding to each basis function, in the same order as the 'basis' vector
-    #TODO
     centers = np.repeat(geom, nbf_per_atom, axis=0) # TODO currently can only repeat each center the same number of times => only works for when all atoms have same # of basis functions
+    #centers = np.repeat(geom, [4,4], axis=0) # TODO currently can only repeat each center the same number of times => only works for when all atoms have same # of basis functions
     # Construct Normalization constant product array, Na * Nb component
     norm = (2 * basis / np.pi)**(3/4)
     normtensor = np.outer(norm,norm) # outer product => every possible combination of Na * Nb
@@ -232,7 +238,7 @@ def orthogonalizer(S):
     #vec = eigvec[:, above_cutoff]
     #A = vec.dot(np.diag(val)).dot(vec.T)
 
-    ## STABLE FOR SMALL EIGENVALUES
+    ### STABLE FOR SMALL EIGENVALUES
     eigval, eigvec = np.linalg.eigh(S)
     #cutoff = 1.0e-12
     #above_cutoff = (abs(eigval) > cutoff * np.max(abs(eigval)))
@@ -242,22 +248,21 @@ def orthogonalizer(S):
     A = vec.dot(np.diag(val)).dot(vec.T)
     return A
 
-geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
+#geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
+geom = np.array([0.000000000000,0.000000000000,-0.8492204,0.000000000000,0.000000000000,0.8492204]).reshape(-1,3)
 
 #atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
 #atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
-#atom1_basis = np.array([0.5, 0.4, 0.3, 0.2])
-#atom2_basis = np.array([0.5, 0.4, 0.3, 0.2])
-atom1_basis = np.array([0.5, 0.4])
-atom2_basis = np.array([0.5, 0.4])
+atom1_basis = np.array([0.5, 0.4, 0.3, 0.2])
+atom2_basis = np.array([0.5, 0.4, 0.3, 0.2])
+#atom1_basis = np.array([0.5, 0.4])
+#atom2_basis = np.array([0.5, 0.4])
 #atom1_basis = np.array([0.5])
 #atom2_basis = np.array([0.4])
 basis = np.concatenate((atom1_basis, atom2_basis))
 print(basis.shape)
 #centers = np.concatenate((np.tile(geom[0],atom1_basis.size).reshape(-1,3), np.tile(geom[1],atom2_basis.size).reshape(-1,3)))
-
-
-nbf_per_atom = np.array([basis.shape[0],basis.shape[0]])
+nbf_per_atom = np.array([atom1_basis.shape[0],atom2_basis.shape[0]])
 charge_per_atom = np.array([1.0,1.0])
 
 @jax.jit
@@ -277,7 +282,6 @@ def hartree_fock_iter(D, A, H, G, Enuc):
 
 def hartree_fock(geom):
     S,T,V = oei(geom,basis,nbf_per_atom,charge_per_atom)
-    #G = fast_tei(basis, centers, basis.shape[0])
     G = fast_tei(geom,basis) 
     #G = tei_setup(geom,basis)
     H = T + V
@@ -286,20 +290,34 @@ def hartree_fock(geom):
     D = np.zeros_like(H)
 
     for i in range(12):
+    #for i in range(1):
         E_scf, D = hartree_fock_iter(D, A, H, G, Enuc)
     return E_scf
 
 
-
-
 E = hartree_fock(geom)
 print(E)
-#gradfunc = jax.jacfwd(hartree_fock)
 gradfunc = jax.jacrev(hartree_fock)
+#gradfunc = jax.jacfwd(hartree_fock)
 #hessfunc = jax.jacfwd(gradfunc)
 #cubefunc = jax.jacfwd(hessfunc)
+
+#G = fast_tei(geom,basis)
+#print(G.shape)
+#Ggrad = jax.jacfwd(fast_tei)(geom,basis)
+#print(Ggrad.shape)
+#jax.jacfwd(jax.jacfwd(jax.jacfwd(fast_tei)))(geom,basis)
+#print(Gcube.shape)
+
+#hessfunc = jax.jit(jax.jacfwd(jax.jacfwd(hartree_fock)))
+#cubefunc = jax.jacfwd(jax.jacfwd(jax.jacfwd(hartree_fock)))
+
+#E = other_hartree_fock(geom)
+#gradfunc = jax.jacrev(other_hartree_fock)
+#hessfunc = jax.jacfwd(gradfunc)
+#cubefunc = jax.jacfwd(hessfunc)
+
 #quarfunc = jax.jacfwd(cubefunc)
-#
 grad = gradfunc(geom)
 print(grad)
 #hess = hessfunc(geom)
@@ -309,4 +327,3 @@ print(grad)
 #quar = quarfunc(geom)
 #print(quar)
 
-#

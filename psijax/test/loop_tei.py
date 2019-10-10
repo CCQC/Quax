@@ -13,7 +13,7 @@ def normalize(aa):
 
 @jax.jarrett
 #@jax.jit
-def boys(arg):
+def boys_eval(arg):
     return jax.scipy.special.erf(np.sqrt(arg + 1e-9)) * np.sqrt(np.pi) / (2 * np.sqrt(arg + 1e-9))
 
 #@jax.jarrett
@@ -32,7 +32,7 @@ def eri(aa,bb,cc,dd,A,B,C,D):
     Na, Nb, Nc, Nd = normalize(aa), normalize(bb), normalize(cc), normalize(dd)
     delta = 1 / (4 * g1) + 1 / (4 * g2)
     arg = np.dot(Rp - Rq, Rp - Rq) / (4 * delta)
-    F = boys(arg)
+    F = boys_eval(arg)
     G = F * Na * Nb * Nc * Nd * c1 * c2 * 2 * np.pi**2 / (g1 * g2) * np.sqrt(np.pi / (g1 + g2))
     return G
 
