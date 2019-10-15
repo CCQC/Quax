@@ -47,19 +47,20 @@ def find_indices(nbf):
     # is this right?
     #TMP TODO
     #old_cond3 = indices[:,0] * (indices[:,0] + 1)/2 + indices[:,1] >= indices[:,2]*(indices[:,2]+1)/2 + indices[:,3]
+    cond3 = indices[:,0] * (indices[:,0] + 1)/2 + indices[:,1] >= indices[:,2]*(indices[:,2]+1)/2 + indices[:,3]
 
-    condij = indices[:,0] < indices[:,1]
-    condkl = indices[:,2] < indices[:,3]
-    # all indices where i<j, compute j(j+1) / 2 + i. all indices where i>=j, compute i(i+1) / 2 + j
-    tmpIJ = onp.empty(indices.shape[0])
-    tmpIJ[condij] = indices[condij, 1] * (indices[condij,1] + 1) / 2 + indices[condij,0]
-    tmpIJ[~condij] = indices[~condij, 0] * (indices[~condij,0] + 1) / 2 + indices[~condij,1]
-    # all indices where k<l, compute l(l+1) / 2 + k. all indices where k>=l, compute k(k+1) / 2 + l
-    tmpKL = onp.empty(indices.shape[0])
-    tmpKL[condkl] = indices[condkl, 3] * (indices[condkl,3] + 1) / 2 + indices[condkl,2]
-    tmpKL[~condkl] = indices[~condkl, 2] * (indices[~condkl,2] + 1) / 2 + indices[~condkl,3]
-    # Bool for IJ>=KL
-    cond3 = tmpIJ >= tmpKL
+#    condij = indices[:,0] < indices[:,1]
+#    condkl = indices[:,2] < indices[:,3]
+#    # all indices where i<j, compute j(j+1) / 2 + i. all indices where i>=j, compute i(i+1) / 2 + j
+#    tmpIJ = onp.empty(indices.shape[0])
+#    tmpIJ[condij] = indices[condij, 1] * (indices[condij,1] + 1) / 2 + indices[condij,0]
+#    tmpIJ[~condij] = indices[~condij, 0] * (indices[~condij,0] + 1) / 2 + indices[~condij,1]
+#    # all indices where k<l, compute l(l+1) / 2 + k. all indices where k>=l, compute k(k+1) / 2 + l
+#    tmpKL = onp.empty(indices.shape[0])
+#    tmpKL[condkl] = indices[condkl, 3] * (indices[condkl,3] + 1) / 2 + indices[condkl,2]
+#    tmpKL[~condkl] = indices[~condkl, 2] * (indices[~condkl,2] + 1) / 2 + indices[~condkl,3]
+#    # Bool for IJ>=KL
+#    cond3 = tmpIJ >= tmpKL
     #print(cond3)
     #print(np.allclose(old_cond3, cond3))
     mask = cond1 & cond2 & cond3
@@ -200,14 +201,14 @@ def build_fock(in_D, H, p_j, p_k):
     # Multiply off diagonal of density by 2
     b = onp.eye(nbf, dtype=bool)
     tmpD[~b] *= 2
-    D = tmpD[onp.tril_indices(nbf)]
-    J = onp.zeros_like(D)
-    K = onp.zeros_like(D)
+    tmpD = tmpD[onp.tril_indices(nbf)]
+    J = onp.zeros_like(tmpD)
+    K = onp.zeros_like(tmpD)
 
     pJKi = 0
     for pq in range(int(nbf * (nbf + 1) / 2)):
         # D_pq: Density matrix value 
-        D_pq = D[pq]
+        D_pq = tmpD[pq]
         # D_rs: Position in Density vector
         D_rs = 0
         # J_rs: Position in Coulomb vector
@@ -219,10 +220,10 @@ def build_fock(in_D, H, p_j, p_k):
         J_pq = 0.0
         K_pq = 0.0
         for rs in range(0, pq+1):
-            J_pq += p_j[pJKi] * D[D_rs] # might need * 2
+            J_pq += p_j[pJKi] * tmpD[D_rs] # might need * 2
             J[J_rs] += p_j[pJKi] * D_pq # might need * 2
 
-            K_pq += p_k[pJKi] * D[D_rs] 
+            K_pq += p_k[pJKi] * tmpD[D_rs] 
             K[K_rs] += p_k[pJKi] * D_pq
 
             D_rs += 1
@@ -232,9 +233,12 @@ def build_fock(in_D, H, p_j, p_k):
         J[pq] += J_pq
         K[pq] += K_pq
 
-    F_tmp = 2 * J - K
+    print("K matrix eleemnts")
+    print(K)
+    F_tmp = J * 2 - K
     F_noH = onp.zeros((nbf,nbf))
-    xs, ys = onp.triu_indices(nbf,0) 
+    #xs, ys = onp.triu_indices(nbf,0) 
+    xs, ys = onp.tril_indices(nbf,0) 
     F_noH[xs,ys] = F_tmp
     F_noH[ys,xs] = F_tmp
 
@@ -259,7 +263,6 @@ def hartree_fock(x1,y1,z1,x2,y2,z2):
     ndocc = 1
     
     for i in range(5):
-        print(D)
         F = build_fock(D, H, pj, pk)
         E_scf = onp.einsum('pq,pq->', F + H, D) + Enuc
         print(E_scf)
