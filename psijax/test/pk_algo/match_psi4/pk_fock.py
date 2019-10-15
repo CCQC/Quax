@@ -138,15 +138,14 @@ geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.
 
 #atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),1)
 #atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),1)
-#atom1_basis = np.array([0.5, 0.4])
-#atom2_basis = np.array([0.5, 0.4])
-atom1_basis = np.array([0.5])
-atom2_basis = np.array([0.5])
+atom1_basis = np.array([0.5, 0.4])
+atom2_basis = np.array([0.5, 0.4])
+#atom1_basis = np.array([0.5])
+#atom2_basis = np.array([0.4])
 basis = np.concatenate((atom1_basis, atom2_basis))
 print(basis.shape)
 nbf_per_atom = np.array([atom1_basis.shape[0],atom2_basis.shape[0]])
 charge_per_atom = np.array([1.0,1.0])
-
 
 # Psi4's INDEX2(i,j) function
 def index2(i,j):
@@ -198,7 +197,6 @@ def build_pj_pk(g, indices, nbf):
 def build_fock(in_D, H, p_j, p_k):
     nbf = in_D.shape[0]
     tmpD = in_D.copy()
-    #D = onp.asarray(D)
     # Multiply off diagonal of density by 2
     b = onp.eye(nbf, dtype=bool)
     tmpD[~b] *= 2
@@ -234,14 +232,13 @@ def build_fock(in_D, H, p_j, p_k):
         J[pq] += J_pq
         K[pq] += K_pq
 
-    # Convert J and K to full matrices
-    newJ = onp.zeros((nbf,nbf))
-    newK = onp.zeros((nbf,nbf))
-    newJ[onp.tril_indices(nbf)] = J
-    newJ[onp.triu_indices(nbf)] = J
-    newK[onp.tril_indices(nbf)] = K
-    newK[onp.triu_indices(nbf)] = K
-    F = H + 2 * newJ - newK
+    F_tmp = 2 * J - K
+    F_noH = onp.zeros((nbf,nbf))
+    xs, ys = onp.triu_indices(nbf,0) 
+    F_noH[xs,ys] = F_tmp
+    F_noH[ys,xs] = F_tmp
+
+    F = F_noH + H
     return F 
 
 def hartree_fock(x1,y1,z1,x2,y2,z2):
@@ -262,6 +259,7 @@ def hartree_fock(x1,y1,z1,x2,y2,z2):
     ndocc = 1
     
     for i in range(5):
+        print(D)
         F = build_fock(D, H, pj, pk)
         E_scf = onp.einsum('pq,pq->', F + H, D) + Enuc
         print(E_scf)
