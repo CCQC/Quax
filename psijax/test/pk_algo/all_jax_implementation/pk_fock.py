@@ -124,10 +124,10 @@ def orthogonalizer(S):
 
 geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
 
-#atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
-#atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
-atom1_basis = np.array([0.5, 0.4])
-atom2_basis = np.array([0.5, 0.4])
+atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),12)
+atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),12)
+#atom1_basis = np.array([0.5, 0.4])
+#atom2_basis = np.array([0.5, 0.4])
 #atom1_basis = np.array([0.5])
 #atom2_basis = np.array([0.4])
 basis = np.concatenate((atom1_basis, atom2_basis))
@@ -270,28 +270,24 @@ def tmp_build_G(indices, in_D, pk, nbf):
     tmpD[~b] *= 2
     D = tmpD[onp.tril_indices(nbf)]
     D = np.asarray(D)
-    G = np.zeros_like(D)
 
-    IJ = vectorized_index2(indices[:,0], indices[:,1]).astype(int)
-    KL = vectorized_index2(indices[:,2], indices[:,3]).astype(int)
-    IJKL = vectorized_index2(IJ,KL).astype(int)
-
-    newpk = onp.zeros((IJ.shape[0], KL.shape[0]))
-    newpk[IJ,KL] = pk[:-1]
-
-    newpk = np.asarray(newpk)
-    #TODO temp
-    #pk = np.asarray(pk)
-
-    IJ = np.asarray(IJ)
-    KL = np.asarray(KL)
-    IJKL = np.asarray(IJKL)
+    # These index arrays are Numpy by default, swicth to jax arrays
+    IJ   = np.asarray(vectorized_index2(indices[:,0], indices[:,1]).astype(int))
+    KL   = np.asarray(vectorized_index2(indices[:,2], indices[:,3]).astype(int))
+    IJKL = np.asarray(vectorized_index2(IJ,KL).astype(int))
+    #IJ = np.asarray(IJ)
+    #KL = np.asarray(KL)
+    #IJKL = np.asarray(IJKL)
 
     #for i in range(IJ.shape[0]):
     #    #G = jax.ops.index_add(G, IJ[i], newpk[IJ[i], KL[i]] * D[KL[i]])
     #    #G = jax.ops.index_add(G, KL[i], newpk[IJ[i], KL[i]] * D[IJ[i]])
     #    G = jax.ops.index_add(G, IJ[i], pk[IJKL[i]] * D[KL[i]])
     #    G = jax.ops.index_add(G, KL[i], pk[IJKL[i]] * D[IJ[i]])
+
+
+    # Build G
+    G = np.zeros_like(D)
 
     def update_IJ(G, i):
         #G = jax.ops.index_add(G, IJ[i], newpk[IJ[i], KL[i]] * D[KL[i]])
