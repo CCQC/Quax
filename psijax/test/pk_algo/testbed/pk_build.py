@@ -77,12 +77,12 @@ def tei(geom,basis):
 
 geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
 
-#atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
-#atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
+atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),2)
+atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),2)
 #atom1_basis = np.array([0.5, 0.4])
 #atom2_basis = np.array([0.5, 0.4])
-atom1_basis = np.array([0.5])
-atom2_basis = np.array([0.4])
+#atom1_basis = np.array([0.5])
+#atom2_basis = np.array([0.4])
 basis = np.concatenate((atom1_basis, atom2_basis))
 print(basis.shape)
 nbf_per_atom = np.array([atom1_basis.shape[0],atom2_basis.shape[0]])
@@ -97,50 +97,10 @@ def index2(i,j):
 def index4(i,j,k,l):
     return index2(index2(i,j),index2(k,l))
 
-
-#def vectorized_index2(indices, I=0, J=1, K=2, L=3):
-#    '''Give positions of i,j,k,l '''
-#    indices = onp.asarray(indices)
-#    i,j,k,l = indices[:,I], indices[:,J], indices[:,K], indices[:,L]
-#    print(i)
-#    print(j)
-#
-#    cond1 = i < j
-#    print(indices[cond1,1])
-#    print(indices[cond1,0])
-#    compound = onp.zeros((indices.shape[0]))
-#
-#    print(cond1)
-#    if np.any(cond1): 
-#        compound[cond1] = indices[cond1, J]  * (indices[cond1, J] + 1) / 2 + indices[cond1, I]
-#    if np.any(~cond1): 
-#        compound[~cond1] = indices[~cond1, I]  * (indices[~cond1, I] + 1) / 2 + indices[~cond1, J]
-#
-#    #compound[cond1] = indices[cond1, j]  * (indices[cond1, j] + 1) / 2 + indices[cond1, i]
-#    print(compound)
-
-def build_c_ikjl(indices):
-    indices = onp.asarray(indices)
-    i,j,k,l = indices[:,0], indices[:,1], indices[:,2], indices[:,3]
-    cond = (i == k) | (j == l)
-    c_ikjl = onp.where(cond, -0.5, -0.25)
-    return c_ikjl
-    
-def build_c_iljk(indices):
-    indices = onp.asarray(indices)
-    i,j,k,l = indices[:,0], indices[:,1], indices[:,2], indices[:,3]
-    cond1 = (i == j) | (k == l) # yield 0.0
-    cond2 = (i == l) | (j == k) # yield 0.5 else 0.25
-    c_iljk = onp.where(cond1, 0.0, onp.where(cond2, -0.5, -0.25))
-    return c_iljk
-
-
-
 def vectorized_index2(indicesI, indicesJ):
     indicesI = onp.asarray(indicesI)
     indicesJ = onp.asarray(indicesJ)
     cond = indicesI < indicesJ
-
     compoundij = onp.zeros((indicesI.shape[0]))
     if np.any(cond): 
         compoundij[cond] = indicesJ[cond] * (indicesJ[cond] + 1) / 2 + indicesI[cond]
@@ -149,51 +109,82 @@ def vectorized_index2(indicesI, indicesJ):
     return compoundij
 
 def vectorized_index4(indicesI, indicesJ, indicesK, indicesL):
-    compound_IJKL = vectorized_index2(vectorized_index2(indicesI, indicesJ),vectorized_index2(indicesK, indicesL))
-    return compound_IJKL
+    compound_IJKL = vectorized_index2(vectorized_index2(indicesI, indicesJ),vectorized_index2(indicesK, indicesL)).astype(int)
+    # convert to JAX array
+    return np.asarray(compound_IJKL)
 
+def build_c_ikjl(indices):
+    indices = onp.asarray(indices)
+    i,j,k,l = indices[:,0], indices[:,1], indices[:,2], indices[:,3]
+    cond = (i == k) | (j == l)
+    c_ikjl = onp.where(cond, -0.5, -0.25)
+    # convert to JAX array
+    return np.asarray(c_ikjl)
+    
+def build_c_iljk(indices):
+    indices = onp.asarray(indices)
+    i,j,k,l = indices[:,0], indices[:,1], indices[:,2], indices[:,3]
+    cond1 = (i == j) | (k == l) # yield 0.0
+    cond2 = (i == l) | (j == k) # yield 0.5 else 0.25
+    c_iljk = onp.where(cond1, 0.0, onp.where(cond2, -0.5, -0.25))
+    # convert to JAX array
+    return np.asarray(c_iljk)
 
+def build_ILJK(indices):
+    indices = onp.asarray(indices)
+    i,j,k,l = indices[:,0], indices[:,1], indices[:,2], indices[:,3]
+    cond = (i != j) & (k != l)  # if this, compute index, else set -1
+    ILJK = onp.where(cond, vectorized_index4(i,l,j,k), -1).astype(int)
+    # convert to JAX array
+    return np.asarray(ILJK)
 
-
+def pk_diagonal(nbf):
+    dim = int(nbf * (nbf + 1) / 2)
+    lower_triangle_vector = onp.arange((dim**2 - dim) / 2 + dim) #includes diagonal
+    mask = onp.tri(dim, dtype=bool, k=0)
+    out = onp.zeros((dim,dim),dtype=int)
+    out[mask] = lower_triangle_vector
+    pk_diag = onp.diagonal(out)
+    return pk_diag
 
 def build_pk(g, indices, nbf):
     '''g: unique teis as a vector 
        indices: indices of each unique tei  (i<=j k<=l, IJ<=KL)
     '''
     pk = onp.zeros((g.shape[0]))
-#    print("IJKL IKJL ILJK")
     for idx,val in enumerate(g):
         i,j,k,l = indices[idx][0],indices[idx][1],indices[idx][2],indices[idx][3]
         IJKL = index4(i,j,k,l)
         # J part
         pk[IJKL] += val
 
-#        print(idx, '-->',IJKL, end=' ')
+        print(IJKL, end=' ')
 
         IKJL = index4(i,k,j,l)
         if i == k or j == l:
             pk[IKJL] -= 0.5 * val
-            print("c_ikjl", -0.5)
+#            print("c_ikjl", -0.5)
         else:
             pk[IKJL] -= 0.25 * val
-            print("c_ikjl", -0.25)
-#        print('  ', idx, '-->', IKJL, end=' ')
+#            print("c_ikjl", -0.25)
+        print(IKJL, end=' ')
 
         # K/2 parts
         if i != j and k != l:
             ILJK = index4(i,l,j,k)
             if i == l or j == k:
                 pk[ILJK] -= 0.5 * val
-                print("c_iljk", -0.5)
+#                print("c_iljk", -0.5)
             else:
                 pk[ILJK] -= 0.25 * val
-                print("c_iljk", -0.25)
-#            print('   ',idx, '-->', ILJK, end='\n')
+#                print("c_iljk", -0.25)
+            print('   ', ILJK, end='\n')
         else:
-            print("c_iljk", 0.0)
-#            print('  ',idx, '-->',-1, end='\n')
+#            print("c_iljk", 0.0)
+            print(-1, end='\n')
 
 
+    #TEMP TODO TODO 
     # Set diagonal to one half value
     for ij in range(int(nbf * (nbf + 1) / 2)):
         r = index2(ij,ij)
@@ -202,53 +193,56 @@ def build_pk(g, indices, nbf):
 
 
 def PK(g, indices, nbf):
-
-
+    IJKL = np.arange(g.shape[0])
+    IKJL = vectorized_index4(indices[:,0], indices[:,2], indices[:,1], indices[:,3])
+    ILJK = build_ILJK(indices)
     C_IKJL = build_c_ikjl(indices)
     C_ILJK = build_c_iljk(indices)
 
+    #Deal with 'diagonal' IJ=IJ of pk being multiplied by 0.5
+    pk_diag_indices = pk_diagonal(nbf)
+    pk_diag = onp.ones(g.shape[0] + 1)
+    pk_diag[pk_diag_indices] = 0.5
+    pk_diag = np.asarray(pk_diag)
 
+    # Build PK with a buffer dummy element at the end. This is so ILJK indices which are set to -1 don't actually effect PK values
+    # Note this causes some redundant computation, but leads to straight-forward 'jaxification'.
+    pk = np.zeros(g.shape[0] + 1)
 
+    # jax.lax.scan super slow if multiple index updates in one function. (race conditions?) Just do it three times I guess?
+    # The C_x arrays have the negative sign built in, contain either -0.25 or -0.5.
+    def update_ijkl(pk,i):
+        pk = jax.ops.index_add(pk, IJKL[i], g[i])
+        return pk, ()
 
+    def update_ikjl(pk, i):
+        pk = jax.ops.index_add(pk, IKJL[i], C_IKJL[i] * g[i])
+        return pk, ()
 
+    def update_iljk(pk, i):
+        pk = jax.ops.index_add(pk, ILJK[i], C_ILJK[i] * g[i])
+        return pk, ()
 
+    pk, _ = jax.lax.scan(update_ijkl, pk, IJKL)
+    pk, _ = jax.lax.scan(update_ikjl, pk, IJKL)
+    pk, _ = jax.lax.scan(update_iljk, pk, IJKL)
 
-
-
-
-def indices_only(indices):
-
-
-    for indice in indices:
-        i,j,k,l = indice
-        IJKL = index4(i,j,k,l)
-        IKJL = index4(i,k,j,l)
-        ILJK = index4(i,l,j,k)
-    #    if i == k or j == l:
-    #        c1 = 0.5
-    #    else:
-    #        c2 = 0.25
-
-    #    if i != j and k != l:
-    #        ILJK = index4(i,l,j,k)
-    #        if i == l or j == k:
-    #            c1 = 0.5
-    #        else:
-    #            c1 = 0.25
-
+    #Deal with 'diagonal' IJ=IJ of pk being multiplied by 0.5
+    final_pk = pk * pk_diag
+    return final_pk
 
         
-
 def test(geom):
     nbf = basis.shape[0]  
     g, indices = tei(geom,basis) 
-    pk = build_pk(g, indices, nbf)
-
+    pkold = build_pk(g, indices, nbf)
     indices = find_indices(nbf)
-    C_IKJL = build_c_ikjl(indices)
-    C_ILJK = build_c_iljk(indices)
-    print(C_IKJL)
-    print(C_ILJK)
+    pknew = PK(g, indices, nbf) 
+    print(np.allclose(pkold,pknew[:-1]))
+    #C_IKJL = build_c_ikjl(indices)
+    #C_ILJK = build_c_iljk(indices)
+    #print(C_IKJL)
+    #print(C_ILJK)
 
     #indices_only(indices)
 
