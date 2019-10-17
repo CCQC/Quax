@@ -119,8 +119,8 @@ def orthogonalizer(S):
 
 geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
 
-atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),4)
-atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),4)
+atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
+atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
 #atom1_basis = np.array([0.5, 0.4])
 #atom2_basis = np.array([0.5, 0.4])
 #atom1_basis = np.array([0.5])
@@ -310,7 +310,7 @@ def hartree_fock(geom):
 
 
 #E = hartree_fock(0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955)
-g = jax.grad(hartree_fock)(geom)
+g = jax.jacfwd(jax.jacfwd(hartree_fock))(geom)
 print(g)
 
 
