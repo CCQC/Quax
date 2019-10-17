@@ -124,8 +124,8 @@ def orthogonalizer(S):
 
 geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
 
-atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),12)
-atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),12)
+atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
+atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
 #atom1_basis = np.array([0.5, 0.4])
 #atom2_basis = np.array([0.5, 0.4])
 #atom1_basis = np.array([0.5])
@@ -234,57 +234,30 @@ def build_PK(g, indices, nbf):
     #return onp.asarray(final_pk)
     return final_pk
 
+#def build_G(indices, in_D, pk, nbf):
+#    # Multiply off diagonal of density by 2, extract lower triangle
+#    tmpD = in_D.copy()
+#    b = onp.eye(nbf, dtype=bool)
+#    tmpD[~b] *= 2
+#    D = tmpD[onp.tril_indices(nbf)]
+#    G = onp.zeros_like(D)
+
 def build_G(indices, in_D, pk, nbf):
-    # Multiply off diagonal of density by 2, extract lower triangle
-    tmpD = in_D.copy()
-    b = onp.eye(nbf, dtype=bool)
-    tmpD[~b] *= 2
-    D = tmpD[onp.tril_indices(nbf)]
-    G = onp.zeros_like(D)
-
-    PKi = 0
-    for pq in range(int(nbf * (nbf + 1) / 2)):
-        D_rs = 0
-        G_rs = 0
-        D_pq = D[pq]
-        G_pq = 0.0
-        for rs in range(0, pq+1):
-            G_pq += pk[PKi] * D[D_rs]
-            G[G_rs] += pk[PKi] * D_pq
-            D_rs += 1
-            G_rs += 1
-            PKi += 1
-        G[pq] += G_pq
-    print(PKi)
-
-    # Convert to symmeteric matrix
-    newG = onp.zeros((nbf,nbf))
-    xs, ys = onp.tril_indices(nbf,0) 
-    newG[xs,ys] = G 
-    newG[ys,xs] = G 
-    return 2 * newG
-
-def tmp_build_G(indices, in_D, pk, nbf):
+    # TODO jaxify the density matrix off diagonal multiplication
     tmpD = in_D.copy()
     b = onp.eye(nbf, dtype=bool)
     tmpD[~b] *= 2
     D = tmpD[onp.tril_indices(nbf)]
     D = np.asarray(D)
 
-    # These index arrays are Numpy by default, swicth to jax arrays
+    # These index arrays are Numpy by default, switch to jax arrays
     IJ   = np.asarray(vectorized_index2(indices[:,0], indices[:,1]).astype(int))
     KL   = np.asarray(vectorized_index2(indices[:,2], indices[:,3]).astype(int))
     IJKL = np.asarray(vectorized_index2(IJ,KL).astype(int))
-    #IJ = np.asarray(IJ)
-    #KL = np.asarray(KL)
-    #IJKL = np.asarray(IJKL)
 
     #for i in range(IJ.shape[0]):
-    #    #G = jax.ops.index_add(G, IJ[i], newpk[IJ[i], KL[i]] * D[KL[i]])
-    #    #G = jax.ops.index_add(G, KL[i], newpk[IJ[i], KL[i]] * D[IJ[i]])
     #    G = jax.ops.index_add(G, IJ[i], pk[IJKL[i]] * D[KL[i]])
     #    G = jax.ops.index_add(G, KL[i], pk[IJKL[i]] * D[IJ[i]])
-
 
     # Build G
     G = np.zeros_like(D)
@@ -303,14 +276,13 @@ def tmp_build_G(indices, in_D, pk, nbf):
     G, _ = jax.lax.scan(update_IJ, G, idx)
     G, _ = jax.lax.scan(update_KL, G, idx)
 
-
-    # Convert to symmeteric matrix
-    newG = onp.zeros((nbf,nbf))
-    xs, ys = onp.tril_indices(nbf,0) 
-    newG[xs,ys] = G 
-    newG[ys,xs] = G 
-    return 2 * newG
-
+    # Convert to symmeteric matrix... how to do this in JAX?
+    fullG = np.zeros((nbf,nbf))
+    xs, ys = np.tril_indices(nbf)
+    fullG = jax.ops.index_update(fullG, (xs,ys), G)
+    fullG = jax.ops.index_update(fullG, (ys,xs), G)
+    return 2 * fullG
+    
 def hartree_fock(x1,y1,z1,x2,y2,z2):
     geom = onp.hstack((x1,y1,z1,x2,y2,z2)).reshape(-1,3)
     nbf = basis.shape[0]  
@@ -326,12 +298,11 @@ def hartree_fock(x1,y1,z1,x2,y2,z2):
     H = T + V
     A = orthogonalizer(S)
     Enuc = nuclear_repulsion(geom[0],geom[1])
-    D = onp.zeros((nbf,nbf))
+    D = np.zeros((nbf,nbf))
     ndocc = 1
     
-    for i in range(5):
-        #G = build_G(indices, D, pk, nbf) 
-        G = tmp_build_G(indices, D, pk, nbf) 
+    for i in range(10):
+        G = build_G(indices, D, pk, nbf) 
         F = G + H
         E_scf = onp.einsum('pq,pq->', F + H, D) + Enuc
         print(E_scf)
@@ -343,6 +314,8 @@ def hartree_fock(x1,y1,z1,x2,y2,z2):
 
 
 E = hartree_fock(0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955)
+#g = jax.grad(hartree_fock)(0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955)
+#print(g)
 
 
 
