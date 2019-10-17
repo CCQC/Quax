@@ -39,14 +39,9 @@ def index2(i,j):
 
 def find_indices(nbf):
     '''Find a set of indices of ERI tensor corresponding to unique two-electron integrals'''
-    #v = onp.arange(nbf, dtype=onp.int16)
     v = onp.arange(nbf)
     indices = cartesian_product(v,v,v,v)
     # 'Canonical' order, i>=j, k>=l, IJ>=KL
-    #cond1 = indices[:,0] >= indices[:,1]
-    #cond2 = indices[:,2] >= indices[:,3]
-    #cond3 = indices[:,0] * (indices[:,0] + 1)/2 + indices[:,1] >= indices[:,2]*(indices[:,2]+1)/2 + indices[:,3]
-    #mask = cond1 & cond2 & cond3
     cond1 = (indices[:,0] >= indices[:,1]) & (indices[:,2] >= indices[:,3])
     cond2 = indices[:,0] * (indices[:,0] + 1)/2 + indices[:,1] >= indices[:,2]*(indices[:,2]+1)/2 + indices[:,3]
     mask = cond1 & cond2 
@@ -124,8 +119,8 @@ def orthogonalizer(S):
 
 geom = np.array([0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955]).reshape(-1,3)
 
-atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
-atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),8)
+atom1_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),4)
+atom2_basis = np.repeat(np.array([0.5, 0.4, 0.3, 0.2]),4)
 #atom1_basis = np.array([0.5, 0.4])
 #atom2_basis = np.array([0.5, 0.4])
 #atom1_basis = np.array([0.5])
@@ -136,15 +131,18 @@ nbf_per_atom = np.array([atom1_basis.shape[0],atom2_basis.shape[0]])
 charge_per_atom = np.array([1.0,1.0])
 
 def index2(i,j):
+    '''Compute compound index ij given indices i,j'''
     if (i < j):
         return int(j * (j + 1) / 2 + i)
     else:
         return int(i * (i + 1) / 2 + j)
 
 def index4(i,j,k,l):
+    '''Compute compound index ijkl given indices i,j,k,l'''
     return index2(index2(i,j),index2(k,l))
 
 def vectorized_index2(indicesI, indicesJ):
+    '''Compute compound indices IJ given a vector of many i's, a vector of many j's'''
     indicesI = onp.asarray(indicesI)
     indicesJ = onp.asarray(indicesJ)
     cond = indicesI < indicesJ
@@ -156,11 +154,13 @@ def vectorized_index2(indicesI, indicesJ):
     return compoundij
 
 def vectorized_index4(indicesI, indicesJ, indicesK, indicesL):
+    '''Compute compound indices IJKL given a vector of i's, j's, k's, l's'''
     compound_IJKL = vectorized_index2(vectorized_index2(indicesI, indicesJ),vectorized_index2(indicesK, indicesL)).astype(int)
     # convert to JAX array
     return np.asarray(compound_IJKL)
 
 def build_c_ikjl(indices):
+    '''Compute the coefficients of PK elements at all indices IKJL according to Raffenetti's conditions.'''
     indices = onp.asarray(indices)
     i,j,k,l = indices[:,0], indices[:,1], indices[:,2], indices[:,3]
     cond = (i == k) | (j == l)
@@ -169,6 +169,7 @@ def build_c_ikjl(indices):
     return np.asarray(c_ikjl)
     
 def build_c_iljk(indices):
+    '''Compute the coefficients of PK elements at all indices ILJK according to Raffenetti's conditions.'''
     indices = onp.asarray(indices)
     i,j,k,l = indices[:,0], indices[:,1], indices[:,2], indices[:,3]
     cond1 = (i == j) | (k == l) # yield 0.0
@@ -178,6 +179,8 @@ def build_c_iljk(indices):
     return np.asarray(c_iljk)
 
 def build_ILJK(indices):
+    '''For a given integral index in 'indices', find if it contributes to index ILJK in PK. 
+       If it does, determine the index. Else, set the index to -1.'''
     indices = onp.asarray(indices)
     i,j,k,l = indices[:,0], indices[:,1], indices[:,2], indices[:,3]
     cond = (i != j) & (k != l)  # if this, compute index, else set -1
@@ -186,6 +189,8 @@ def build_ILJK(indices):
     return np.asarray(ILJK)
 
 def pk_diagonal(nbf):
+    '''Returns the index vector corresponding to locations 'diagonal' entries IJ==KL in the PK vector
+       Used to multiply all diagonal elements of PK by 0.5, as instructed in Raffenetti, 1973'''
     dim = int(nbf * (nbf + 1) / 2)
     lower_triangle_vector = onp.arange((dim**2 - dim) / 2 + dim) #includes diagonal
     mask = onp.tri(dim, dtype=bool, k=0)
@@ -195,6 +200,7 @@ def pk_diagonal(nbf):
     return pk_diag
 
 def build_PK(g, indices, nbf):
+    '''Builds the RHF PK 'supermatrix' using JAX/XLA primitives (its really a big vector of length equal to the number of unique two electron integrals) '''
     IJKL = np.arange(g.shape[0])
     IKJL = vectorized_index4(indices[:,0], indices[:,2], indices[:,1], indices[:,3])
     ILJK = build_ILJK(indices)
@@ -231,44 +237,36 @@ def build_PK(g, indices, nbf):
     pk, _ = jax.lax.scan(update_iljk, pk, IJKL)
 
     final_pk = pk * pk_diag
-    #return onp.asarray(final_pk)
     return final_pk
 
-#def build_G(indices, in_D, pk, nbf):
-#    # Multiply off diagonal of density by 2, extract lower triangle
-#    tmpD = in_D.copy()
-#    b = onp.eye(nbf, dtype=bool)
-#    tmpD[~b] *= 2
-#    D = tmpD[onp.tril_indices(nbf)]
-#    G = onp.zeros_like(D)
-
-def build_G(indices, in_D, pk, nbf):
-    # TODO jaxify the density matrix off diagonal multiplication
-    tmpD = in_D.copy()
-    b = onp.eye(nbf, dtype=bool)
-    tmpD[~b] *= 2
-    D = tmpD[onp.tril_indices(nbf)]
-    D = np.asarray(D)
+def build_G(indices, tmpD, pk, nbf):
+    '''Builds the 'G matrix' using the density and the PK matrix. The G matrix is related to the RHF Fock matrix by F = H + G, where H is the one electron part.'''
+    # 'factor' is a matrix of 1's along the diagonal, 2's elsewhere. 
+    # Elementwise multiplication is equivalent to doubling off diagonal elements, as instructed in Raffenetti, 1973
+    factor = np.eye(nbf)
+    off_diag = onp.where(~np.eye(nbf, dtype=bool))
+    factor = jax.ops.index_add(factor, off_diag, 2)
+    tmpD = tmpD * factor
+    D = tmpD[np.tril_indices(nbf)]
 
     # These index arrays are Numpy by default, switch to jax arrays
     IJ   = np.asarray(vectorized_index2(indices[:,0], indices[:,1]).astype(int))
     KL   = np.asarray(vectorized_index2(indices[:,2], indices[:,3]).astype(int))
     IJKL = np.asarray(vectorized_index2(IJ,KL).astype(int))
 
+    # Slow, naive implementation:
     #for i in range(IJ.shape[0]):
     #    G = jax.ops.index_add(G, IJ[i], pk[IJKL[i]] * D[KL[i]])
     #    G = jax.ops.index_add(G, KL[i], pk[IJKL[i]] * D[IJ[i]])
 
-    # Build G
+    # Build G using jax.lax.scan to 'unroll' the loop and simulatenously compute elements
     G = np.zeros_like(D)
 
     def update_IJ(G, i):
-        #G = jax.ops.index_add(G, IJ[i], newpk[IJ[i], KL[i]] * D[KL[i]])
         G = jax.ops.index_add(G, IJ[i], pk[IJKL[i]] * D[KL[i]])
         return G, ()
 
     def update_KL(G, i):
-        #G = jax.ops.index_add(G, KL[i], newpk[IJ[i], KL[i]] * D[IJ[i]])
         G = jax.ops.index_add(G, KL[i], pk[IJKL[i]] * D[IJ[i]])
         return G, ()
 
@@ -283,16 +281,12 @@ def build_G(indices, in_D, pk, nbf):
     fullG = jax.ops.index_update(fullG, (ys,xs), G)
     return 2 * fullG
     
-def hartree_fock(x1,y1,z1,x2,y2,z2):
-    geom = onp.hstack((x1,y1,z1,x2,y2,z2)).reshape(-1,3)
+#def hartree_fock(x1,y1,z1,x2,y2,z2):
+def hartree_fock(geom):
     nbf = basis.shape[0]  
     S,T,V = oei(geom,basis,nbf_per_atom,charge_per_atom)
-    S = onp.asarray(S)
-    T = onp.asarray(T)
-    V = onp.asarray(V)
 
     g, indices = tei(geom,basis) 
-
     pk = build_PK(g, indices, nbf)
 
     H = T + V
@@ -304,18 +298,20 @@ def hartree_fock(x1,y1,z1,x2,y2,z2):
     for i in range(10):
         G = build_G(indices, D, pk, nbf) 
         F = G + H
-        E_scf = onp.einsum('pq,pq->', F + H, D) + Enuc
+        E_scf = np.einsum('pq,pq->', F + H, D) + Enuc
         print(E_scf)
         Fp = A.dot(F).dot(A)
-        eps, C2 = onp.linalg.eigh(Fp)
-        C = onp.dot(A, C2)
+        eps, C2 = np.linalg.eigh(Fp)
+        C = np.dot(A, C2)
         Cocc = C[:, :ndocc]
-        D = onp.einsum('pi,qi->pq', Cocc, Cocc)
+        D = np.einsum('pi,qi->pq', Cocc, Cocc)
+
+    return E_scf
 
 
-E = hartree_fock(0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955)
-#g = jax.grad(hartree_fock)(0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955)
-#print(g)
+#E = hartree_fock(0.000000000000,0.000000000000,-0.849220457955,0.000000000000,0.000000000000,0.849220457955)
+g = jax.grad(hartree_fock)(geom)
+print(g)
 
 
 
