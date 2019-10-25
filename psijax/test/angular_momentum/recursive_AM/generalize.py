@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as np
 import numpy as onp
+onp.set_printoptions(linewidth=500)
 from jax.config import config; config.update("jax_enable_x64", True)
 
 def double_factorial(n):
@@ -96,16 +97,23 @@ print(Na * Nb * val)
 
 
 # Create exponents vector for H: S 0.5 and H: D 0.5
-exponents = np.repeat(0.5, 7)
-nbf_per_atom = np.array([1,6])
 geom = np.array([[0.0,0.0,-0.849220457955],
                  [0.0,0.0, 0.849220457955]])
+
+#exponents = np.repeat(0.5, 7)
+#nbf_per_atom = np.array([1,6])
+#centers = np.repeat(geom, nbf_per_atom, axis=0)
+#angular_momentum = np.array([[0,0,0], [2,0,0], [1,1,0], [1,0,1], [0,2,0], [0,1,1], [0,0,2]])
+#nbf = exponents.shape[0]
+#S = onp.zeros((nbf,nbf))
+
+exponents = np.repeat(0.5, 12)
+nbf_per_atom = np.array([6,6])
 centers = np.repeat(geom, nbf_per_atom, axis=0)
-# dxx dxy dxz dyy dyz dzz
-angular_momentum = np.array([[0,0,0], [2,0,0], [1,1,0], [1,0,1], [0,2,0], [0,1,1], [0,0,2]])
-print(exponents)
-print(centers)
-print(angular_momentum)
+angular_momentum = np.array([[2,0,0], [1,1,0], [1,0,1], [0,2,0], [0,1,1], [0,0,2], [2,0,0], [1,1,0], [1,0,1], [0,2,0], [0,1,1], [0,0,2]])
+nbf = exponents.shape[0]
+S = onp.zeros((nbf,nbf))
+
 
 for i, aa in enumerate(exponents):
     for j, bb in enumerate(exponents):
@@ -119,11 +127,16 @@ for i, aa in enumerate(exponents):
         args = (Ax,Ay,Az,Bx,By,Bz,aa,bb)
         integral_func = recursively_promote_oei(args, start_am, target_am, overlap_ss, old=None)
 
-        Na = normalize(args[-2],pi, pj, pk)
-        Nb = normalize(args[-1],qi, qj, qk)
-        val = integral_func(*args) 
-        print(Na * Nb * val)
+        #Na = normalize(args[-2],pi, pj, pk)
+        #Nb = normalize(args[-1],qi, qj, qk)
+        Na = 0.489335770373359
+        Nb = 0.489335770373359
 
+        val = integral_func(*args) 
+        overlap = Na * Nb * val
+        S[i,j] = overlap
+
+print(S)
 
 
 
