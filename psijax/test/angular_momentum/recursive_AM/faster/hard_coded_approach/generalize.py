@@ -217,6 +217,7 @@ def oei_3(args, target_am, exponent_vector, func):
     return new3(*args)
 
 def oei_4(args, target_am, exponent_vector, func):
+    # Would have to preprocess this TODO TODO
     increment_count_vector = np.zeros(6)
     mask = np.where(target_am != 0, True,False)
     indices = np.arange(6)[mask]
@@ -341,20 +342,36 @@ def get_overlap(idx):
     start_am = np.array([0,0,0,0,0,0])
     target_am = np.array([pi,pj,pk,qi,qj,qk])
     args = (Ax,Ay,Az,Bx,By,Bz,aa,bb)
-    overlap_func = promote_oei(args, target_am, np.array([aa,aa,aa,bb,bb,bb]), np.zeros(6), overlap_ss, overlap_ss)
+    #overlap_func = promote_oei(args, target_am, np.array([aa,aa,aa,bb,bb,bb]), np.zeros(6), overlap_ss, overlap_ss)
     #overlap_func = test(args, start_am, target_am, overlap_ss, old=None)
     #overlap_func = test(args, start_am, target_am, overlap_ss, old=overlap_ss)
     #overlap_func = recursively_promote_oei(args, start_am, target_am, overlap_ss, old=None)
+
+    #if np.sum(target_am) == 0:
+    #    overlap2 = oei_0(args,overlap_ss)
+    #    print(overlap2*Na*Nb)
+    #if np.sum(target_am) == 1:
+    #    overlap2 = oei_1(args,overlap_ss)
+    #    print(overlap2*Na*Nb)
+    #if np.sum(target_am) == 2:
+    #    overlap2 = oei_2(args, target_am, np.array([aa,aa,aa,bb,bb,bb]), overlap_ss)
+    #    print(overlap2*Na*Nb)
+    #if np.sum(target_am) == 3:
+    #    overlap2 = oei_3(args, target_am, np.array([aa,aa,aa,bb,bb,bb]), overlap_ss)
+    #    print(overlap2*Na*Nb)
+    #if np.sum(target_am) == 4:
+    overlap2 = oei_4(args, target_am, np.array([aa,aa,aa,bb,bb,bb]), overlap_ss)
+    print(overlap2*Na*Nb)
     Na = normalize(args[-2], pi, pj, pk)
     Nb = normalize(args[-1], qi, qj, qk)
-    overlap = Na * Nb * overlap_func(*args)
+    overlap = Na * Nb * overlap2
     print(overlap)
     return overlap
 ##
 #vectorized_overlap = jax.jit(jax.vmap(get_overlap, (0,)))
 #overlap = vectorized_overlap(indices)
 #
-#overlaps = jax.lax.map(get_overlap, indices)
+overlaps = jax.lax.map(get_overlap, indices)
 ##print(overlaps)
 
 def dummy(Ax, Ay, Az, Cx, Cy, Cz, aa, bb):
