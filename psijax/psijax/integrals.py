@@ -94,13 +94,56 @@ def eri_ss(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,aa,bb,cc,dd):
     c2 = np.exp(tmpc2)
     delta = 1 / (4 * g1) + 1 / (4 * g2)
     arg = np.dot(Rp - Rq, Rp - Rq) / (4 * delta)
-    F = boys_eval(arg)
+    F = boys(arg)
     G = F * c1 * c2 * 2 * np.pi**2 / (g1 * g2) * np.sqrt(np.pi / (g1 + g2))
     return G
+
+def cartesian_product(*arrays):
+    '''Generalized cartesian product
+       Used to find all *indices* of values in an ERI tensor of size (nbf,nbf,nbf,nbf) 
+       given 4 arrays:
+       (np.arange(nbf), np.arange(nbf), np.arange(nbf), np.arange(nbf))'''
+    la = len(arrays)
+    dtype = onp.find_common_type([a.dtype for a in arrays], [])
+    arr = onp.empty([len(a) for a in arrays] + [la], dtype=dtype)
+    for i, a in enumerate(onp.ix_(*arrays)):
+        arr[...,i] = a
+    return arr.reshape(-1, la)
+
+def find_unique_tei_indices(nbf):
+    '''Finds a set of indices of an ERI Tensor corresponding to 
+    a UNIQUE set two-electron integrals.'''
+    # NOTE probably a faster way to do this, i.e. organically generate the set of unique indices instead of first generating all indices and filtering with boolean masks
+    v = onp.arange(nbf,dtype=np.int16) #int16 reduces memory by half, no need for large integers, it will not exceed nbf
+    indices = cartesian_product(v,v,v,v)
+    size = indices.shape[0]
+    batch_size = int(size/4) # batch size
+    # Evaluate indices (in batches to save memory) in 'canonical' order, i>=j, k>=l, IJ>=KL
+    def get_mask(a,b):
+        cond1 = (indices[a:b,0] >= indices[a:b,1]) & (indices[a:b,2] >= indices[a:b,3])
+        cond2 = indices[a:b,0] * (indices[a:b,0] + 1)/2 + indices[a:b,1] >= indices[a:b,2]*(indices[a:b,2]+1)/2 + indices[a:b,3]
+        mask = cond1 & cond2
+        return mask
+    mask1 = get_mask(0,batch_size)
+    mask2 = get_mask(batch_size, 2 * batch_size)
+    mask3 = get_mask(2 * batch_size, 3 * batch_size)
+
+    a = 3 * batch_size
+    cond1 = (indices[a:,0] >= indices[a:,1]) & (indices[a:,2] >= indices[a:,3])
+    cond2 = indices[a:,0] * (indices[a:,0] + 1)/2 + indices[a:,1] >= indices[a:,2]*(indices[a:,2]+1)/2 + indices[a:,3]
+    mask4 = cond1 & cond2
+    mask = np.hstack((mask1,mask2,mask3,mask4))
+    # Keep non-batched version here, for clarity:
+    #cond1 = (indices[:,0] >= indices[:,1]) & (indices[:,2] >= indices[:,3]) 
+    #cond2 = indices[:,0] * (indices[:,0] + 1)/2 + indices[:,1] >= indices[:,2]*(indices[:,2]+1)/2 + indices[:,3]
+    #mask = cond1 & cond2 
+    return np.asarray(indices[mask,:])
+
 
 def recursively_promote_oei(args, start_am, target_am, exponent_vector, current, old=None, dim=6):
     '''
     An arbitrary angular momentum one electron integral function factory.
+    Takes in some base s-orbital integral function, as well as target angular momentum vector
     Uses the fact that (a+1i|b) = 1/2 alpha * [ d/dAi (a|b) + ai (a-1i|b)]
     where alpha is the exponent on a, ai is the current angular momentum at index i in (a|b)
 
@@ -200,6 +243,10 @@ nbf = exponents.shape[0]
 #angular_momentum = np.array([[3,0,0], [2,1,0], [1,2,0], [2,0,1], [1,0,2], [1,1,1], [0,3,0], [0,2,1], [0,1,2], [0,0,3],[3,0,0], [2,1,0], [1,2,0], [2,0,1], [1,0,2], [1,1,1], [0,3,0], [0,2,1], [0,1,2], [0,0,3]])
 #nbf = exponents.shape[0]
 
+##########################
+# ONE-ELECTRON INTEGRALS #
+##########################
+
 S = onp.zeros((nbf,nbf))
 T = onp.zeros((nbf,nbf))
 V = onp.zeros((nbf,nbf))
@@ -242,5 +289,38 @@ for i in range(nbf):
 print(S)
 print(T)
 print(V)
+
+
+##########################
+# TWO-ELECTRON INTEGRALS #
+##########################
+
+unique_tei_indices = find_unique_tei_indices(nbf)
+
+for idx in unique_tei_indices:
+    i,j,k,l = idx
+    aa,bb,cc,dd = exponents[i], exponents[j], exponents[k], exponents[l]
+    Ax,Ay,Az = centers[i]
+    Bx,By,Bz = centers[j]
+    Cx,Cy,Cz = centers[k]
+    Dx,Dy,Dz = centers[l]
+
+    pi, pj, pk = angular_momentum[i]
+    qi, qj, qk = angular_momentum[j]
+    ri, rj, rk = angular_momentum[k]
+    si, sj, sk = angular_momentum[l]
+
+    start_am = onp.array([0,0,0,0,0,0,0,0,0,0,0,0])
+    target_am = onp.array([pi,pj,pk,qi,qj,qk,ri,rj,rk,si,sj,sk])
+    exponent_vector = np.array([aa,aa,aa,bb,bb,bb,cc,cc,cc,dd,dd,dd])
+    args = (Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,aa,bb,cc,dd)
+    eri_func = recursively_promote_oei(args, start_am, target_am, exponent_vector, eri_ss, old=None, dim=12)
+
+    Na = normalize(aa, pi, pj, pk)
+    Nb = normalize(bb, qi, qj, qk)
+    Nc = normalize(cc, pi, pj, pk)
+    Nd = normalize(dd, qi, qj, qk)
+    eri_integral = Na * Nb * Nc * Nd * eri_func(*args) 
+    print(eri_integral)
 
 
