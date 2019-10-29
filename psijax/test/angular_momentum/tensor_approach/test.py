@@ -59,9 +59,9 @@ def overlap_ds_block(A,B,alpha_bra,alpha_ket):
     #                      # This is of shape (3,3) all dij combos symmetric matrix    # Thus a_i factor has to be 3x3 identity, so that only 
     result = oot_alpha_bra * (jax.jacfwd(overlap_ps_block, 0)(A,B,alpha_bra,alpha_ket) + np.eye(3) * overlap_ss(A,B,alpha_bra,alpha_ket))  
     # This result is a 3x3 array containing all (dxx,s) (dxy,s) (dyx,s), only need upper or lower triangle
-    # Return lower triangle ((dxx, dxy, dxz, dyy, dyz, dzz) | s) as a vector
-    il = np.tril_indices(3)
-    return result[il]
+    # Return upper triangle ((dxx, dxy, dxz, dyy, dyz, dzz) | s) as a vector
+    iu = np.triu_indices(3)
+    return result[iu]
 
 @jax.jit
 def overlap_dp_block(A,B,alpha_bra,alpha_ket): 
@@ -110,14 +110,11 @@ def overlap_dd_block(A,B,alpha_bra,alpha_ket):
     result = oot_alpha_ket * (first_term + second_term)
     # result is of same signature as jacfwd (first) term above
     # It contains duplicates in each 3x3 sub-array (upper and lower triangle are equal)
-    # reshape and grab out just lower triangle as a vector, reshape into matrix
-    il1,il2 = np.tril_indices(3)
-    result = result.reshape(6,3,3)[:,il1,il2].reshape(6,6)
+    # reshape and grab out just upper triangle as a vector, reshape into matrix
+    iu1,iu2 = np.triu_indices(3)
+    result = result.reshape(6,3,3)[:,iu1,iu2].reshape(6,6)
     return result
     
- 
-
-     
 
 #d_dB_overlap_ps
 
@@ -130,18 +127,38 @@ B = np.array([0.0,0.0, 0.849220457955])
 alpha_bra = 0.5
 alpha_ket = 0.5
 
-print('hard coded')
-print(overlap_ps_block(A,B,alpha_bra,alpha_ket))
 
-print('hard coded')
-print(overlap_pp_block(A,B,alpha_bra,alpha_ket))
+s_N = 0.4237772081237576
+p_N = 0.5993114751532237
+d_N = 0.489335770373359
 
-print('hard coded')
-print(overlap_ds_block(A,B,alpha_bra,alpha_ket))
+# (s|s)
+print(s_N * s_N * overlap_ss(A,B,alpha_bra,alpha_ket))       # YUP
+# (p|s)
+print(p_N * s_N * overlap_ps_block(A,B,alpha_bra,alpha_ket)) # YUP
+# (p|p)
+print(p_N * p_N * overlap_pp_block(A,B,alpha_bra,alpha_ket)) # YUP
+# (d|s)
+print(d_N * s_N * overlap_ds_block(A,B,alpha_bra,alpha_ket)) # YUP
+# (d|p)
+print(d_N * p_N * overlap_dp_block(A,B,alpha_bra,alpha_ket).reshape(6,3))  # YUP
+# (d|d)
+print(d_N * d_N * overlap_dd_block(A,B,alpha_bra,alpha_ket))
 
 
-overlap_dp_block(A,B,alpha_bra,alpha_ket)
+#print('hard coded')
+#print(overlap_ps_block(A,B,alpha_bra,alpha_ket))
 
-overlap_dd_block(A,B,alpha_bra,alpha_ket)
+#print('hard coded')
+#print(overlap_pp_block(A,B,alpha_bra,alpha_ket))
+
+#print('hard coded')
+#print(overlap_ds_block(A,B,alpha_bra,alpha_ket))
+
+
+#overlap_dp_block(A,B,alpha_bra,alpha_ket)
+
+#dd_block = overlap_dd_block(A,B,alpha_bra,alpha_ket)
+#print(dd_block * 0.489335770373359)
 #for i in range(1000):
 #    overlap_pp_block(A,B,alpha_bra,alpha_ket)
