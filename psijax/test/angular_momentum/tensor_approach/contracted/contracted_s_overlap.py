@@ -66,14 +66,12 @@ geom = np.array([[0.0,0.0,-0.849220457955],
 charge = np.array([1.0,1.0])
 A = np.array([0.0,0.0,-0.849220457955])
 B = np.array([0.0,0.0, 0.849220457955])
-#alpha_bra = 0.5
-#alpha_ket = 0.5
 
 # This is a basis function
 exps =   np.array([0.5,
-                   0.4])
-coeffs = np.array([0.75,
-                   0.25])
+                   0.5])
+coeffs = np.array([1.00,
+                   1.00])
 
 # Bake the normalizations into the coefficients, like Psi4
 primitive_norms = jax.vmap(normalize)(exps, np.array([0,0]), np.array([0,0]),np.array([0,0]))
@@ -93,76 +91,64 @@ print(c_o)
 c_o = contracted_overlap_ss(B, B, exps, exps, coeffs, coeffs)
 print(c_o)
 
+def contracted_overlap_ps_block(A, B, alpha_bra,alpha_ket,c_bra,c_ket):
+    #oot_alpha_bra = 1 / (2 * alpha_bra)
+    #oot_alpha_bra = np.sum(1 / (2 * alpha_bra))
+    #oot_alpha_bra = 2 * alpha_bra * 2 * alpha_ket np.sum(1 / (2 * alpha_bra))
+    oot_alpha_bra = 1.0
+    return oot_alpha_bra * jax.jacrev(contracted_overlap_ss,0)(A,B,alpha_bra,alpha_ket,c_bra,c_ket)
+    #return jax.jacrev(contracted_overlap_ss,0)(A,B,alpha_bra,alpha_ket,c_bra,c_ket)
 
-#FINALLY THIS WORKS
-# First normalization: primitives
-prim_norm = np.array([normalize(exps[0],0,0,0), normalize(exps[1],0,0,0)])
-#print(prim_norm)
-coeffs = coeffs * prim_norm
-# Second normalization: contracted eqn
-final_N = contracted_normalize(exps, coeffs, 0, 0, 0)
-coeffs = final_N * coeffs
+@jax.jit
+def overlap_ps_block(A, B, alpha_bra, alpha_ket):
+    oot_alpha_bra = 1 / (2 * alpha_bra)
+    return oot_alpha_bra * jax.jacrev(overlap_ss,0)(A,B,alpha_bra,alpha_ket)
+
+@jax.jit
+def overlap_pp_block(A, B, alpha_bra, alpha_ket):
+    # We are promoting the ket, so the factor is the ket exponent
+    oot_alpha_ket = 1 / (2 * alpha_ket)
+    # No second term, ai is 0 since we are promoting the ket and theres no AM in the ket.
+    return oot_alpha_ket * (jax.jacfwd(overlap_ps_block, 1)(A,B,alpha_bra,alpha_ket))
+
+# Try (p|s) This is a basis function
+exp1 = np.array([0.5,
+                 0.4])
+exp2 = np.array([0.5,
+                 0.4])
+coeffs1 = np.array([1.00,
+                    1.00])
+coeffs2 = np.array([1.00,
+                    1.00])
 
 
+#TODO temp
+coeffs1 = np.array([0.30081673988809127,
+                    0.2275959260774826])
+coeffs2 = np.array([0.21238156276178832,
+                    0.17965292907913089])
 
+# This is the correct (px|s)
+N1 = contracted_normalize(exp1, coeffs1, 1, 0, 0)
+N2 = contracted_normalize(exp2, coeffs2, 0, 0, 0)
+test = contracted_overlap_ps_block(A,B,exp1,exp2,coeffs1,coeffs2)
+print(test)
+print(test * N1 * N2)
 
-##tmp_N = new_normalize(exps, coeffs, 0,0,0)
-##print(tmp_N)
-##print(tmp_N * coeffs)
-#
-#
-#
-##tmp_N = cnorm(exps,coeffs,0,0,0)
-##print(tmp_N)
-##print(tmp_N * coeffs)
-#
-#print("Primitive normalization constants")
-#print(normalize(exps[0],0,0,0))
-#print(normalize(exps[1],0,0,0))
-#print("Primitive normalization constants  * 0.45")
-#print(normalize(exps[0],0,0,0) * 0.5)
-#print(normalize(exps[1],0,0,0) * 0.5)
-#
-## Normalization constant of contracted basis function
-#tmp_N = contracted_normalize(exps, coeffs, 0, 0, 0)
-#
-#print('test')
-#
-#
-## this works. Take Psi4 coefficients (normalized) and pass through contracted overlap equation.
-#psi_c = np.array([0.21238156276178832, 0.17965292907913089])
-#print(contracted_overlap_ss(A,B,exps, exps, psi_c, psi_c) )
-#
-## now the question is: wtf are the psi4 coefficients representing?
-#
-##print( normalize(exps[0],0,0,0) * 0.5 * overlap_ss(A,B,exps[0],exps[1]) +  normalize(exps[1],0,0,0) * 0.5 * overlap_ss(A,B,exps[0],exps[1])  )
-##print(0.21238156276178832 * overlap_ss(A,B,exps[0],exps[1]) + 0.17965292907913089 * overlap_ss(A,B,exps[0],exps[1]))
-#
-#
-#print("Normalization constant", tmp_N)
-#c_o = contracted_overlap_ss(A, A, exps, exps, coeffs, coeffs)
-#print(tmp_N * tmp_N * c_o)
-#c_o = contracted_overlap_ss(A, B, exps, exps, coeffs, coeffs)
-#print(tmp_N * tmp_N * c_o)
-#c_o = contracted_overlap_ss(B, A, exps, exps, coeffs, coeffs)
-#print(tmp_N * tmp_N * c_o)
-#c_o = contracted_overlap_ss(B, B, exps, exps, coeffs, coeffs)
-#print(tmp_N * tmp_N * c_o)
-#
-#print('unnormalized overlap')
-#c_o = contracted_overlap_ss(A, A, exps, exps, coeffs, coeffs)
+#vectorized_overlap_ps_block = jax.vmap(overlap_ps_block, in_axes=(None,None, 0, 0))
+#c_o = vectorized_overlap_ps_block(A, B, exps, exps)
 #print(c_o)
-#c_o = contracted_overlap_ss(A, B, exps, exps, coeffs, coeffs)
-#print(c_o)
-#c_o = contracted_overlap_ss(B, A, exps, exps, coeffs, coeffs)
-#print(c_o)
-#c_o = contracted_overlap_ss(B, B, exps, exps, coeffs, coeffs)
+#print(c_o * 0.5993114751532237 * 0.4237772081237576) # Coef's from Psi4
+
+#print(overlap_pp_block(A,B,0.5,0.5))
+
+vectorized_overlap_pp_block = jax.vmap(overlap_pp_block, in_axes=(None,None, 0, 0))
+c_o = vectorized_overlap_pp_block(A, B, exps, exps)
 #print(c_o)
 
-
-#0.21238156276178832 *0.17965292907913089
-
-
+#print(coeffs)
+#coeffs = np.tile(coeffs,3).reshape(2,3)
+#print(c_o * coeffs)
 
 #print("Raw normalization constant")
 #print(tmp_N)
@@ -178,7 +164,6 @@ coeffs = final_N * coeffs
 s_N = 0.4237772081237576
 p_N = 0.5993114751532237
 d_N = 0.489335770373359
-
 
 ## (s|s)
 #print(s_N * s_N * overlap_ss(A,B,alpha_bra,alpha_ket))       # YUP
