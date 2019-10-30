@@ -24,40 +24,6 @@ def overlap_ss(A, B, alpha_bra, alpha_ket):
     ss = ((np.pi / (alpha_bra + alpha_ket))**(3/2) * np.exp((-alpha_bra * alpha_ket * np.dot(A-B,A-B)) / (alpha_bra + alpha_ket)))
     return ss
 
-
-def new_normalize(exps, coeffs, ax,ay,az):
-    '''Normalizes a contracted or uncontracted basis function'''
-    L = ax + ay + az
-    # Normalization constants of primitives, in a vector
-    primitive_Ns = np.sqrt(np.power(2,2*(ax+ay+az)+1.5)*
-                        np.power(exps,ax+ay+az+1.5)/
-                        double_factorial(2*ax-1)/double_factorial(2*ay-1)/
-                        double_factorial(2*az-1)/np.power(np.pi,1.5))
-    #f = np.sqrt(double_factorial(2*ax-1) * double_factorial(2*ay-1) * double_factorial(2*az-1))
-    #primitive_Ns = (2*exps/np.pi)**(3/4) * (4 * exps)**((ax+ay+az)/2) / f
-    
-    #TODO remove redundant double factorial calls
-    # Compute full basis function normalization constant 
-    prefactor = (np.pi**(1.5) * double_factorial(2*ax-1) * double_factorial(2*ay-1) * double_factorial(2*az-1)) / 2**L
-    K = exps.shape[0]  # Degree of contraction K
-    N = 0 
-    for i in range(K):
-        for j in range(K):
-            N += primitive_Ns[i] * primitive_Ns[j] * coeffs[i] * coeffs[j] / (exps[i] + exps[j])**(L+1.5)
-    
-    N *= prefactor
-    N = N**-0.5
-    return N
-
-def cnorm(exponents,coeffs,ax,ay,az):
-    K = exponents.shape[0]  # Degree of contraction K
-    L = ax + ay + az
-    prefactor = (np.pi**(1.5) * double_factorial(2*ax-1) * double_factorial(2*ay-1) * double_factorial(2*az-1)) / 2**L
-    c_times_c = np.outer(coeffs,coeffs) 
-    a_plus_a = np.broadcast_to(exponents, (K,K)) + np.transpose(np.broadcast_to(exponents, (K,K)), (1,0))
-    N = 1 / np.sqrt(np.sum(c_times_c / (a_plus_a**(L + 1.5))))
-    return N
-    
 def contracted_normalize(exponents,coeff,ax,ay,az):
     '''Normalization constant for a single contracted gaussian basis function'''
     K = exponents.shape[0]  # Degree of contraction K
@@ -70,27 +36,7 @@ def contracted_normalize(exponents,coeff,ax,ay,az):
     sum_term = np.sum(c_times_c / (a_plus_a**(L + 1.5)))
     return (prefactor * sum_term) ** -0.5
 
-
-#@jax.jit
-# have to do every combo, you were just doing diagonal
-#def contracted_overlap_ss(A, B, alpha_bra, alpha_ket, c_bra, c_ket):
-#    ss = 0
-#    for i in range(c_bra.shape[0]):
-#        ss += ((np.pi / (alpha_bra[i] + alpha_ket[i]))**(3/2) * np.exp((-alpha_bra[i] * alpha_ket[i] * np.dot(A-B,A-B)) / (alpha_bra[i] + alpha_ket[i]))) * c_bra[i] * c_ket[i]
-#    #ss = np.sum((np.pi / (alpha_bra + alpha_ket))**(3/2) * np.exp((-alpha_bra * alpha_ket * np.dot(A-B,A-B)) / (alpha_bra + alpha_ket)) * c_bra * c_ket )
-#    return ss
-
-#def contracted_overlap_ss(A, B, alpha_bra, alpha_ket, c_bra, c_ket):
-#    size = alpha_bra.shape[0]
-#    ss = 0
-#    AB = np.dot(A-B,A-B)
-#    for i in range(size):
-#        for j in range(size):
-#            ss += c_bra[i] * c_ket[j] * np.exp((-alpha_bra[i] * alpha_ket[j] * AB) / (alpha_bra[i] + alpha_ket[j])) * (np.pi / (alpha_bra[i] + alpha_ket[j]))**(1.5)
-#            #ss += normalize(alpha_bra[i],0,0,0) * normalize(alpha_ket[i],0,0,0) * c_bra[i] * c_ket[j] * np.exp((-alpha_bra[i] * alpha_ket[j] * AB) / (alpha_bra[i] + alpha_ket[j])) * (np.pi / (alpha_bra[i] + alpha_ket[j]))**(1.5)
-#            #ss += normalize(alpha_bra[i],0,0,0) * normalize(alpha_ket[i],0,0,0) * c_bra[i] * c_ket[j] * np.exp((-alpha_bra[i] * alpha_ket[j] * AB) / (alpha_bra[i] + alpha_ket[j])) * (np.pi / (alpha_bra[i] + alpha_ket[j]))**(1.5)
-#    return ss
-
+@jax.jit
 def contracted_overlap_ss(A, B, alpha_bra, alpha_ket, c_bra, c_ket):
     size = alpha_bra.shape[0]
     AB = np.dot(A-B,A-B)
@@ -103,6 +49,92 @@ def contracted_overlap_ss(A, B, alpha_bra, alpha_ket, c_bra, c_ket):
     ss = (np.pi / a_plus_a)**(1.5) * np.exp(-a_times_a * AB / a_plus_a) * c_times_c
     return np.sum(ss)
 
+geom = np.array([[0.0,0.0,-0.849220457955],
+                 [0.0,0.0, 0.849220457955]])
+charge = np.array([1.0,1.0])
+A = np.array([0.0,0.0,-0.849220457955])
+#B = np.array([0.0,0.0,-0.849220457955])
+B = np.array([0.0,0.0, 0.849220457955])
+alpha_bra = 0.5
+alpha_ket = 0.5
+
+# This is a basis function
+exps =   np.array([0.5,
+                   0.4])
+coeffs = np.array([1.0,
+                   1.0])
+
+#tmp_N = new_normalize(exps, coeffs, 0,0,0)
+#print(tmp_N)
+#print(tmp_N * coeffs)
+
+
+#tmp_N = cnorm(exps,coeffs,0,0,0)
+#print(tmp_N)
+#print(tmp_N * coeffs)
+
+tmp_N = contracted_normalize(exps, coeffs, 0, 0, 0)
+#print("Normalization constant", tmp_N)
+c_o = contracted_overlap_ss(A, A, exps, exps, coeffs, coeffs)
+print(tmp_N * tmp_N * c_o)
+c_o = contracted_overlap_ss(A, B, exps, exps, coeffs, coeffs)
+print(tmp_N * tmp_N * c_o)
+c_o = contracted_overlap_ss(B, A, exps, exps, coeffs, coeffs)
+print(tmp_N * tmp_N * c_o)
+c_o = contracted_overlap_ss(B, B, exps, exps, coeffs, coeffs)
+print(tmp_N * tmp_N * c_o)
+
+
+#0.21238156276178832 *0.17965292907913089
+
+
+
+#print("Raw normalization constant")
+#print(tmp_N)
+#print("normalization constant times coefficients")
+#print(tmp_N * coeffs)
+
+#print("Raw overlap")
+#print(c_o)
+#print("normalized overlap")
+#print(tmp_N * tmp_N * c_o)
+#print(tmp_N * c_o)
+
+s_N = 0.4237772081237576
+p_N = 0.5993114751532237
+d_N = 0.489335770373359
+
+
+## (s|s)
+#print(s_N * s_N * overlap_ss(A,B,alpha_bra,alpha_ket))       # YUP
+## (p|s)
+#print(p_N * s_N * overlap_ps_block(A,B,alpha_bra,alpha_ket)) # YUP
+## (p|p)
+#print(p_N * p_N * overlap_pp_block(A,B,alpha_bra,alpha_ket)) # YUP
+## (d|s)
+#print(d_N * s_N * overlap_ds_block(A,B,alpha_bra,alpha_ket)) # YUP
+## (d|p)
+#print(d_N * p_N * overlap_dp_block(A,B,alpha_bra,alpha_ket).reshape(6,3))  # YUP
+## (d|d)
+#print(d_N * d_N * overlap_dd_block(A,B,alpha_bra,alpha_ket))
+
+
+#print('hard coded')
+#print(overlap_ps_block(A,B,alpha_bra,alpha_ket))
+
+#print('hard coded')
+#print(overlap_pp_block(A,B,alpha_bra,alpha_ket))
+
+#print('hard coded')
+#print(overlap_ds_block(A,B,alpha_bra,alpha_ket))
+
+
+#overlap_dp_block(A,B,alpha_bra,alpha_ket)
+
+#dd_block = overlap_dd_block(A,B,alpha_bra,alpha_ket)
+#print(dd_block * 0.489335770373359)
+#for i in range(1000):
+#    overlap_pp_block(A,B,alpha_bra,alpha_ket)
 
 @jax.jit
 def overlap_ps_block(A, B, alpha_bra, alpha_ket):
@@ -197,92 +229,3 @@ def overlap_dd_block(A,B,alpha_bra,alpha_ket):
     return result
     
 
-#d_dB_overlap_ps
-
-
-geom = np.array([[0.0,0.0,-0.849220457955],
-                 [0.0,0.0, 0.849220457955]])
-charge = np.array([1.0,1.0])
-A = np.array([0.0,0.0,-0.849220457955])
-#B = np.array([0.0,0.0,-0.849220457955])
-B = np.array([0.0,0.0, 0.849220457955])
-alpha_bra = 0.5
-alpha_ket = 0.5
-
-# This is a basis function
-exps =   np.array([0.5,
-                   0.4])
-coeffs = np.array([1.0,
-                   1.0])
-
-#tmp_N = new_normalize(exps, coeffs, 0,0,0)
-#print(tmp_N)
-#print(tmp_N * coeffs)
-
-
-#tmp_N = cnorm(exps,coeffs,0,0,0)
-#print(tmp_N)
-#print(tmp_N * coeffs)
-
-tmp_N = contracted_normalize(exps, coeffs, 0, 0, 0)
-#print("Normalization constant", tmp_N)
-c_o = contracted_overlap_ss(A, A, exps, exps, coeffs, coeffs)
-print(tmp_N * tmp_N * c_o)
-c_o = contracted_overlap_ss(A, B, exps, exps, coeffs, coeffs)
-print(tmp_N * tmp_N * c_o)
-c_o = contracted_overlap_ss(B, A, exps, exps, coeffs, coeffs)
-print(tmp_N * tmp_N * c_o)
-c_o = contracted_overlap_ss(B, B, exps, exps, coeffs, coeffs)
-print(tmp_N * tmp_N * c_o)
-
-
-#0.21238156276178832 *0.17965292907913089
-
-
-
-#print("Raw normalization constant")
-#print(tmp_N)
-#print("normalization constant times coefficients")
-#print(tmp_N * coeffs)
-
-#print("Raw overlap")
-#print(c_o)
-#print("normalized overlap")
-#print(tmp_N * tmp_N * c_o)
-#print(tmp_N * c_o)
-
-s_N = 0.4237772081237576
-p_N = 0.5993114751532237
-d_N = 0.489335770373359
-
-
-## (s|s)
-#print(s_N * s_N * overlap_ss(A,B,alpha_bra,alpha_ket))       # YUP
-## (p|s)
-#print(p_N * s_N * overlap_ps_block(A,B,alpha_bra,alpha_ket)) # YUP
-## (p|p)
-#print(p_N * p_N * overlap_pp_block(A,B,alpha_bra,alpha_ket)) # YUP
-## (d|s)
-#print(d_N * s_N * overlap_ds_block(A,B,alpha_bra,alpha_ket)) # YUP
-## (d|p)
-#print(d_N * p_N * overlap_dp_block(A,B,alpha_bra,alpha_ket).reshape(6,3))  # YUP
-## (d|d)
-#print(d_N * d_N * overlap_dd_block(A,B,alpha_bra,alpha_ket))
-
-
-#print('hard coded')
-#print(overlap_ps_block(A,B,alpha_bra,alpha_ket))
-
-#print('hard coded')
-#print(overlap_pp_block(A,B,alpha_bra,alpha_ket))
-
-#print('hard coded')
-#print(overlap_ds_block(A,B,alpha_bra,alpha_ket))
-
-
-#overlap_dp_block(A,B,alpha_bra,alpha_ket)
-
-#dd_block = overlap_dd_block(A,B,alpha_bra,alpha_ket)
-#print(dd_block * 0.489335770373359)
-#for i in range(1000):
-#    overlap_pp_block(A,B,alpha_bra,alpha_ket)
