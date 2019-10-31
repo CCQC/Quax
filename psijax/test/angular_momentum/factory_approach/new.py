@@ -8,6 +8,12 @@ def double_factorial(n):
     '''The double factorial function for small Python integer `n`.'''
     return np.prod(np.arange(n, 1, -2))
 
+@jax.jit
+def odd_double_factorial(x): # this ones jittable, roughly equal speed, makes `normalize` also jittable.
+    n = (x + 1)/2
+    return 2**n * np.exp(jax.scipy.special.gammaln(n + 0.5)) / (np.pi**(0.5))
+
+@jax.jit
 def normalize(aa,ax,ay,az):
     '''
     Normalization constant for gaussian basis function. 
@@ -16,7 +22,8 @@ def normalize(aa,ax,ay,az):
     ay : angular momentum component y
     az : angular momentum component z
     '''
-    f = np.sqrt(double_factorial(2*ax-1) * double_factorial(2*ay-1) * double_factorial(2*az-1))
+    #f = np.sqrt(double_factorial(2*ax-1) * double_factorial(2*ay-1) * double_factorial(2*az-1))
+    f = np.sqrt(odd_double_factorial(2*ax-1) * odd_double_factorial(2*ay-1) * odd_double_factorial(2*az-1))
     N = (2*aa/np.pi)**(3/4) * (4 * aa)**((ax+ay+az)/2) / f
     return N
 
@@ -82,6 +89,33 @@ def overlap_factory(args, start_am, target_am, current, old=None, dim=6):
             continue
     return current
 
+def angular_momentum_factory(args, current_am, target_am, current, old=None, dim=6):
+    ''' Produces integral functions of higher angular momentum from functions of lower angular momentum '''
+    for idx in range(dim): 
+        if start_am[idx] != target_am[idx]:
+            ai = start_am[idx]
+            if ai == 0:
+                if idx<=2:
+                    def new(*args):
+                        return (1/(2 * args[-2])) * (jax.grad(current,idx)(Ax, Ay, Az, Bx, By, Bz, aa, bb))
+                else:
+                    def new(*args):
+                        return (1/(2 * args[-1])) * (jax.grad(current,idx)(Ax, Ay, Az, Bx, By, Bz, aa, bb))
+            else:
+                if idx<=2:
+                    def new(*args):
+                        return (1 / (2 * args[-2])) * (jax.grad(current,idx)(Ax, Ay, Az, Bx, By, Bz, aa, bb) + ai * old(Ax, Ay, Az, Bx, By, Bz, aa, bb))
+                else:
+                    def new(*args):
+                        return (1 / (2 * args[-1])) * (jax.grad(current,idx)(Ax, Ay, Az, Bx, By, Bz, aa, bb) + ai * old(Ax, Ay, Az, Bx, By, Bz, aa, bb))
+            promotion = onp.zeros(dim)
+            promotion[idx] += 1
+            return angular_momentum_factory(args, start_am + promotion, target_am, new, current, dim=dim)
+        else:
+            continue
+    return current
+
+
 geom = np.array([[0.0,0.0,-0.849220457955],
                  [0.0,0.0, 0.849220457955]])
 charge = np.array([1.0,1.0])
@@ -102,9 +136,28 @@ alpha_ket = exponents[1]
 
 args = (Ax,Ay,Az,Bx,By,Bz,alpha_bra,alpha_ket)
 
-overlap_s_px = jax.jit(overlap_factory(args, start_am, onp.array([0,0,0,0,1,0]), overlap_ss, old=None, dim=6))
-overlap_s_py = jax.jit(overlap_factory(args, start_am, onp.array([0,0,0,0,1,0]), overlap_ss, old=None, dim=6))
-overlap_s_pz = jax.jit(overlap_factory(args, start_am, onp.array([0,0,0,0,0,1]), overlap_ss, old=None, dim=6))
+#overlap_s_px = jax.jit(overlap_factory(args, start_am, onp.array([0,0,0,0,1,0]), overlap_ss, old=None, dim=6))
+#overlap_s_py = jax.jit(overlap_factory(args, start_am, onp.array([0,0,0,0,1,0]), overlap_ss, old=None, dim=6))
+#overlap_s_pz = jax.jit(overlap_factory(args, start_am, onp.array([0,0,0,0,0,1]), overlap_ss, old=None, dim=6))
+#overlap_px_px = jax.jit(overlap_factory(args, start_am, onp.array([1,0,0,1,0,0]), overlap_ss, old=None, dim=6))
+#overlap_px_py = jax.jit(overlap_factory(args, start_am, onp.array([1,0,0,0,1,0]), overlap_ss, old=None, dim=6))
+#overlap_px_pz = jax.jit(overlap_factory(args, start_am, onp.array([1,0,0,0,0,1]), overlap_ss, old=None, dim=6))
+#overlap_py_py = jax.jit(overlap_factory(args, start_am, onp.array([0,1,0,0,1,0]), overlap_ss, old=None, dim=6))
+#overlap_py_pz = jax.jit(overlap_factory(args, start_am, onp.array([0,1,0,0,0,1]), overlap_ss, old=None, dim=6))
+#overlap_pz_pz = jax.jit(overlap_factory(args, start_am, onp.array([0,0,1,0,0,1]), overlap_ss, old=None, dim=6))
+
+
+func_dict = {}
+
+overlap_s_px =  jax.jit(angular_momentum_factory(args, start_am, onp.array([0,0,0,1,0,0]), overlap_ss, old=None, dim=6))
+overlap_s_py =  jax.jit(angular_momentum_factory(args, start_am, onp.array([0,0,0,0,1,0]), overlap_ss, old=None, dim=6))
+overlap_s_pz =  jax.jit(angular_momentum_factory(args, start_am, onp.array([0,0,0,0,0,1]), overlap_ss, old=None, dim=6))
+overlap_px_px = jax.jit(angular_momentum_factory(args, start_am, onp.array([1,0,0,1,0,0]), overlap_ss, old=None, dim=6))
+overlap_px_py = jax.jit(angular_momentum_factory(args, start_am, onp.array([1,0,0,0,1,0]), overlap_ss, old=None, dim=6))
+overlap_px_pz = jax.jit(angular_momentum_factory(args, start_am, onp.array([1,0,0,0,0,1]), overlap_ss, old=None, dim=6))
+overlap_py_py = jax.jit(angular_momentum_factory(args, start_am, onp.array([0,1,0,0,1,0]), overlap_ss, old=None, dim=6))
+overlap_py_pz = jax.jit(angular_momentum_factory(args, start_am, onp.array([0,1,0,0,0,1]), overlap_ss, old=None, dim=6))
+overlap_pz_pz = jax.jit(angular_momentum_factory(args, start_am, onp.array([0,0,1,0,0,1]), overlap_ss, old=None, dim=6))
 
 for i in range(nbf):
     for j in range(nbf):
@@ -112,27 +165,15 @@ for i in range(nbf):
         bb = exponents[j]
         Ax, Ay, Az = centers[i]
         Bx, By, Bz = centers[j]
+        pi, pj, pk = angular_momentum[i]
+        qi, qj, qk = angular_momentum[j]
 
-        Na = normalize(aa, 0, 0, 0)
-        Nb = normalize(bb, 0, 0, 1)
+        #pi, pj, pk = angular_momentum[i][0], angular_momentum[i][1], angular_momentum[i][2]
+        #qi, qj, qk = angular_momentum[j][0], angular_momentum[j][1], angular_momentum[j][2]
+
+        Na = normalize(aa, pi, pj, pk)
+        Nb = normalize(bb, qi, qj, qk)
         print(Na * Nb * overlap_s_pz(Ax,Ay,Az,Bx,By,Bz,aa,bb))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
