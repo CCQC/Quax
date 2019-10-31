@@ -184,7 +184,7 @@ charge = np.array([1.0,1.0])
 
 # S P basis set 
 exponents = np.repeat(0.5, 4)
-nbf_per_atom = np.array([1,9])
+nbf_per_atom = np.array([1,3])
 angular_momentum = np.array([[0,0,0], [1,0,0], [0,1,0], [0,0,1]])
 
 # P P basis set 
@@ -216,65 +216,121 @@ overlap_dict = {}
 kinetic_dict = {}
 potential_dict = {}
 overlap_dict['000000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,0,0,0,0]), overlap_ss, old=None, dim=6))  
-overlap_dict['100000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,0,0,0]), overlap_ss, old=None, dim=6)) 
-overlap_dict['100100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,1,0,0]), overlap_ss, old=None, dim=6)) 
-overlap_dict['010000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,0,0,0]), overlap_ss, old=None, dim=6)) 
-overlap_dict['010100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,1,0,0]), overlap_ss, old=None, dim=6)) 
-overlap_dict['010010'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,0,1,0]), overlap_ss, old=None, dim=6)) 
+overlap_dict['000001'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,0,0,0,1]), overlap_ss, old=None, dim=6)) 
+overlap_dict['000100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,0,1,0,0]), overlap_ss, old=None, dim=6)) 
 overlap_dict['001000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,0,0,0]), overlap_ss, old=None, dim=6)) 
-overlap_dict['001100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,1,0,0]), overlap_ss, old=None, dim=6)) 
-overlap_dict['001010'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,0,1,0]), overlap_ss, old=None, dim=6)) 
+
+overlap_dict['100100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,1,0,0]), overlap_ss, old=None, dim=6)) 
+overlap_dict['010010'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,0,1,0]), overlap_ss, old=None, dim=6)) 
 overlap_dict['001001'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,0,0,1]), overlap_ss, old=None, dim=6)) 
-overlap_dict['100010'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,0,1,0]), overlap_ss, old=None, dim=6)) 
-overlap_dict['100001'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,0,0,1]), overlap_ss, old=None, dim=6)) 
-overlap_dict['010001'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,0,0,1]), overlap_ss, old=None, dim=6)) 
 
-kinetic_dict['000000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,0,0,0,0]), kinetic_ss, old=None, dim=6))
-kinetic_dict['100000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,0,0,0]), kinetic_ss, old=None, dim=6))
-kinetic_dict['100100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,1,0,0]), kinetic_ss, old=None, dim=6))
-kinetic_dict['010000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,0,0,0]), kinetic_ss, old=None, dim=6))
-kinetic_dict['010100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,1,0,0]), kinetic_ss, old=None, dim=6))
-kinetic_dict['010010'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,0,1,0]), kinetic_ss, old=None, dim=6))
-kinetic_dict['001000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,0,0,0]), kinetic_ss, old=None, dim=6))
-kinetic_dict['001100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,1,0,0]), kinetic_ss, old=None, dim=6))
-kinetic_dict['001010'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,0,1,0]), kinetic_ss, old=None, dim=6))
-kinetic_dict['001001'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,0,0,1]), kinetic_ss, old=None, dim=6))
-kinetic_dict['100010'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,0,1,0]), kinetic_ss, old=None, dim=6))
-kinetic_dict['100001'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,0,0,1]), kinetic_ss, old=None, dim=6))
-kinetic_dict['010001'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,0,0,1]), kinetic_ss, old=None, dim=6))
+aa = exponents[0]
+bb = exponents[1]
+#Ax, Ay, Az = centers[0]
+#Bx, By, Bz = centers[1]
 
-potential_dict['000000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,0,0,0,0]), potential_ss, old=None, dim=6))
-potential_dict['100000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,0,0,0]), potential_ss, old=None, dim=6))
-potential_dict['100100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,1,0,0]), potential_ss, old=None, dim=6))
-potential_dict['010000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,0,0,0]), potential_ss, old=None, dim=6))
-potential_dict['010100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,1,0,0]), potential_ss, old=None, dim=6))
-potential_dict['010010'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,0,1,0]), potential_ss, old=None, dim=6))
-potential_dict['001000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,0,0,0]), potential_ss, old=None, dim=6))
-potential_dict['001100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,1,0,0]), potential_ss, old=None, dim=6))
-potential_dict['001010'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,0,1,0]), potential_ss, old=None, dim=6))
-potential_dict['001001'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,1,0,0,1]), potential_ss, old=None, dim=6))
-potential_dict['100010'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,0,1,0]), potential_ss, old=None, dim=6))
-potential_dict['100001'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,0,0,1]), potential_ss, old=None, dim=6))
-potential_dict['010001'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,0,0,0,1]), potential_ss, old=None, dim=6))
+Ax, Ay, Az = np.array([0.1,0.3,-0.849220457955])
+Bx, By, Bz = np.array([0.4,-0.1, 0.849220457955])
+
+#pi, pj, pk = angular_momentum[i]
+#qi, qj, qk = angular_momentum[j]
+
+# REAL px px
+overlap = overlap_dict['100100'](Ax,Ay,Az,Bx,By,Bz,aa,bb)
+print("REAL px px")
+print(overlap)
+
+# REAL py py
+overlap = overlap_dict['010010'](Ax,Ay,Az,Bx,By,Bz,aa,bb)
+print("REAL py py")
+print(overlap)
+
+# REAL pz pz
+overlap = overlap_dict['001001'](Ax,Ay,Az,Bx,By,Bz,aa,bb)
+print("REAL pz pz")
+print(overlap)
 
 
-unique_lookups = []
-for i in range(nbf):
-    for j in range(i+1):
-        aa = exponents[i]
-        bb = exponents[j]
-        Ax, Ay, Az = centers[i]
-        Bx, By, Bz = centers[j]
-        pi, pj, pk = angular_momentum[i]
-        qi, qj, qk = angular_momentum[j]
-        Na = normalize(aa, pi, pj, pk)
-        Nb = normalize(bb, qi, qj, qk)
-        ang_mom_vec = np.hstack((angular_momentum[i], angular_momentum[j]))
-        lookup = "".join(str(_) for _ in ang_mom_vec)
-        if lookup not in unique_lookups:
-            print(lookup)
-            unique_lookups.append(lookup)
-        
+# use px px function to get pz pz
+overlap = overlap_dict['100100'](Az,Ay,Ax,Bz,By,Bx,aa,bb)
+print(overlap)
+overlap = overlap_dict['100100'](Az,Ax,Ay,Bz,Bx,By,aa,bb)
+print(overlap)
+
+# use pz pz function to get px px
+overlap = overlap_dict['001001'](Az,Ay,Ax,Bz,By,Bx,aa,bb)
+print(overlap)
+
+
+# use pz pz function to get py py
+overlap = overlap_dict['001001'](Az,Ax,Ay,Bz,Bx,By,aa,bb)
+print(overlap)
+
+# use px px function to get py py
+overlap = overlap_dict['100100'](Ay,Ax,Az,By,Bx,Bz,aa,bb)
+print(overlap)
+
+
+
+new_overlap_dict = {}
+# s s
+new_overlap_dict['000000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,0,0,0,0]), overlap_ss, old=None, dim=6))  
+# p s
+new_overlap_dict['100000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,0,0,0]), overlap_ss, old=None, dim=6)) 
+# p p
+new_overlap_dict['100100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,0,0,1,0,0]), overlap_ss, old=None, dim=6)) 
+# dii dii
+new_overlap_dict['200200'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([2,0,0,2,0,0]), overlap_ss, old=None, dim=6)) 
+# dii dij
+new_overlap_dict['200110'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([2,0,0,1,1,0]), overlap_ss, old=None, dim=6)) 
+# dij dij
+new_overlap_dict['110110'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,1,0,1,1,0]), overlap_ss, old=None, dim=6)) 
+# dii s
+new_overlap_dict['200000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([2,0,0,0,0,0]), overlap_ss, old=None, dim=6)) 
+# dij s
+new_overlap_dict['110000'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,1,0,0,0,0]), overlap_ss, old=None, dim=6)) 
+# dii p
+new_overlap_dict['200100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([2,0,0,1,0,0]), overlap_ss, old=None, dim=6)) 
+# dij p
+new_overlap_dict['110100'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([1,1,0,1,0,0]), overlap_ss, old=None, dim=6)) 
+
+
+# use dxx dxx to get dzz dzz
+new_overlap_dict['002002'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,0,2,0,0,2]), overlap_ss, old=None, dim=6)) 
+overlap = new_overlap_dict['002002'](Ax,Ay,Az,Bx,By,Bz,aa,bb)
+print('real dz dz')
+print(overlap)
+
+
+overlap = new_overlap_dict['200200'](Az,Ax,Ay,Bz,Bx,By,aa,bb)
+print(overlap)
+
+# use dxy dxy to get dyz dxz
+new_overlap_dict['011101'] = jax.jit(angular_momentum_factory(args, onp.array([0,0,0,0,0,0]), onp.array([0,1,1,1,0,1]), overlap_ss, old=None, dim=6)) 
+overlap = new_overlap_dict['011101'](Ax,Ay,Az,Bx,By,Bz,aa,bb)
+print('real dyz dxz')
+print(overlap)
+
+overlap = new_overlap_dict['110110'](Ay,Az,Ax,Bx,Bz,By,aa,bb)
+print(overlap)
+
+
+#for i in range(nbf):
+#    for j in range(i+1):
+#        aa = exponents[i]
+#        bb = exponents[j]
+#        Ax, Ay, Az = centers[i]
+#        Bx, By, Bz = centers[j]
+#        pi, pj, pk = angular_momentum[i]
+#        qi, qj, qk = angular_momentum[j]
+#        Na = normalize(aa, pi, pj, pk)
+#        Nb = normalize(bb, qi, qj, qk)
+#        ang_mom_vec = np.hstack((angular_momentum[i], angular_momentum[j]))
+#        lookup = "".join(str(_) for _ in ang_mom_vec)
+#        if lookup not in unique_lookups:
+#            print(lookup)
+#            unique_lookups.append(lookup)
+#        
         #overlap = Na * Nb * overlap_dict[lookup](Ax,Ay,Az,Bx,By,Bz,aa,bb)
         #kinetic = Na * Nb * kinetic_dict[lookup](Ax,Ay,Az,Bx,By,Bz,aa,bb)
         #potential = Na * Nb * potential_dict[lookup](Ax,Ay,Az,Bx,By,Bz,geom,charge,aa,bb)
