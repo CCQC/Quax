@@ -13,7 +13,11 @@ molecule = psi4.geometry("""
 # Get geometry as JAX array
 geom = np.asarray(onp.asarray(molecule.geometry()))
 
-basis = 'sto-3g'
+#basis = 'sto-3g'
+#basis = '6-31g'
+basis = 'cc-pvdz'
+
+basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis, puream=0)
 
 def build_basis_set(molecule, basis):
     # Avoids printing from psi4
@@ -34,6 +38,7 @@ def build_basis_set(molecule, basis):
         basis_dict[i]['atom'] = basis_set.shell_to_center(i)
         basis_dict[i]['exp'] = []
         basis_dict[i]['coef'] = []
+        basis_dict[i]['idx'] = basis_set.shell(i).function_index
         # Get total number of primitives for shell i
         nprim = basis_set.shell(i).nprimitive
         # Loop over each primitive in shell i

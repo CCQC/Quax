@@ -21,10 +21,12 @@ def overlap_ss(Ax, Ay, Az, Cx, Cy, Cz, aa, bb):
 # Vectorized version of overlap_ss
 vectorized_overlap_ss = jax.jit(jax.vmap(overlap_ss, (None,None,None,None,None,None,0,0)))
 
-
 from basis import basis_dict,geom
 nshells = len(basis_dict)
 S = np.zeros((nshells,nshells))
+
+overlap_funcs = {}
+overlap_funcs['ss'] = vectorized_overlap_ss 
 
 for i in range(nshells):
     for j in range(nshells):
@@ -37,10 +39,12 @@ for i in range(nshells):
         atom2 = basis_dict[j]['atom']
         Ax,Ay,Az = geom[atom1]
         Bx,By,Bz = geom[atom2]
+    
+        lookup = basis_dict[i]['am'] +  basis_dict[j]['am']
 
         # Expand exponent data to compute all primitive combinations with vectorized overlap function
         exp_combos = cartesian_product(exp1,exp2)
-        primitives = vectorized_overlap_ss(Ax,Ay,Az,Bx,By,Bz,exp_combos[:,0],exp_combos[:,1])
+        primitives = overlap_funcs[lookup](Ax,Ay,Az,Bx,By,Bz,exp_combos[:,0],exp_combos[:,1])
         # Build coefficients products for contraction
         coefficients = np.einsum('i,j->ij', c1, c2).flatten()
         # Contract
