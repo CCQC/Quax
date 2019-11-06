@@ -49,6 +49,9 @@ c2 = c1_F
 
 #@jax.jit
 def overlap_ss(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
+    """
+    Computes and returns the (s|s) overlap integral
+    """
     A = np.array([Ax, Ay, Az])
     C = np.array([Cx, Cy, Cz])
     ss = ((np.pi / (alpha_bra + alpha_ket))**(3/2) * np.exp((-alpha_bra * alpha_ket * np.dot(A-C, A-C)) / (alpha_bra + alpha_ket)))
@@ -169,6 +172,12 @@ def overlap_hs(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
 
 #@jax.jit
 def overlap_is(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
+    """
+    Computes and returns the following integrals as a vector: 
+    (ixxxxxx|s) (ixxxxxy|s) (ixxxxxz|s) (ixxxxyy|s) (ixxxxyz|s) (ixxxxzz|s) (ixxxyyy|s) (ixxxyyz|s) (ixxxyzz|s) (ixxxzzz|s) (ixxyyyy|s) (ixxyyyz|s) (ixxyyzz|s) (ixxyzzz|s)  (ixxzzzz|s) (ixyyyyy|s) (ixyyyyz|s) (ixyyyzz|s) (ixyyzzz|s) (ixyzzzz|s) (ixzzzzz|s)
+    (iyyyyyy|s) (iyyyyyz|s) (iyyyyzz|s) (iyyyzzz|s) (iyyzzzz|s) (iyzzzzz|s)
+    (izzzzzz|s)
+    """
     oot_alpha_bra = 1 / (2 * alpha_bra)
     # pad the lower angular momentum integral (a-1i|b) with 1 zero on each side.
     lower = np.pad(overlap_gs(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2), 1)
@@ -187,6 +196,7 @@ def overlap_is(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
     iz = oot_alpha_bra * (iz_first_term + iz_second_term)
     return np.hstack((ix, iy[-6:], iz[-1]))
 
+# These all match Psi4, when app. coefficient is used
 #print(overlap_ss(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
 #print(overlap_ps(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
 #print(overlap_ds(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
@@ -195,11 +205,9 @@ def overlap_is(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
 #print(overlap_hs(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
 #print(overlap_is(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
 
-
 ############
 # KET TEST #
 ############
-
 
 def overlap_dp(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
     """
@@ -322,6 +330,7 @@ def overlap_fd(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
     dz = oot_alpha_ket * (dz_first_term + dz_second_term)
     return np.vstack((dx, dy[-2:], dz[-1]))
     
+@jax.jit
 def overlap_ff(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
     # NOTE this returns redundant integrals NOTE
     """
@@ -402,6 +411,30 @@ def overlap_ff(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
     return np.vstack((fx, fy[-3:], fz[-1]))
 
 
+"""
+How to compute arbitrary angular momentum  of one electron integrals using derivative relations:
+(a + 1i | b) = 1/2alpha * (d/dAi (a|b) + ai (a-1i|b)
+(a| b + 1i ) = 1/2beta * (d/dBi (a|b) + bi (a|b-1i)
+Algorithm:
+1. compute 1/(2 * alpha) term (or 1/(2*beta) term)
+2. compute lower integral (a-1|b) or (a|b-1) `lower = overlap_ij(args)`
+3. flatten the lower integral and pad a 0 in the front: `np.pad(lower.reshape(-1), (1,0))`
+4. compute x, y, and z components of the gradient of the base integral `jax.jacfwd(overlap_ab, (0,1,2))(args)` or `(3,4,5)`
+5. construct coefficient ax/bx array, which will match the bra/ket structure of the overlap_ab integral which was differentiated. 
+   What I mean by 'structure' is that the number of times 'x' occurs in the bra/ket is equal to the coefficient at that particular address in the array.
+6. Construct index taking array for 'x' component, `take_x`. This will be a matrix of same size as ax/bx array defined previously. 
+   Everywhere that ax/bx has a nonzero number, put a nonzero number. Always increment this nonzero number upward by 1 from the previous nonzero number. 
+   Start it at 1. Everywhere ax/bx is zero, put zero.  What this does is make sure the proper (a-1|b)/(a|b-1) term is put in the right place, 
+   or the second term goes to zero when it should (i.e. there isn't any angular momentum on the base function (a|b) for that component).
+7. Construct ay, az arrays (or by bz arrays if promoting ket) in likewise fashion to step 5. Also construct `take_y` and `take_z` arrays in a likewise fashion to step 6.
+8. Compute second term in derivative relation for each component : `x_second_term = bx * np.take(lower_padded, take_x)`, etc.
+9. Compute all components `x = oot_alpha_bra/ket * (fx_first_term + fx_second_term` for y and z as well.
+10. Return np.vstack((x, y[-k:], fz[-1]) where the index slicing for y is equal to the integer number of the angular momentum that was just promoted. i.e., a function which just promoted something to be `f` would be k=3. `d`, k=2. `h`,  k=5.
+11. Watch out for duplicate blocks, like (d|d), (f|f), (g|g), etc. These will always be symmetric matrices, so they will have duplicates. You will want to pull out the upper triangle after calling, probably.
+    BECAUSE OF THIS, NEVER USE A FUNCTION (d|d), (f|f) (g|g) FUNCTION TO COMPUTE HIGHER FUNCTIONS. ALWAYS INCREMENT UP THE BRA FIRST, THEN THE KET UP TO THE BRA
+"""
+
+
 #print(overlap_fs(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
 #print(overlap_fd(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
 print(overlap_ff(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
@@ -412,6 +445,9 @@ print(overlap_ff(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
 @jax.jit
 def motherload(i):
     '''
+    You can maybe do something like this; for every shell-pair data, compute all integrals (silly)
+    and then just parse out what you actually want later with indexing. 
+    Super redundant, but trivially jittable, vmappable, lax.mappable, lax.scannable 
     Make arguments be (Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2, slice)
     and preprocess an array of a billion rows of these.
     But how to deal with contractions?
