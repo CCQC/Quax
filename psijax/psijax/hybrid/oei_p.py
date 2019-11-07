@@ -1,6 +1,10 @@
 """
 All one-electron integrals over p functions
 (p|s) (s|p) (p|p)
+Uses the following equations for promoting angular momentum:
+(a + 1i | b) = 1/2alpha * (d/dAi (a|b) + ai (a - 1i | b)
+(a | b + 1i) = 1/2beta  * (d/dBi (a|b) + bi (a | b - 1i)
+where i is a cartesian component of the gaussian
 """
 import jax
 import jax.numpy as np
