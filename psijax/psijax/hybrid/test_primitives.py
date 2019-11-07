@@ -27,7 +27,7 @@ c_G = 0.1654256833287603
 c_H = 0.07798241497612321
 c_I = 0.0332518134720999
 
-# Change coefficients depending on which function youre testing
+## Change coefficients depending on which function youre testing
 c1 = c_S
 c2 = c_S
 print("(s|s)")
