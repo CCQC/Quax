@@ -75,12 +75,12 @@ def overlap_fd(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
     # mimics structure of previous matrix, where nonzero values are replaced with number in numerical order 1,2,3
     take_x = lower_take_mask(bx)
 
-    # coefficient array for second term. mimics number of 'x's in ket in the (f|p) function's returned matrix
+    # coefficient array for second term. mimics number of 'y's in ket in the (f|p) function's returned matrix
     by = np.tile(np.array([0,1,0]), 10).reshape(10,3).T
     # mimics structure of previous matrix, where nonzero values are replaced with number in numerical order 1,2,3
     take_y = lower_take_mask(by)
 
-    # coefficient array for second term. mimics number of 'y's in ket in the (f|p) function's returned matrix
+    # coefficient array for second term. mimics number of 'z's in ket in the (f|p) function's returned matrix
     bz = np.tile(np.array([0,0,1]), 10).reshape(10,3).T
     # mimics structure of previous matrix, where nonzero values are replaced with number in numerical order 1,2,3
     take_z = lower_take_mask(bz)
@@ -123,12 +123,12 @@ def overlap_ff(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
     # mimics structure of previous matrix, where nonzero values are replaced with number in numerical order 1,2,3
     take_x = lower_take_mask(bx)
 
-    # coefficient array for second term. mimics number of 'x's in ket in the (f|d) function's returned matrix
+    # coefficient array for second term. mimics number of 'y's in ket in the (f|d) function's returned matrix
     by = np.tile(np.array([0,1,0,2,1,0]), 10).reshape(10,6).T
     # mimics structure of previous matrix, where nonzero values are replaced with number in numerical order 1,2,3
     take_y = lower_take_mask(by)
 
-    # coefficient array for second term. mimics number of 'y's in ket in the (f|d) function's returned matrix
+    # coefficient array for second term. mimics number of 'z's in ket in the (f|d) function's returned matrix
     bz = np.tile(np.array([0,0,1,0,1,2]), 10).reshape(10,6).T
     # mimics structure of previous matrix, where nonzero values are replaced with number in numerical order 1,2,3
     take_z = lower_take_mask(bz)

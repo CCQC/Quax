@@ -74,7 +74,7 @@ def overlap_dd(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2):
     # mimics structure of previous matrix, where nonzero values are replaced with number in numerical order 1,2,3
     take_y = lower_take_mask(by)
 
-    # coefficient array for second term. mimics number of 'y's in ket in the (d|p) function's returned matrix
+    # coefficient array for second term. mimics number of 'z's in ket in the (d|p) function's returned matrix
     bz = np.tile(np.array([0,0,1]), 6).reshape(6,3).T
     # mimics structure of previous matrix, where nonzero values are replaced with number in numerical order 1,2,3
     take_z = lower_take_mask(bz)

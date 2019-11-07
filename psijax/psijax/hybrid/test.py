@@ -18,6 +18,7 @@ Cz = 0.849220457955
 alpha_bra = 0.5 
 alpha_ket = 0.5 
 
+# normalizations constants times coefficients (I set coeffs to 1.0 in psi4 inputs)
 c_S = 0.4237772081237576
 c_P = 0.5993114751532237
 c_D = 0.489335770373359
@@ -29,22 +30,52 @@ c_I = 0.0332518134720999
 # Change coefficients depending on which function youre testing
 c1 = c_S
 c2 = c_S
+print("(s|s)")
 print(overlap_ss(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
+
+c1 = c_P
+c2 = c_S
+print("(p|s)")
+print(overlap_ps(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
+
+c1 = c_P
+c2 = c_P
+print("(p|p)")
+print(overlap_pp(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
+
+c1 = c_D
+c2 = c_S
+print("(d|s)")
+print(overlap_ds(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
+
+c1 = c_D
+c2 = c_P
+print("(d|p)")
+print(overlap_dp(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
 
 c1 = c_D
 c2 = c_D
+print("(d|d)")
 print(overlap_dd(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
 
 c1 = c_F
+c2 = c_S
+print("(f|s)")
+print(overlap_fs(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
+
+c1 = c_F
+c2 = c_P
+print("(f|p)")
+print(overlap_fp(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
+
+c1 = c_F
 c2 = c_D
+print("(f|d)")
 print(overlap_fd(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
 
 c1 = c_F
 c2 = c_F
+print("(f|f)")
 print(overlap_ff(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
-
-c1 = c_F
-c2 = c_S
-print(overlap_fs(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2))
 
 
