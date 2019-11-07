@@ -25,6 +25,7 @@ def boys(arg):
     #result = np.where(arg < 1e-8, 1 - (arg / 3) + (arg**2 / 10) - (arg**3 / 42) + (arg**4 / 216), jax.scipy.special.erf(np.sqrt(arg)) * np.sqrt(np.pi / (4 * arg)))
     return result
 
+@jax.jit
 def gaussian_product(alpha_bra,alpha_ket,A,C):
     '''Gaussian product theorem. Returns center and coefficient of product'''
     R = (alpha_bra * A + alpha_ket * C) / (alpha_bra + alpha_ket)

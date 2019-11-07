@@ -11,7 +11,7 @@ import jax.numpy as np
 import numpy as onp
 from jax.config import config; config.update("jax_enable_x64", True)
 from integrals_utils import lower_take_mask, boys
-from oei_s import overlap_ss, kinetic_ss, potential_ss
+from oei_s import * 
 from oei_p import * 
 
 @jax.jit
