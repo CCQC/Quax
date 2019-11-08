@@ -4,7 +4,7 @@ import numpy as onp
 from jax.config import config; config.update("jax_enable_x64", True)
 from basis_utils import build_basis_set
 from integrals_utils import cartesian_product, old_cartesian_product
-np.set_printoptions(linewidth=500, suppress=True)
+np.set_printoptions(linewidth=800, suppress=True)
 from pprint import pprint
 from oei_s import * 
 from oei_p import * 
@@ -38,6 +38,10 @@ overlap_funcs['20'] = jax.jit(jax.vmap(overlap_ds, (None,None,None,None,None,Non
 overlap_funcs['21'] = jax.jit(jax.vmap(overlap_dp, (None,None,None,None,None,None,0,0,0,0)))
 overlap_funcs['22'] = jax.jit(jax.vmap(overlap_dd, (None,None,None,None,None,None,0,0,0,0)))
 
+overlap_funcs['30'] = jax.jit(jax.vmap(overlap_fs, (None,None,None,None,None,None,0,0,0,0)))
+overlap_funcs['31'] = jax.jit(jax.vmap(overlap_fp, (None,None,None,None,None,None,0,0,0,0)))
+overlap_funcs['32'] = jax.jit(jax.vmap(overlap_fd, (None,None,None,None,None,None,0,0,0,0)))
+overlap_funcs['33'] = jax.jit(jax.vmap(overlap_ff, (None,None,None,None,None,None,0,0,0,0)))
 
 
 pprint(basis_dict)
