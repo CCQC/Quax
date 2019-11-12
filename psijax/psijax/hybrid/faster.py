@@ -19,6 +19,41 @@ molecule = psi4.geometry("""
                          units bohr
                          """)
 
+#molecule = psi4.geometry("""
+#                         0 1
+#                         H 0.0 0.0 -0.849220457955
+#                         H 0.0 0.0  0.849220457955
+#                         H 0.0 0.0  2.000000000000
+#                         H 0.0 0.0  3.000000000000
+#                         H 0.0 0.0  4.000000000000
+#                         H 0.0 0.0  5.000000000000
+#                         H 0.0 0.0  6.000000000000
+#                         H 0.0 0.0  7.000000000000
+#                         units bohr
+#                         """)
+
+molecule = psi4.geometry("""
+                         0 1
+                         H 0.0 0.0 -0.849220457955
+                         H 0.0 0.0  0.849220457955
+                         H 0.0 0.0  2.000000000000
+                         H 0.0 0.0  3.000000000000
+                         H 0.0 0.0  4.000000000000
+                         H 0.0 0.0  5.000000000000
+                         H 0.0 0.0  6.000000000000
+                         H 0.0 0.0  7.000000000000
+                         H 0.0 0.0  8.000000000000
+                         H 0.0 0.0  9.000000000000
+                         H 0.0 0.0  10.000000000000
+                         H 0.0 0.0  11.000000000000
+                         H 0.0 0.0  12.000000000000
+                         H 0.0 0.0  13.000000000000
+                         H 0.0 0.0  14.000000000000
+                         H 0.0 0.0  15.000000000000
+                         units bohr
+                         """)
+
+
 # Get geometry as JAX array
 geom = np.asarray(onp.asarray(molecule.geometry()))
 
@@ -65,17 +100,13 @@ print("preprocessing done")
 b = time.time()
 print(b-a)
 
-
 def build_overlap(geom, centers1, centers2, basis_data, sid):
     centers_bra = np.take(geom, centers1, axis=0)
     centers_ket = np.take(geom, centers2, axis=0)
 
-    #Ax, Ay, Az = geom[0]
-    #Cx, Cy, Cz = geom[1]
-
-    #def compute(centers_bra, centers_ket, basis_data):
-    def compute(inp):
-        centers_bra, centers_ket, basis_data = inp
+    def compute(centers_bra, centers_ket, basis_data):
+    #def compute(inp):
+    #    centers_bra, centers_ket, basis_data = inp
         Ax, Ay, Az = centers_bra
         Cx, Cy, Cz = centers_ket
         alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = basis_data
@@ -92,115 +123,19 @@ def build_overlap(geom, centers1, centers2, basis_data, sid):
               np.where((bra_am == 2) & (ket_am == 2), overlap_dd(*args).reshape(-1), np.zeros(36))))))))))
         return val
 
-    tmp_primitives = jax.lax.map(compute, (centers_bra, centers_ket, basis_data))
-    contracted = jax.ops.segment_sum(tmp_primitives, sid)
+    #Three different ways TODO this looks better...  
+    vectorized = jax.jit(jax.vmap(compute, (0,0,0)))
+    #vectorized = jax.vmap(compute, (0,0,0))
+    tmp_primitives = vectorized(centers_bra,centers_ket,basis_data)
+#    #tmp_primitives = jax.lax.map(compute, (centers_bra, centers_ket, basis_data))
+#    contracted = jax.ops.segment_sum(tmp_primitives, sid)
+#
+#    mask = (contracted >= -99)
+#    # Final primitive values
+#    contracted = contracted[mask]
+#    return contracted
 
-    mask = (contracted >= -99)
-    # Final primitive values
-    contracted = contracted[mask]
-    return contracted
+result = build_overlap(geom, centers1, centers2, basis_data, sid)
+#print(result)
+print(result.shape)
 
-    #print(centers_bra)
-
-print(build_overlap(geom, centers1, centers2, basis_data, sid))
-
-
-# Confirm gradients work
-#overlap_gradient = jax.jacfwd(build_overlap, 0)  
-#print(overlap_gradient(geom, centers1, centers2, basis_data, sid))
-
-##print(data)
-#print("All primitives")
-#print(data.shape)
-#print("SID")
-##print(sid)
-#print(sid.shape)
-#
-#
-#
-# Maps over primitive overlap computations (s|s) to (p|p)
-#def mapper(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2, bra_am, ket_am):
-def mapper(data):
-    Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = data
-    args = (Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2)
-    sgra = (Cx, Cy, Cz, Ax, Ay, Az, alpha_ket, alpha_bra, c2, c1)
-    val = np.where((bra_am == 0) & (ket_am == 0), np.pad(overlap_ss(*args).reshape(-1), (0,35),constant_values=-100),
-          np.where((bra_am == 1) & (ket_am == 0), np.pad(overlap_ps(*args).reshape(-1), (0,33),constant_values=-100),
-          np.where((bra_am == 0) & (ket_am == 1), np.pad(overlap_ps(*sgra).reshape(-1), (0,33),constant_values=-100),
-          np.where((bra_am == 1) & (ket_am == 1), np.pad(overlap_pp(*args).reshape(-1), (0,27),constant_values=-100),
-          np.where((bra_am == 2) & (ket_am == 0), np.pad(overlap_ds(*args).reshape(-1), (0,30),constant_values=-100),
-          np.where((bra_am == 0) & (ket_am == 2), np.pad(overlap_ds(*sgra).reshape(-1), (0,30),constant_values=-100),
-          np.where((bra_am == 2) & (ket_am == 1), np.pad(overlap_dp(*args).reshape(-1), (0,18),constant_values=-100),
-          np.where((bra_am == 1) & (ket_am == 2), np.pad(overlap_dp(*sgra).reshape(-1), (0,18),constant_values=-100),
-          np.where((bra_am == 2) & (ket_am == 2), overlap_dd(*args).reshape(-1), np.zeros(36))))))))))
-    return val
-
-##overlap_jax = jax.vmap(mapper, (0,0,0,0,0,0,0,0,0,0,0,0))
-##overlap_jax = jax.jit(jax.vmap(mapper, (0,)))
-#tmp_primitives = jax.lax.map(mapper, data)
-#print(tmp_primitives)
-##tmp_primitives = overlap_jax(data[:5])
-##tmp_primitives = overlap_jax(data)
-#print(tmp_primitives.shape)
-#
-#contracted = jax.ops.segment_sum(tmp_primitives, sid)
-#print(contracted.shape)
-#print(contracted)
-
-
-#
-#d = time.time()
-#print("time to contract: ",d-c)
-#
-### remove all the junk from padding:
-##mask = (tmp_primitives != -100)
-##print(mask)
-## Final primitive values
-##final = tmp_primitives[mask]
-##print(final)
-##print(final.shape)
-#
-##Ax = data[:,0]
-##Ay = data[:,1]
-##Az = data[:,2]
-##Cx = data[:,3]
-##Cy = data[:,4]
-##Cz = data[:,5]
-##alpha_bra = data[:,6]
-##alpha_ket = data[:,7]
-##c1 = data[:,8]
-##c2 = data[:,9]
-##bra_am = data[:,10]
-##ket_am = data[:,11]
-##primitives = overlap_jax(Ax,Ay,Az,Cx,Cy,Cz,alpha_bra,alpha_ket,c1,c2,bra_am,ket_am)
-##print(primitives)
-#
-#
-## Use segment sum 
-#
-### Maps over primitive computations (s|s) to (d|d)
-##def mapper(Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2, which):
-##    args = (Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2)
-##    val = np.where(which == 0, np.pad(overlap_ss(*args).reshape(-1), (0,35),constant_values=-100),
-##          np.where(which == 1, np.pad(overlap_ps(*args).reshape(-1), (0,33),constant_values=-100),
-##          np.where(which == 2, np.pad(overlap_ds(*args).reshape(-1), (0,30),constant_values=-100),
-##          np.where(which == 3, np.pad(overlap_pp(*args).reshape(-1), (0,27),constant_values=-100),
-##          np.where(which == 4, np.pad(overlap_dp(*args).reshape(-1), (0,18),constant_values=-100),
-##          np.where(which == 5, overlap_dd(*args).reshape(-1), np.zeros(36)))))))
-##    return val
-#
-##dope = jax.vmap(mapper, (0,0,0,0,0,0,0,0,0,0,0))
-##dummy = np.repeat(0.1,120000)
-##which = np.repeat(np.array([0,1,2,3,4,5]), 20000)
-##result = dope(dummy, dummy, dummy, dummy, dummy, dummy, dummy, dummy, dummy, dummy, which)
-##print(result)
-##print(result.shape)
-### How to remove all the junk from padding:
-##mask = (result != -100)
-##print(mask)
-### Final primitive values
-##final = result[mask].reshape(-1)
-##print(final)
-##print(final.shape)
-#
-#

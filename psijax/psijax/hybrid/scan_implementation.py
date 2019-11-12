@@ -19,6 +19,78 @@ molecule = psi4.geometry("""
                          units bohr
                          """)
 
+#molecule = psi4.geometry("""
+#                         0 1
+#                         H 0.0 0.0 -0.849220457955
+#                         H 0.0 0.0  0.849220457955
+#                         H 0.0 0.0  2.000000000000
+#                         H 0.0 0.0  3.000000000000
+#                         H 0.0 0.0  4.000000000000
+#                         H 0.0 0.0  5.000000000000
+#                         H 0.0 0.0  6.000000000000
+#                         H 0.0 0.0  7.000000000000
+#                         units bohr
+#                         """)
+
+#molecule = psi4.geometry("""
+#                         0 1
+#                         H 0.0 0.0 -0.849220457955
+#                         H 0.0 0.0  0.849220457955
+#                         H 0.0 0.0  2.000000000000
+#                         H 0.0 0.0  3.000000000000
+#                         H 0.0 0.0  4.000000000000
+#                         H 0.0 0.0  5.000000000000
+#                         H 0.0 0.0  6.000000000000
+#                         H 0.0 0.0  7.000000000000
+#                         H 0.0 0.0  8.000000000000
+#                         H 0.0 0.0  9.000000000000
+#                         H 0.0 0.0  10.000000000000
+#                         H 0.0 0.0  11.000000000000
+#                         H 0.0 0.0  12.000000000000
+#                         H 0.0 0.0  13.000000000000
+#                         H 0.0 0.0  14.000000000000
+#                         H 0.0 0.0  15.000000000000
+#                         units bohr
+#                         """)
+
+
+molecule = psi4.geometry("""
+                         0 1
+                         H 0.0 0.0 -0.849220457955
+                         H 0.0 0.0  0.849220457955
+                         H 0.0 0.0  2.000000000000
+                         H 0.0 0.0  3.000000000000
+                         H 0.0 0.0  4.000000000000
+                         H 0.0 0.0  5.000000000000
+                         H 0.0 0.0  6.000000000000
+                         H 0.0 0.0  7.000000000000
+                         H 0.0 0.0  8.000000000000
+                         H 0.0 0.0  9.000000000000
+                         H 0.0 0.0  10.000000000000
+                         H 0.0 0.0  11.000000000000
+                         H 0.0 0.0  12.000000000000
+                         H 0.0 0.0  13.000000000000
+                         H 0.0 0.0  14.000000000000
+                         H 0.0 0.0  15.000000000000
+                         H 0.0 0.0  16.000000000000
+                         H 0.0 0.0  17.000000000000
+                         H 0.0 0.0  18.000000000000
+                         H 0.0 0.0  19.000000000000
+                         H 0.0 0.0  20.000000000000
+                         H 0.0 0.0  21.000000000000
+                         H 0.0 0.0  22.000000000000
+                         H 0.0 0.0  23.000000000000
+                         H 0.0 0.0  24.000000000000
+                         H 0.0 0.0  25.000000000000
+                         H 0.0 0.0  26.000000000000
+                         H 0.0 0.0  27.000000000000
+                         H 0.0 0.0  28.000000000000
+                         H 0.0 0.0  29.000000000000
+                         units bohr
+                         """)
+
+
+
 # Get geometry as JAX array
 geom = np.asarray(onp.asarray(molecule.geometry()))
 
@@ -56,7 +128,6 @@ def preprocess(geom, basis_dict, nshells):
             coeff_combos = old_cartesian_product(c1,c2)
             size = ((am_bra + 1) * (am_bra + 2) // 2) *  ((am_ket + 1) * (am_ket + 2) // 2) 
             identifiers = onp.arange(size) + segment_id
-            print(identifiers.shape[0])
             for k in range(exp_combos.shape[0]):
                 basis_data.append([exp_combos[k,0],exp_combos[k,1],coeff_combos[k,0], coeff_combos[k,1],am_bra,am_ket])
                 centers_bra.append(atom1_idx)
@@ -65,7 +136,6 @@ def preprocess(geom, basis_dict, nshells):
                 # Every primitive component needs a unique segment ID
                 for a in identifiers:
                     segment.append(a)
-
 
                 start = primitive_index
                 stop = primitive_index + size
@@ -102,15 +172,17 @@ def overlap_scan(geom, centers1, centers2, basis_data, update_indices, sizes, si
         alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = basis_data[i]
         args = (Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2)
         sgra = (Cx, Cy, Cz, Ax, Ay, Az, alpha_ket, alpha_bra, c2, c1)
-        val = np.where((bra_am == 0) & (ket_am == 0), np.pad(overlap_ss(*args).reshape(-1), (0,35),constant_values=-100),
-              np.where((bra_am == 1) & (ket_am == 0), np.pad(overlap_ps(*args).reshape(-1), (0,33),constant_values=-100),
-              np.where((bra_am == 0) & (ket_am == 1), np.pad(overlap_ps(*sgra).reshape(-1), (0,33),constant_values=-100),
-              np.where((bra_am == 1) & (ket_am == 1), np.pad(overlap_pp(*args).reshape(-1), (0,27),constant_values=-100),
-              np.where((bra_am == 2) & (ket_am == 0), np.pad(overlap_ds(*args).reshape(-1), (0,30),constant_values=-100),
-              np.where((bra_am == 0) & (ket_am == 2), np.pad(overlap_ds(*sgra).reshape(-1), (0,30),constant_values=-100),
-              np.where((bra_am == 2) & (ket_am == 1), np.pad(overlap_dp(*args).reshape(-1), (0,18),constant_values=-100),
-              np.where((bra_am == 1) & (ket_am == 2), np.pad(overlap_dp(*sgra).reshape(-1), (0,18),constant_values=-100),
-              np.where((bra_am == 2) & (ket_am == 2), overlap_dd(*args).reshape(-1), np.zeros(36))))))))))
+        K = 36
+        val = np.where((bra_am == 0) & (ket_am == 0), np.pad(overlap_ss(*args).reshape(-1), (0,K-1),constant_values=-100),
+              np.where((bra_am == 1) & (ket_am == 0), np.pad(overlap_ps(*args).reshape(-1), (0,K-3),constant_values=-100),
+              np.where((bra_am == 0) & (ket_am == 1), np.pad(overlap_ps(*sgra).reshape(-1), (0,K-3),constant_values=-100),
+              np.where((bra_am == 1) & (ket_am == 1), np.pad(overlap_pp(*args).reshape(-1), (0,K-9),constant_values=-100),
+              np.where((bra_am == 2) & (ket_am == 0), np.pad(overlap_ds(*args).reshape(-1), (0,K-6),constant_values=-100),
+              np.where((bra_am == 0) & (ket_am == 2), np.pad(overlap_ds(*sgra).reshape(-1), (0,K-6),constant_values=-100),
+              np.where((bra_am == 2) & (ket_am == 1), np.pad(overlap_dp(*args).reshape(-1), (0,K-18),constant_values=-100),
+              np.where((bra_am == 1) & (ket_am == 2), np.pad(overlap_dp(*sgra).reshape(-1), (0,K-18),constant_values=-100),
+              np.where((bra_am == 2) & (ket_am == 2), np.pad(overlap_dd(*args).reshape(-1), (0,K-36),constant_values=-100), np.zeros(K))))))))))
+
 
         indx = update_indices[i]
         # indx will always be of the form [val1, val2, val3, .... -1] for all padded -100 values
@@ -124,10 +196,14 @@ def overlap_scan(geom, centers1, centers2, basis_data, update_indices, sizes, si
     indices = np.arange(sizes.shape[0])
     carry, junk = jax.lax.scan(compute, (overlap, basis_data, update_indices, sizes), indices)
     primitives = carry[0]
+    print(primitives)
 
-    contracted = jax.ops.segment_sum(primitives, sid) 
-    print(contracted)
-    print(contracted.reshape(30,30))
+
+    # THIS IS CORRECT, but wherer to put it?
+    #contracted = jax.ops.segment_sum(primitives, sid) 
+    #print(contracted)
+
+    #print(contracted.reshape(30,30))
 
 #    return primitives
 
