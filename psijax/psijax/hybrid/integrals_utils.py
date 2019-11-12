@@ -52,7 +52,7 @@ def old_cartesian_product(*arrays):
 @partial(jax.jit, static_argnums=(0,))
 def lower_take_mask(ai):
     """
-    Gives an array of same size as ai/bi. Each value in this array indicates
+    Gives an array of same size as ai or bi for below equations. Each value in this array indicates
     which primitive (a-1i|b) or (a|b-1i) to take from the lower angular momentum function when evaluating the 
     second term in 
     (a + 1i | b) = 1/2alpha * (d/dAi (a|b) + ai (a - 1i | b))
