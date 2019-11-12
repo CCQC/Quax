@@ -22,15 +22,15 @@ molecule = psi4.geometry("""
 # Get geometry as JAX array
 geom = np.asarray(onp.asarray(molecule.geometry()))
 # Get Psi Basis Set and basis set dictionary objects
-basis_name = 'cc-pvqz'
+basis_name = 'cc-pvtz'
 basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
 basis_dict = build_basis_set(molecule, basis_name)
 # Number of basis functions, number of shells
 nbf = basis_set.nbf()
+print("number of basis functions", nbf)
 nshells = len(basis_dict)
 
 overlap_funcs = {}
-
 overlap_funcs['00'] = jax.vmap(overlap_ss, (None,None,None,None,None,None,0,0,0,0))
 overlap_funcs['10'] = jax.vmap(overlap_ps, (None,None,None,None,None,None,0,0,0,0))
 overlap_funcs['11'] = jax.vmap(overlap_pp, (None,None,None,None,None,None,0,0,0,0))
@@ -43,22 +43,6 @@ overlap_funcs['31'] = jax.vmap(overlap_fp, (None,None,None,None,None,None,0,0,0,
 overlap_funcs['32'] = jax.vmap(overlap_fd, (None,None,None,None,None,None,0,0,0,0))
 overlap_funcs['33'] = jax.vmap(overlap_ff, (None,None,None,None,None,None,0,0,0,0))
 
-import time
-a = time.time()
-print("compiling functions...")
-overlap_funcs['00'](1.0,1.0,1.0,1.0,1.0,1.0,np.array([1.0]),np.array([1.0]),np.array([1.0]),np.array([1.0]))
-overlap_funcs['10'](1.0,1.0,1.0,1.0,1.0,1.0,np.array([1.0]),np.array([1.0]),np.array([1.0]),np.array([1.0]))
-overlap_funcs['11'](1.0,1.0,1.0,1.0,1.0,1.0,np.array([1.0]),np.array([1.0]),np.array([1.0]),np.array([1.0]))
-overlap_funcs['20'](1.0,1.0,1.0,1.0,1.0,1.0,np.array([1.0]),np.array([1.0]),np.array([1.0]),np.array([1.0]))
-overlap_funcs['21'](1.0,1.0,1.0,1.0,1.0,1.0,np.array([1.0]),np.array([1.0]),np.array([1.0]),np.array([1.0]))
-overlap_funcs['22'](1.0,1.0,1.0,1.0,1.0,1.0,np.array([1.0]),np.array([1.0]),np.array([1.0]),np.array([1.0]))
-overlap_funcs['30'](1.0,1.0,1.0,1.0,1.0,1.0,np.array([1.0]),np.array([1.0]),np.array([1.0]),np.array([1.0]))
-overlap_funcs['31'](1.0,1.0,1.0,1.0,1.0,1.0,np.array([1.0]),np.array([1.0]),np.array([1.0]),np.array([1.0]))
-overlap_funcs['32'](1.0,1.0,1.0,1.0,1.0,1.0,np.array([1.0]),np.array([1.0]),np.array([1.0]),np.array([1.0]))
-overlap_funcs['33'](1.0,1.0,1.0,1.0,1.0,1.0,np.array([1.0]),np.array([1.0]),np.array([1.0]),np.array([1.0]))
-print("compilation done")
-b = time.time()
-print(round(b - a,3))
 print('computing overlap')
 def build_overlap(geom, basis_dict, nbf, nshells, overlap_funcs):
     '''uses unique functions '''
@@ -66,6 +50,7 @@ def build_overlap(geom, basis_dict, nbf, nshells, overlap_funcs):
     for i in range(nshells):
         for j in range(nshells):
             # Load data for this contracted integral
+            # This is a slow part of the loop!
             c1 =    np.asarray(basis_dict[i]['coef'])
             c2 =    np.asarray(basis_dict[j]['coef'])
             exp1 =  np.asarray(basis_dict[i]['exp'])
@@ -76,6 +61,7 @@ def build_overlap(geom, basis_dict, nbf, nshells, overlap_funcs):
             col_idx = basis_dict[j]['idx']
             row_idx_stride = basis_dict[i]['idx_stride']
             col_idx_stride = basis_dict[j]['idx_stride']
+            # This is a slow part of the loop!
             Ax,Ay,Az = geom[atom1]
             Bx,By,Bz = geom[atom2]
     
@@ -86,10 +72,10 @@ def build_overlap(geom, basis_dict, nbf, nshells, overlap_funcs):
             bra = basis_dict[i]['am'] 
             ket = basis_dict[j]['am'] 
             if int(bra) < int(ket):
-                lookup = basis_dict[j]['am'] +  basis_dict[i]['am']
+                lookup = str(basis_dict[j]['am']) +  str(basis_dict[i]['am'])
                 primitives = overlap_funcs[lookup](Bx,By,Bz,Ax,Ay,Az,exp_combos[:,1],exp_combos[:,0],coeff_combos[:,1],coeff_combos[:,0])
             else:
-                lookup = basis_dict[i]['am'] +  basis_dict[j]['am']
+                lookup = str(basis_dict[i]['am']) +  str(basis_dict[j]['am'])
                 primitives = overlap_funcs[lookup](Ax,Ay,Az,Bx,By,Bz,exp_combos[:,0],exp_combos[:,1],coeff_combos[:,0],coeff_combos[:,1])
 
             # This fixes shaping error for dp vs pd, etc
@@ -104,68 +90,8 @@ def build_overlap(geom, basis_dict, nbf, nshells, overlap_funcs):
             S = jax.ops.index_update(S, (indices[:,0],indices[:,1]), contracted)
     return S
 
-
-def fast_build_overlap(geom, basis_dict, nbf, nshells, overlap_funcs):
-    S = np.zeros((nbf,nbf))
-
-    data = []
-    contraction_ids = []
-    num_contractions = 0
-    repeats = []
-    for i in range(nshells):
-        for j in range(nshells):
-            # Load data for this contracted integral
-            c1 =    np.asarray(basis_dict[i]['coef'])
-            c2 =    np.asarray(basis_dict[j]['coef'])
-            exp1 =  np.asarray(basis_dict[i]['exp'])
-            exp2 =  np.asarray(basis_dict[j]['exp'])
-            atom1 = basis_dict[i]['atom']
-            atom2 = basis_dict[j]['atom']
-            row_idx = basis_dict[i]['idx']
-            col_idx = basis_dict[j]['idx']
-            row_idx_stride = basis_dict[i]['idx_stride']
-            col_idx_stride = basis_dict[j]['idx_stride']
-            Ax,Ay,Az = geom[atom1]
-            Bx,By,Bz = geom[atom2]
-            bra = basis_dict[i]['am'] 
-            ket = basis_dict[j]['am'] 
-
-            exp_combos = old_cartesian_product(exp1,exp2)
-            coeff_combos = old_cartesian_product(c1,c2)
-
-            for k in range(exp_combos.shape[0]):
-                data.append(np.array([Ax,Ay,Az,Bx,By,Bz,exp_combos[k,0],exp_combos[k,1],coeff_combos[k,0], coeff_combos[k,1],int(bra),int(ket)]))
-            repeats.append(k+1)
-            contraction_ids.append(num_contractions)
-            num_contractions += 1
-
-    # You need to rethink how to do this 
-    # Here, we are looping over shells, and collecting arguments for computing a primitive,
-    # but based on the angular momentum, a SINGLE ROW of `data` will actually be many primitives (3 for p, 6 for d, 10 for f, 15 for g)
-
-    #cd_array = onp.asarray(contraction_ids)
-    #repeats = onp.asarray(repeats)
-    #contraction_ids = onp.asarray(contraction_ids)
-    #segment_ids = onp.repeat(contraction_ids, repeats)
-    #print(segment_ids)
-    #print(segment_ids.shape)
-    #segment_ids = onp.repeat(onp.arange(num_contractions)), cd_array)
-    #print(segment_ids)
-    #print(segment_ids.shape)
-    
-    #data_array = np.asarray(data)
-    #print(data_array.shape)
-    #print(segment_ids.shape)
-    #print("unique segment ids")
-    #print(onp.unique(segment_ids).shape)
-
-    #test = jax.ops.segment_sum(np.asarray(data), np.asarray(segment_ids))
-    #print(test.shape)
-    #print('nbf',nbf)
-            
-    
-#my_S = build_overlap(geom, basis_dict, nbf, nshells, overlap_funcs)
-my_S = build_overlap_old(geom, basis_dict, nbf, nshells, overlap_funcs)
+my_S = build_overlap(geom, basis_dict, nbf, nshells, overlap_funcs)
+print(my_S)
 
 mints = psi4.core.MintsHelper(basis_set)
 psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
