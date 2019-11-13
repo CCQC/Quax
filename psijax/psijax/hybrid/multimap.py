@@ -24,20 +24,15 @@ molecule = psi4.geometry("""
 geom = np.asarray(onp.asarray(molecule.geometry()))
 
 # Get Psi Basis Set and basis set dictionary objects
-basis_name = 'cc-pvdz'
+basis_name = 'cc-pvtz'
 #basis_name = 'cc-pvdz'
 basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
 basis_dict = build_basis_set(molecule, basis_name)
-pprint(basis_dict)
+#pprint(basis_dict)
 # Number of basis functions, number of shells
 nbf = basis_set.nbf()
 print("number of basis functions", nbf)
 nshells = len(basis_dict)
-
-def sidmask(sid, mask):
-    uniq, counts = onp.unique(sid[mask], return_counts=True)
-    newsid = np.repeat(np.arange(uniq.shape[0]), counts)
-    return newsid
 
 def preprocess(geom, basis_dict, nshells):
     basis_data = []
@@ -48,7 +43,9 @@ def preprocess(geom, basis_dict, nshells):
     sp_indices = []
     pp_indices = []
     ds_indices = []
+    sd_indices = []
     dp_indices = []
+    pd_indices = []
     dd_indices = []
 
     for i in range(nshells):
@@ -76,21 +73,28 @@ def preprocess(geom, basis_dict, nshells):
                 basis_data.append([exp_combos[k,0],exp_combos[k,1],coeff_combos[k,0], coeff_combos[k,1],bra_am,ket_am])
                 centers_bra.append(atom1_idx)
                 centers_ket.append(atom2_idx)
-                if bra_am == 0 and ket_am == 0:
-                    ss_indices.append(index)
-                elif bra_am == 1 and ket_am == 0:
-                    ps_indices.append(index)
-                elif bra_am == 0 and ket_am == 1:
-                    sp_indices.append(index)
-                elif bra_am == 1 and ket_am == 1:
-                    pp_indices.append(index)
+                if   bra_am == 0 and ket_am == 0: ss_indices.append(index)
+                elif bra_am == 1 and ket_am == 0: ps_indices.append(index)
+                elif bra_am == 0 and ket_am == 1: sp_indices.append(index)
+                elif bra_am == 1 and ket_am == 1: pp_indices.append(index)
+                elif bra_am == 2 and ket_am == 0: ds_indices.append(index)
+                elif bra_am == 0 and ket_am == 2: sd_indices.append(index)
+                elif bra_am == 2 and ket_am == 1: dp_indices.append(index)
+                elif bra_am == 1 and ket_am == 2: pd_indices.append(index)
+                elif bra_am == 2 and ket_am == 2: dd_indices.append(index)
 
-    ss_indices = np.asarray(onp.vstack(ss_indices))
-    ps_indices = np.asarray(onp.vstack(ps_indices))
-    sp_indices = np.asarray(onp.vstack(sp_indices))
-    pp_indices = np.asarray(onp.vstack(pp_indices))
-    primitive_locations = np.concatenate([ss_indices,ps_indices,sp_indices,pp_indices])
-    return np.asarray(onp.asarray(basis_data)), centers_bra, centers_ket, primitive_locations 
+    primitive_locations = onp.concatenate((onp.asarray(ss_indices, dtype=np.int64).flatten(),
+                                           onp.asarray(ps_indices, dtype=np.int64).flatten(), 
+                                           onp.asarray(sp_indices, dtype=np.int64).flatten(),
+                                           onp.asarray(pp_indices, dtype=np.int64).flatten(),
+                                           onp.asarray(ds_indices, dtype=np.int64).flatten(),
+                                           onp.asarray(sd_indices, dtype=np.int64).flatten(),
+                                           onp.asarray(dp_indices, dtype=np.int64).flatten(),
+                                           onp.asarray(pd_indices, dtype=np.int64).flatten(),
+                                           onp.asarray(dd_indices, dtype=np.int64).flatten())).reshape(-1,2)
+
+    primitive_locations = np.asarray(primitive_locations)
+    return np.asarray(onp.asarray(basis_data)), centers_bra, centers_ket, primitive_locations
 
 print("starting preprocessing")
 a = time.time()
@@ -104,8 +108,6 @@ def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
     S = np.zeros((nbf,nbf))
     centers_bra = np.take(geom, centers1, axis=0)
     centers_ket = np.take(geom, centers2, axis=0)
-    # all masks, centers, and basis data are based on total contracted shells.
-    # in order to get indices of 
     print("generating masks")
     ssmask = (basis_data[:,-2] == 0) & (basis_data[:,-1] == 0)
     psmask = (basis_data[:,-2] == 1) & (basis_data[:,-1] == 0)
@@ -175,7 +177,8 @@ def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
 
     if d_orb:
         ds_primitives = jax.lax.map(dsmap, (centers_bra[dsmask], centers_ket[dsmask], basis_data[dsmask]))
-        ds_contracted = jax.ops.segment_sum(ds_primitives, sidmask(sid,dsmask))
+        sd_primitives = jax.lax.map(dsmap, (centers_bra[sdmask], centers_ket[sdmask], basis_data[sdmask]))
+        all_primitives = np.concatenate((all_primitives, ds_primitives.reshape(-1), sd_primitives.reshape(-1)))
 
     def dpmap(inp):
         centers_bra, centers_ket, basis_data = inp
@@ -184,12 +187,15 @@ def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
         alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = basis_data
         args = (Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2)
         sgra = (Cx, Cy, Cz, Ax, Ay, Az, alpha_ket, alpha_bra, c2, c1)
-        return np.where((bra_am == 2) & (ket_am == 1), overlap_dp(*args).reshape(-1), 
-               np.where((bra_am == 1) & (ket_am == 2), overlap_dp(*sgra).reshape(-1), 0.0))
+        #return np.where((bra_am == 2) & (ket_am == 1), overlap_dp(*args).reshape(-1),  #TEMP TODO
+        return np.where((bra_am == 2) & (ket_am == 1), overlap_dp(*args).T.reshape(-1), 
+               np.where((bra_am == 1) & (ket_am == 2), overlap_dp(*sgra).reshape(-1), 0.0)) 
 
     if d_orb:
         dp_primitives = jax.lax.map(dpmap, (centers_bra[dpmask], centers_ket[dpmask], basis_data[dpmask]))
-        dp_contracted = jax.ops.segment_sum(dp_primitives, sidmask(sid,dpmask))
+        pd_primitives = jax.lax.map(dpmap, (centers_bra[pdmask], centers_ket[pdmask], basis_data[pdmask])) #TODO transpose?
+        all_primitives = np.concatenate((all_primitives, dp_primitives.reshape(-1), pd_primitives.reshape(-1)))
+
 
     def ddmap(inp):
         centers_bra, centers_ket, basis_data = inp
@@ -201,7 +207,7 @@ def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
 
     if d_orb:
         dd_primitives = jax.lax.map(ddmap, (centers_bra[ddmask], centers_ket[ddmask], basis_data[ddmask]))
-        dd_contracted = jax.ops.segment_sum(dd_primitives, sidmask(sid,ddmask))
+        all_primitives = np.concatenate((all_primitives, dd_primitives.reshape(-1)))
 
     # Just one call to index add 
     S = jax.ops.index_add(S, (primitive_locations[:,0], primitive_locations[:,1]), all_primitives)
