@@ -109,17 +109,15 @@ def preprocess(geom, basis_dict, nshells):
                 elif bra_am == 1 and ket_am == 1:
                     pp_indices.append(index)
 
-
                 indices.append(index)
             sizes.append(size)
             segment_id += 1
-
 
     ss_indices = np.asarray(onp.vstack(ss_indices))
     ps_indices = np.asarray(onp.vstack(ps_indices))
     sp_indices = np.asarray(onp.vstack(sp_indices))
     pp_indices = np.asarray(onp.vstack(pp_indices))
-    all_indices = [ss_indices,ps_indices,sp_indices,pp_indices]
+    all_indices = np.concatenate([ss_indices,ps_indices,sp_indices,pp_indices])
 
     return np.asarray(onp.asarray(basis_data)), centers_bra, centers_ket, np.asarray(onp.vstack(indices)), np.asarray(onp.asarray(segment)), np.asarray(onp.asarray(sizes)), np.asarray(onp.asarray(start_pair)), all_indices
 
@@ -129,9 +127,7 @@ basis_data, centers1, centers2, indices, sid, sizes, start_pair, all_indices = p
 print("preprocessing done")
 b = time.time()
 print(b-a)
-
 print("here")
-
 
 #print(basis_data.shape)
 #print(sid)
@@ -162,6 +158,9 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
     p_orb = np.any(psmask)
     d_orb = np.any(dsmask)
 
+    all_primitives = np.array([])
+    #all_indices = np.concatenate(all_indices) # can do this earlier
+
     def ssmap(inp):
         centers_bra, centers_ket, basis_data = inp
         Ax, Ay, Az = centers_bra
@@ -172,6 +171,7 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
 
     if s_orb: 
         ss_primitives = jax.lax.map(ssmap, (centers_bra[ssmask], centers_ket[ssmask], basis_data[ssmask]))
+        all_primitives = np.concatenate((all_primitives, ss_primitives))
 
     def psmap(inp):
         centers_bra, centers_ket, basis_data = inp
@@ -186,6 +186,7 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
     if p_orb:
         ps_primitives = jax.lax.map(psmap, (centers_bra[psmask], centers_ket[psmask], basis_data[psmask]))
         sp_primitives = jax.lax.map(psmap, (centers_bra[spmask], centers_ket[spmask], basis_data[spmask]))
+        all_primitives = np.concatenate((all_primitives, ps_primitives.reshape(-1), sp_primitives.reshape(-1)))
 
     def ppmap(inp):
         centers_bra, centers_ket, basis_data = inp
@@ -197,11 +198,11 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
 
     if p_orb:
         pp_primitives = jax.lax.map(ppmap, (centers_bra[ppmask], centers_ket[ppmask], basis_data[ppmask]))
+        all_primitives = np.concatenate((all_primitives, pp_primitives.reshape(-1)))
 
     # Try doing one index_add call
-    everything = np.concatenate(all_indices)
-    all_primitives = np.concatenate((ss_primitives, ps_primitives.reshape(-1), sp_primitives.reshape(-1), pp_primitives.reshape(-1)))
-    S = jax.ops.index_add(S, (everything[:,0], everything[:,1]), all_primitives)
+    #everything = np.concatenate(all_indices)
+    #all_primitives = np.concatenate((ss_primitives, ps_primitives.reshape(-1), sp_primitives.reshape(-1), pp_primitives.reshape(-1)))
 
     def dsmap(inp):
         centers_bra, centers_ket, basis_data = inp
@@ -216,8 +217,6 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
     if d_orb:
         ds_primitives = jax.lax.map(dsmap, (centers_bra[dsmask], centers_ket[dsmask], basis_data[dsmask]))
         ds_contracted = jax.ops.segment_sum(ds_primitives, sidmask(sid,dsmask))
-        print('ds contracted')
-        print(ds_contracted.shape)
 
     def dpmap(inp):
         centers_bra, centers_ket, basis_data = inp
@@ -232,8 +231,6 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
     if d_orb:
         dp_primitives = jax.lax.map(dpmap, (centers_bra[dpmask], centers_ket[dpmask], basis_data[dpmask]))
         dp_contracted = jax.ops.segment_sum(dp_primitives, sidmask(sid,dpmask))
-        print('dp contracted')
-        print(dp_contracted.shape)
 
     def ddmap(inp):
         centers_bra, centers_ket, basis_data = inp
@@ -246,49 +243,10 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
     if d_orb:
         dd_primitives = jax.lax.map(ddmap, (centers_bra[ddmask], centers_ket[ddmask], basis_data[ddmask]))
         dd_contracted = jax.ops.segment_sum(dd_primitives, sidmask(sid,ddmask))
-        print('dd contracted')
-        print(dd_contracted.shape)
 
-#    # These masks are wrong
-#    print(indices.shape)
-#    print(indices[:,0][ssmask])
-#    print(indices[:,1][ssmask])
-#    print(indices[:,0][ssmask].shape)
-#
-#    print(indices[:,0][psmask])
-#    print(indices[:,1][psmask])
-#    print(indices[:,0][psmask].shape)
-#
-#    print(indices[:,0][ppmask])
-#    print(indices[:,1][ppmask])
-#    print(indices[:,0][ppmask].shape)
-#
-#    # HYPOTHESIS: the unique indices (return index = True in np.unique) of sid[ssmask] will give the right masks of indices
-#    print(sid[ssmask])
-#    print(sid[psmask])
-
-    # This method generates an overlap that is not symmetric, problem, yea?
-    #S = jax.ops.index_update(S, (indices[:,0],indices[:,1]), np.concatenate((ss_contracted, ps_contracted.flatten(), pp_contracted.flatten(), ds_contracted.flatten(), dp_contracted.flatten(), dd_contracted.flatten())))
-    #S = jax.ops.index_update(S, (indices[:,0],indices[:,1]), np.concatenate((ss_contracted, ps_contracted.flatten(), pp_contracted.flatten())))
-
-
-
-    # If you want to do segment sum, 'Normalize' the segments first, have to be in numerical order.
-    #uniq, unique_indices, counts = onp.unique(sid[ssmask],return_index=True, return_counts=True)
-    #newsid = np.repeat(np.arange(uniq.shape[0]), counts)
-    #ss_contracted = jax.ops.segment_sum(ss_primitives, newsid)
-    # Build overlap
-    #S = np.zeros((nbf,nbf))
-    #S = jax.ops.index_update(S, (indices[np.repeat(ssmask, sizes),0],indices[np.repeat(ssmask, sizes),1]), ss_contracted)
-
-    # how to mask indices?
-    #print(indices[np.repeat(ssmask, sizes),0].shape)
-    #print(ss_contracted.shape)
-    #S = jax.ops.index_update(S, (indices[np.repeat(ssmask, sizes),0],indices[np.repeat(ssmask, sizes),1]), ss_contracted)
-    #S = jax.ops.index_add(S, (indices[np.repeat(ssmask, sizes),0],indices[np.repeat(ssmask, sizes),1]), ss_primitives)
-    #S = jax.ops.index_add(S, (indices[np.repeat(ssmask, sizes[ssmask]),0],indices[np.repeat(ssmask, sizes[ssmask]),1]), ss_primitives)
+    # Just one call to index add 
+    S = jax.ops.index_add(S, (all_indices[:,0], all_indices[:,1]), all_primitives)
     print(S)
-
 
 build_overlap(geom, centers1, centers2, basis_data, indices, sizes)
 
