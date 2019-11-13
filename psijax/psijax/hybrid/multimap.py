@@ -49,7 +49,6 @@ def preprocess(geom, basis_dict, nshells):
     indices = []
     segment_id = 0
 
-    start_pair = []
 
     #TODO highest contraction size
     #K = 36
@@ -91,7 +90,6 @@ def preprocess(geom, basis_dict, nshells):
                 centers_bra.append(atom1_idx)
                 centers_ket.append(atom2_idx)
                 segment.append(segment_id)
-                start_pair.append([row_idx,col_idx])
 
                 #start = primitive_index
                 #stop = primitive_index + size
@@ -119,25 +117,17 @@ def preprocess(geom, basis_dict, nshells):
     pp_indices = np.asarray(onp.vstack(pp_indices))
     all_indices = np.concatenate([ss_indices,ps_indices,sp_indices,pp_indices])
 
-    return np.asarray(onp.asarray(basis_data)), centers_bra, centers_ket, np.asarray(onp.vstack(indices)), np.asarray(onp.asarray(segment)), np.asarray(onp.asarray(sizes)), np.asarray(onp.asarray(start_pair)), all_indices
+    return np.asarray(onp.asarray(basis_data)), centers_bra, centers_ket, all_indices
 
-a = time.time()
 print("starting preprocessing")
-basis_data, centers1, centers2, indices, sid, sizes, start_pair, all_indices = preprocess(geom, basis_dict, nshells)
-print("preprocessing done")
+a = time.time()
+basis_data, centers1, centers2, all_indices = preprocess(geom, basis_dict, nshells)
 b = time.time()
+print("preprocessing done")
 print(b-a)
-print("here")
 
-#print(basis_data.shape)
-#print(sid)
-#print(sid.shape)
-#print('indices size')
-#print(indices.size)
-#print('indices shape')
-#print(indices.shape)
 
-def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
+def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
     S = np.zeros((nbf,nbf))
     centers_bra = np.take(geom, centers1, axis=0)
     centers_ket = np.take(geom, centers2, axis=0)
@@ -159,7 +149,6 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
     d_orb = np.any(dsmask)
 
     all_primitives = np.array([])
-    #all_indices = np.concatenate(all_indices) # can do this earlier
 
     def ssmap(inp):
         centers_bra, centers_ket, basis_data = inp
@@ -245,8 +234,8 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
         dd_contracted = jax.ops.segment_sum(dd_primitives, sidmask(sid,ddmask))
 
     # Just one call to index add 
-    S = jax.ops.index_add(S, (all_indices[:,0], all_indices[:,1]), all_primitives)
+    S = jax.ops.index_add(S, (primitive_locations[:,0], primitive_locations[:,1]), all_primitives)
     print(S)
 
-build_overlap(geom, centers1, centers2, basis_data, indices, sizes)
+build_overlap(geom, centers1, centers2, basis_data, all_indices)
 
