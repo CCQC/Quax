@@ -40,18 +40,9 @@ def sidmask(sid, mask):
     return newsid
 
 def preprocess(geom, basis_dict, nshells):
-    primitive_index = 0
     basis_data = []
     centers_bra = []
     centers_ket = []
-    sizes=[]
-    segment = []
-    indices = []
-    segment_id = 0
-
-
-    #TODO highest contraction size
-    #K = 36
     ss_indices = []
     ps_indices = []
     sp_indices = []
@@ -74,30 +65,17 @@ def preprocess(geom, basis_dict, nshells):
             col_idx = basis_dict[j]['idx']
             col_idx_stride = basis_dict[j]['idx_stride']
             ket_am = basis_dict[j]['am']
+
             exp_combos = old_cartesian_product(exp1,exp2)
             coeff_combos = old_cartesian_product(c1,c2)
             row_indices = onp.repeat(row_idx, row_idx_stride) + onp.arange(row_idx_stride)
             col_indices = onp.repeat(col_idx, col_idx_stride) + onp.arange(col_idx_stride)
-            # This index is where the CONTRACTED integral components go for this shell pair
-            # How to get where primitive integrals go? has to have leading axis shape of nprimitive shells, not total primitives
-            # Or, how to contract the primitives?
             index = old_cartesian_product(row_indices,col_indices)
 
-            size = ((bra_am + 1) * (bra_am + 2) // 2) * ((ket_am + 1) * (ket_am + 2) // 2) 
-             
             for k in range(exp_combos.shape[0]):
                 basis_data.append([exp_combos[k,0],exp_combos[k,1],coeff_combos[k,0], coeff_combos[k,1],bra_am,ket_am])
                 centers_bra.append(atom1_idx)
                 centers_ket.append(atom2_idx)
-                segment.append(segment_id)
-
-                #start = primitive_index
-                #stop = primitive_index + size
-                #indx = onp.pad(onp.arange(start, stop), (0,K-size), constant_values=-1)
-                #indices.append(indx)
-                #primitive_index += size
-                #print(bra_am,ket_am,indx)
-
                 if bra_am == 0 and ket_am == 0:
                     ss_indices.append(index)
                 elif bra_am == 1 and ket_am == 0:
@@ -107,41 +85,37 @@ def preprocess(geom, basis_dict, nshells):
                 elif bra_am == 1 and ket_am == 1:
                     pp_indices.append(index)
 
-                indices.append(index)
-            sizes.append(size)
-            segment_id += 1
-
     ss_indices = np.asarray(onp.vstack(ss_indices))
     ps_indices = np.asarray(onp.vstack(ps_indices))
     sp_indices = np.asarray(onp.vstack(sp_indices))
     pp_indices = np.asarray(onp.vstack(pp_indices))
-    all_indices = np.concatenate([ss_indices,ps_indices,sp_indices,pp_indices])
-
-    return np.asarray(onp.asarray(basis_data)), centers_bra, centers_ket, all_indices
+    primitive_locations = np.concatenate([ss_indices,ps_indices,sp_indices,pp_indices])
+    return np.asarray(onp.asarray(basis_data)), centers_bra, centers_ket, primitive_locations 
 
 print("starting preprocessing")
 a = time.time()
-basis_data, centers1, centers2, all_indices = preprocess(geom, basis_dict, nshells)
+basis_data, centers1, centers2, primitive_locations = preprocess(geom, basis_dict, nshells)
 b = time.time()
 print("preprocessing done")
 print(b-a)
 
-
 def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
+    # Define overlap of zeros
     S = np.zeros((nbf,nbf))
     centers_bra = np.take(geom, centers1, axis=0)
     centers_ket = np.take(geom, centers2, axis=0)
-    # all masks, centers, and basis data are based on total contracted shells. In order  (256,) going 
+    # all masks, centers, and basis data are based on total contracted shells.
     # in order to get indices of 
     print("generating masks")
-    ssmask =  (basis_data[:,-2] == 0) & (basis_data[:,-1] == 0)
-    psmask = ((basis_data[:,-2] == 1) & (basis_data[:,-1] == 0))
-    spmask = ((basis_data[:,-2] == 0) & (basis_data[:,-1] == 1))
-    ppmask =  (basis_data[:,-2] == 1) & (basis_data[:,-1] == 1)
-    
-    dsmask = ((basis_data[:,-2] == 2) & (basis_data[:,-1] == 0)) | ((basis_data[:,-2] == 0) & (basis_data[:,-1] == 2))
-    dpmask = ((basis_data[:,-2] == 2) & (basis_data[:,-1] == 1)) | ((basis_data[:,-2] == 1) & (basis_data[:,-1] == 2))
-    ddmask =  (basis_data[:,-2] == 2) & (basis_data[:,-1] == 2)
+    ssmask = (basis_data[:,-2] == 0) & (basis_data[:,-1] == 0)
+    psmask = (basis_data[:,-2] == 1) & (basis_data[:,-1] == 0)
+    spmask = (basis_data[:,-2] == 0) & (basis_data[:,-1] == 1)
+    ppmask = (basis_data[:,-2] == 1) & (basis_data[:,-1] == 1)
+    dsmask = (basis_data[:,-2] == 2) & (basis_data[:,-1] == 0)
+    sdmask = (basis_data[:,-2] == 0) & (basis_data[:,-1] == 2)
+    dpmask = (basis_data[:,-2] == 2) & (basis_data[:,-1] == 1)
+    pdmask = (basis_data[:,-2] == 1) & (basis_data[:,-1] == 2)
+    ddmask = (basis_data[:,-2] == 2) & (basis_data[:,-1] == 2)
     print("masks generated")
     
     s_orb = np.any(ssmask)
@@ -189,10 +163,6 @@ def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
         pp_primitives = jax.lax.map(ppmap, (centers_bra[ppmask], centers_ket[ppmask], basis_data[ppmask]))
         all_primitives = np.concatenate((all_primitives, pp_primitives.reshape(-1)))
 
-    # Try doing one index_add call
-    #everything = np.concatenate(all_indices)
-    #all_primitives = np.concatenate((ss_primitives, ps_primitives.reshape(-1), sp_primitives.reshape(-1), pp_primitives.reshape(-1)))
-
     def dsmap(inp):
         centers_bra, centers_ket, basis_data = inp
         Ax, Ay, Az = centers_bra
@@ -235,7 +205,11 @@ def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
 
     # Just one call to index add 
     S = jax.ops.index_add(S, (primitive_locations[:,0], primitive_locations[:,1]), all_primitives)
-    print(S)
+    return S
 
-build_overlap(geom, centers1, centers2, basis_data, all_indices)
+S = build_overlap(geom, centers1, centers2, basis_data, primitive_locations)
+
+mints = psi4.core.MintsHelper(basis_set)
+psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
+print(np.allclose(S, psi_S))
 
