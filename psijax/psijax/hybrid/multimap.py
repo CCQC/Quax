@@ -54,6 +54,13 @@ def preprocess(geom, basis_dict, nshells):
 
     #TODO highest contraction size
     #K = 36
+    ss_indices = []
+    ps_indices = []
+    sp_indices = []
+    pp_indices = []
+    ds_indices = []
+    dp_indices = []
+    dd_indices = []
 
     for i in range(nshells):
         c1 =    onp.asarray(basis_dict[i]['coef'])
@@ -94,21 +101,40 @@ def preprocess(geom, basis_dict, nshells):
                 #primitive_index += size
                 #print(bra_am,ket_am,indx)
 
+                if bra_am == 0 and ket_am == 0:
+                    ss_indices.append(index)
+                elif bra_am == 1 and ket_am == 0:
+                    ps_indices.append(index)
+                elif bra_am == 0 and ket_am == 1:
+                    sp_indices.append(index)
+                elif bra_am == 1 and ket_am == 1:
+                    pp_indices.append(index)
 
-            indices.append(index)
+
+                indices.append(index)
             sizes.append(size)
             segment_id += 1
-    return np.asarray(onp.asarray(basis_data)), centers_bra, centers_ket, np.asarray(onp.vstack(indices)), np.asarray(onp.asarray(segment)), np.asarray(onp.asarray(sizes)), np.asarray(onp.asarray(start_pair))
+
+
+    ss_indices = np.asarray(onp.vstack(ss_indices))
+    ps_indices = np.asarray(onp.vstack(ps_indices))
+    sp_indices = np.asarray(onp.vstack(sp_indices))
+    pp_indices = np.asarray(onp.vstack(pp_indices))
+    all_indices = [ss_indices,ps_indices,sp_indices,pp_indices]
+    print([i.shape for i in all_indices])
+
+    return np.asarray(onp.asarray(basis_data)), centers_bra, centers_ket, np.asarray(onp.vstack(indices)), np.asarray(onp.asarray(segment)), np.asarray(onp.asarray(sizes)), np.asarray(onp.asarray(start_pair)), all_indices
 
 a = time.time()
 print("starting preprocessing")
-basis_data, centers1, centers2, indices, sid, sizes, start_pair = preprocess(geom, basis_dict, nshells)
+basis_data, centers1, centers2, indices, sid, sizes, start_pair, all_indices = preprocess(geom, basis_dict, nshells)
 print("preprocessing done")
 b = time.time()
 print(b-a)
 
 print("here")
 print(start_pair)
+
 
 #print(basis_data.shape)
 #print(sid)
@@ -135,17 +161,16 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
     ddmask =  (basis_data[:,-2] == 2) & (basis_data[:,-1] == 2)
     print("masks generated")
     
-    print('pp start  pairs')
-    print(start_pair[ppmask])
-
-    print('sidmasks')
-    print(sid[ssmask])
-    print(sid[psmask])
-    print(sid[ppmask])
-
     s_orb = np.any(ssmask)
     p_orb = np.any(psmask)
     d_orb = np.any(dsmask)
+
+
+    #TESTBED
+    
+    print("shape of indices")
+    print(indices.shape)
+
 
     def ssmap(inp):
         centers_bra, centers_ket, basis_data = inp
@@ -160,6 +185,8 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
         #TODO this works
         S = jax.ops.index_add(S, (start_pair[ssmask][:,0],start_pair[ssmask][:,1]), ss_primitives)
 
+        print("SS INDEX")
+        print(start_pair[ssmask].shape)
         #ss_contracted = jax.ops.segment_sum(ss_primitives, sidmask(sid,ssmask))
         #print('ss contracted')
         #print(ss_contracted.shape)
@@ -177,23 +204,35 @@ def build_overlap(geom, centers1, centers2, basis_data, indices,sizes):
     if p_orb:
         ps_primitives = jax.lax.map(psmap, (centers_bra[psmask], centers_ket[psmask], basis_data[psmask]))
         sp_primitives = jax.lax.map(psmap, (centers_bra[spmask], centers_ket[spmask], basis_data[spmask]))
-        print("ps primitives")
-        print(ps_primitives.shape)
-        print('ps start pairs')
-        print(start_pair[psmask].shape)
-        print(start_pair[psmask])
 
 
         indx = np.asarray(np.repeat(start_pair[psmask], 3, axis=0))
         indx = jax.ops.index_add(indx, jax.ops.index[:,0], np.tile(np.arange(3), ps_primitives.shape[0]))
-        print("PS INDEX")
-        print(indx)
+        #print("PS INDEX")
+        #print(indx)
         S = jax.ops.index_add(S, (indx[:,0], indx[:,1]), ps_primitives.flatten())
+
+        print("HERE")
+        print(np.allclose(all_indices[1], indx))
+        #print(indices[psmask])
+        #print(all_indices[1][psmask])
+        #print(indx)
+
+        #print("Size of  PS mask")
+        #print(np.count_nonzero(psmask))
+        #print("Size of  SP mask")
+        #print(np.count_nonzero(spmask))
+        #
+        #print("Shape of  PS index")
+        #print(indx.shape)
 
         indx = np.asarray(np.repeat(start_pair[spmask], 3, axis=0))
         indx = jax.ops.index_add(indx, jax.ops.index[:,1], np.tile(np.arange(3), ps_primitives.shape[0]))
-        print("SP INDEX")
-        print(indx)
+        print(np.allclose(all_indices[2], indx))
+        #print("Shape of  SP index")
+        #print(indx.shape)
+        #print("SP INDEX")
+        #print(indx.shape)
         S = jax.ops.index_add(S, (indx[:,0], indx[:,1]), sp_primitives.flatten())
         
         #print(np.repeat(start_pair[psmask], 3, axis=0).shape)
