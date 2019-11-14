@@ -46,8 +46,8 @@ molecule = psi4.geometry("""
 geom = np.asarray(onp.asarray(molecule.geometry()))
 
 # Get Psi Basis Set and basis set dictionary objects
-#basis_name = 'cc-pvtz'
-basis_name = 'cc-pvdz'
+basis_name = 'cc-pvtz'
+#basis_name = 'cc-pvdz'
 basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
 basis_dict = build_basis_set(molecule, basis_name)
 pprint(basis_dict)
@@ -155,8 +155,7 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
 
     all_contracted = np.array([])
 
-    def ssmap(inp):
-        centers_bra, centers_ket, basis_data = inp
+    def ssmap(centers_bra, centers_ket, basis_data):
         Ax, Ay, Az = centers_bra
         Cx, Cy, Cz = centers_ket
         alpha_bra, alpha_ket, c1, c2 = basis_data
@@ -165,12 +164,12 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
         return np.where(alpha_bra == 0, 0.0, V_overlap_ss(*args))
 
     if s_orb: 
-        ss_primitives = jax.lax.map(ssmap, (centers_bra[ssmask], centers_ket[ssmask], basis_data[ssmask]))
+        v_ssmap = jax.jit(jax.vmap(ssmap, in_axes=(0,0,0)))
+        ss_primitives = v_ssmap(centers_bra[ssmask], centers_ket[ssmask], basis_data[ssmask])
         ss_contracted = np.sum(ss_primitives, axis=1)
         all_contracted = np.concatenate((all_contracted, ss_contracted.reshape(-1)))
 
     def psmap(centers_bra, centers_ket, basis_data, am_data):
-        #centers_bra, centers_ket, basis_data, am_data = inp
         bra_am, ket_am = am_data[0], am_data[1]
         Ax, Ay, Az = centers_bra
         Cx, Cy, Cz = centers_ket
@@ -219,7 +218,6 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
                np.where((bra_am == 2) & (ket_am == 0), V_overlap_ds(*args).T, 
                np.where((bra_am == 0) & (ket_am == 2), V_overlap_ds(*sgra).T, 0.0)))
 
-    #def dpmap(inp):
     def dpmap(centers_bra, centers_ket, basis_data, am_data):
         bra_am, ket_am = am_data[0], am_data[1]
         Ax, Ay, Az = centers_bra
@@ -247,34 +245,28 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
 
         ds_primitives = v_dsmap(centers_bra[dsmask], centers_ket[dsmask], basis_data[dsmask], am_data[dsmask])
         ds_contracted = np.sum(ds_primitives, axis=-1)
-        print(ds_contracted.shape)
 
         sd_primitives = v_dsmap(centers_bra[sdmask], centers_ket[sdmask], basis_data[sdmask], am_data[sdmask])
         sd_contracted = np.sum(sd_primitives, axis=-1)
-        print(sd_contracted.shape)
 
         dp_primitives = v_dpmap(centers_bra[dpmask], centers_ket[dpmask], basis_data[dpmask], am_data[dpmask])
         dp_contracted = np.sum(dp_primitives, axis=-1).T
-        print(dp_contracted.shape)
 
         pd_primitives = v_dpmap(centers_bra[pdmask], centers_ket[pdmask], basis_data[pdmask], am_data[pdmask])
         pd_contracted = np.sum(pd_primitives, axis=-1)
-        print(pd_contracted.shape)
 
-        dd_primitives = v_ddmap(centers_bra[pdmask], centers_ket[pdmask], basis_data[pdmask])
+        dd_primitives = v_ddmap(centers_bra[ddmask], centers_ket[ddmask], basis_data[ddmask])
         dd_contracted = np.sum(dd_primitives, axis=-1)
-        print(dd_contracted.shape)
 
         all_contracted = np.concatenate((all_contracted, ds_contracted.reshape(-1), sd_contracted.reshape(-1), dp_contracted.reshape(-1), pd_contracted.reshape(-1), dd_contracted.reshape(-1)))
-
     print(all_contracted.shape)
     return all_contracted
 
 S = build_overlap(geom, centers1, centers2, basis_data, am_data)
 #grad = jax.jacfwd(build_overlap)(geom, centers1, centers2, basis_data, am_data)
 #print(grad.shape)
-#hess = jax.jacfwd(jax.jacfwd(build_overlap))(geom, centers1, centers2, basis_data, am_data)
-#print(hess)
+hess = jax.jacfwd(jax.jacfwd(build_overlap))(geom, centers1, centers2, basis_data, am_data)
+print(hess.shape)
 
 #mints = psi4.core.MintsHelper(basis_set)
 #psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
