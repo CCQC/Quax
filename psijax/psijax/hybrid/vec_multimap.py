@@ -20,41 +20,60 @@ molecule = psi4.geometry("""
                          units bohr
                          """)
 
-#molecule = psi4.geometry("""
-#                         0 1
-#                         H 0.0 0.0 -0.849220457955
-#                         H 0.0 0.0  0.849220457955
-#                         H 0.0 0.0  2.000000000000
-#                         H 0.0 0.0  3.000000000000
-#                         H 0.0 0.0  4.000000000000
-#                         H 0.0 0.0  5.000000000000
-#                         H 0.0 0.0  6.000000000000
-#                         H 0.0 0.0  7.000000000000
-#                         H 0.0 0.0  8.000000000000
-#                         H 0.0 0.0  9.000000000000
-#                         H 0.0 0.0  10.000000000000
-#                         H 0.0 0.0  11.000000000000
-#                         H 0.0 0.0  12.000000000000
-#                         H 0.0 0.0  13.000000000000
-#                         H 0.0 0.0  14.000000000000
-#                         H 0.0 0.0  15.000000000000
-#                         units bohr
-#                         """)
-
-
 # Get geometry as JAX array
 geom = np.asarray(onp.asarray(molecule.geometry()))
 
 # Get Psi Basis Set and basis set dictionary objects
-basis_name = 'cc-pvtz'
-#basis_name = 'cc-pvdz'
+#basis_name = 'cc-pvtz'
+basis_name = 'cc-pvdz'
 basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
 basis_dict = build_basis_set(molecule, basis_name)
-pprint(basis_dict)
+#pprint(basis_dict)
 # Number of basis functions, number of shells
 nbf = basis_set.nbf()
 print("number of basis functions", nbf)
 nshells = len(basis_dict)
+
+
+def test():
+    ss_indices = []
+    ps_indices = []
+    sp_indices = []
+    pp_indices = []
+
+    #row_idx = 0
+    #col_idx = 0
+    for i in range(nshells):
+        bra_am = basis_dict[i]['am']
+        row_idx = basis_dict[i]['idx']
+        for j in range(nshells):
+            ket_am = basis_dict[j]['am']
+            col_idx = basis_dict[j]['idx']
+            if   bra_am == 0 and ket_am == 0: 
+                ss_indices.append([row_idx, col_idx])
+            elif bra_am == 0 and ket_am == 1: 
+                sp_indices.append([row_idx, col_idx])
+                sp_indices.append([row_idx, col_idx + 1])
+                sp_indices.append([row_idx, col_idx + 2])
+            elif bra_am == 1 and ket_am == 0:
+                ps_indices.append([row_idx, col_idx])
+                ps_indices.append([row_idx + 1, col_idx])
+                ps_indices.append([row_idx + 2, col_idx])
+            elif bra_am == 1 and ket_am == 1:
+                pp_indices.append([row_idx, col_idx])
+                pp_indices.append([row_idx, col_idx + 1])
+                pp_indices.append([row_idx, col_idx + 2])
+                pp_indices.append([row_idx + 1, col_idx])
+                pp_indices.append([row_idx + 1, col_idx + 1])
+                pp_indices.append([row_idx + 1, col_idx + 2])
+                pp_indices.append([row_idx + 2, col_idx])
+                pp_indices.append([row_idx + 2, col_idx + 1])
+                pp_indices.append([row_idx + 2, col_idx + 2])
+
+    indices = onp.concatenate((onp.asarray(ss_indices), onp.asarray(sp_indices), onp.asarray(ps_indices), onp.asarray(pp_indices)))
+    flattened_indices = onp.ravel_multi_index(indices.T, (nbf,nbf))
+    return flattened_indices
+
 
 
 V_overlap_ss = jax.vmap(overlap_ss, (None,None,None,None,None,None,0,0,0,0))
@@ -82,6 +101,11 @@ def preprocess(geom, basis_dict, nshells):
 
     biggest_K = 9 #TODO hard coded
 
+    oei_indices = old_cartesian_product(onp.arange(nbf),onp.arange(nbf))
+    #print(oei_indices)
+
+    bf_idx = 0
+
     for i in range(nshells):
         c1 =    onp.asarray(basis_dict[i]['coef'])
         exp1 =  onp.asarray(basis_dict[i]['exp'])
@@ -89,6 +113,11 @@ def preprocess(geom, basis_dict, nshells):
         row_idx = basis_dict[i]['idx']
         row_idx_stride = basis_dict[i]['idx_stride']
         bra_am = basis_dict[i]['am']
+
+        #bra_dim = ((bra_am + 1) * (bra_am + 2) // 2)
+        #for p in range(bra_dim): 
+        #    ROWS.append(p+i)
+
         for j in range(nshells):
             c2 =    onp.asarray(basis_dict[j]['coef'])
             exp2 =  onp.asarray(basis_dict[j]['exp'])
@@ -97,6 +126,34 @@ def preprocess(geom, basis_dict, nshells):
             col_idx_stride = basis_dict[j]['idx_stride']
             ket_am = basis_dict[j]['am']
 
+            #bra_dim = ((bra_am + 1) * (bra_am + 2) // 2)
+            #ket_dim = ((ket_am + 1) * (ket_am + 2) // 2)
+            #size = ((bra_am + 1) * (bra_am + 2) // 2) * ((ket_am + 1) * (ket_am + 2) // 2) 
+
+            #COL_IDX = COL_IDX + ((ket_am + 1) * (ket_am + 2) // 2)
+            #for p in range(bra_dim): 
+            #    for q in range(ket_dim): 
+            #        ROWS.append(i+p)
+            #        COLS.append(j+q)
+
+
+            # Find out what kind of integral this is
+            if   bra_am == 0 and ket_am == 0: target = ss_indices
+            elif bra_am == 1 and ket_am == 0: target = ps_indices
+            elif bra_am == 0 and ket_am == 1: target = sp_indices
+            elif bra_am == 1 and ket_am == 1: target = pp_indices
+            elif bra_am == 2 and ket_am == 0: target = ds_indices
+            elif bra_am == 0 and ket_am == 2: target = sd_indices
+            elif bra_am == 2 and ket_am == 1: target = dp_indices
+            elif bra_am == 1 and ket_am == 2: target = pd_indices
+            elif bra_am == 2 and ket_am == 2: target = dd_indices
+
+            size = ((bra_am + 1) * (bra_am + 2) // 2) * ((ket_am + 1) * (ket_am + 2) // 2) 
+            for component in range(size):
+                #print(bra_am, ket_am, oei_indices[bf_idx])
+                target.append(oei_indices[bf_idx])
+                bf_idx += 1
+
             # Geometry data
             centers_bra.append(atom1_idx)
             centers_ket.append(atom2_idx)
@@ -104,12 +161,9 @@ def preprocess(geom, basis_dict, nshells):
             # Basis function data
             exp_combos = old_cartesian_product(exp1,exp2)
             coeff_combos = old_cartesian_product(c1,c2)
-            current_contract_K = exp_combos.shape[0]
-            #TODO TODO TODO fixes nans
-            exp_combos = onp.pad(exp_combos, ((0, biggest_K - current_contract_K), (0,0)))
-            #exp_combos = onp.pad(exp_combos, ((0, biggest_K - current_contract_K), (0,0)), constant_values=1.0)
-            #TODO TODO TODO fixes nan
-            coeff_combos = onp.pad(coeff_combos, ((0, biggest_K - current_contract_K), (0,0)))
+            current_K = exp_combos.shape[0] # Size of this contraction
+            exp_combos = onp.pad(exp_combos, ((0, biggest_K - current_K), (0,0)))
+            coeff_combos = onp.pad(coeff_combos, ((0, biggest_K - current_K), (0,0)))
             basis_data.append([exp_combos[:,0], exp_combos[:,1], coeff_combos[:,0], coeff_combos[:,1]])
 
             # Angular momentum data
@@ -118,8 +172,23 @@ def preprocess(geom, basis_dict, nshells):
             #row_indices = onp.repeat(row_idx, row_idx_stride) + onp.arange(row_idx_stride)
             #col_indices = onp.repeat(col_idx, col_idx_stride) + onp.arange(col_idx_stride)
             #index = old_cartesian_product(row_indices,col_indices)
+
+    #print(ss_indices)
+    #print(onp.asarray(ss_indices))
+    #print(onp.asarray(sp_indices))
+    #print(onp.asarray(sp_indices))
+    #print("PP")
+    #print(onp.asarray(pp_indices))
+
+    #indices = onp.concatenate((onp.asarray(ss_indices), onp.asarray(ps_indices), onp.asarray(sp_indices), onp.asarray(pp_indices)))
+    #indices = onp.concatenate((onp.asarray(ss_indices), onp.asarray(sp_indices), onp.asarray(ps_indices), onp.asarray(pp_indices)))
+    indices = onp.concatenate((onp.asarray(ss_indices), onp.asarray(ps_indices), onp.asarray(sp_indices), onp.asarray(pp_indices)))
+    #print(indices[:,0])
+    
+    #indices = onp.ravel_multi_index((indices[:,0],indices[:,1]), (nbf*nbf,2))
+    indices = onp.ravel_multi_index(indices.T, (nbf,nbf))
+
             
-    #basis_data = onp.asarray(basis_data).transpose(0,2,1)
     basis_data = onp.asarray(basis_data)
     am_data = onp.asarray(am_data)
     return np.array(basis_data), np.array(am_data), centers_bra, centers_ket
@@ -127,6 +196,7 @@ def preprocess(geom, basis_dict, nshells):
 print("starting preprocessing")
 a = time.time()
 basis_data, am_data, centers1, centers2 = preprocess(geom, basis_dict, nshells)
+indices = test()
 b = time.time()
 print("preprocessing done")
 print(b-a)
@@ -204,7 +274,12 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
         pp_primitives = v_ppmap(centers_bra[ppmask], centers_ket[ppmask], basis_data[ppmask])
         pp_contracted = np.sum(pp_primitives, axis=-1)
 
-        all_contracted = np.concatenate((all_contracted, ps_contracted.reshape(-1), sp_contracted.reshape(-1), pp_contracted.reshape(-1)))
+        all_contracted = np.concatenate((all_contracted, sp_contracted.reshape(-1), ps_contracted.reshape(-1), pp_contracted.reshape(-1)))
+
+        #print('computed pp')
+        #Nprint(pp_contracted.reshape(-1))
+        #np.concatenate((all_contracted, ps_contracted.reshape(-1), sp_contracted.reshape(-1), pp_contracted.reshape(-1))))
+
 
     def dsmap(centers_bra, centers_ket, basis_data, am_data):
         bra_am, ket_am = am_data[0], am_data[1]
@@ -259,14 +334,21 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
         dd_contracted = np.sum(dd_primitives, axis=-1)
 
         all_contracted = np.concatenate((all_contracted, ds_contracted.reshape(-1), sd_contracted.reshape(-1), dp_contracted.reshape(-1), pd_contracted.reshape(-1), dd_contracted.reshape(-1)))
-    print(all_contracted.shape)
-    return all_contracted
+    #print(all_contracted.shape)
+
+    new = all_contracted[indices]
+
+    # THIS WORKS
+    #S = np.zeros((nbf*nbf))
+    #final = jax.ops.index_update(S, indices, all_contracted)
+
+    return final
 
 S = build_overlap(geom, centers1, centers2, basis_data, am_data)
 #grad = jax.jacfwd(build_overlap)(geom, centers1, centers2, basis_data, am_data)
 #print(grad.shape)
-hess = jax.jacfwd(jax.jacfwd(build_overlap))(geom, centers1, centers2, basis_data, am_data)
-print(hess.shape)
+#hess = jax.jacfwd(jax.jacfwd(build_overlap))(geom, centers1, centers2, basis_data, am_data)
+#print(hess.shape)
 
 #mints = psi4.core.MintsHelper(basis_set)
 #psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
