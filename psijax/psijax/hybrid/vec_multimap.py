@@ -20,6 +20,41 @@ molecule = psi4.geometry("""
                          units bohr
                          """)
 
+#molecule = psi4.geometry("""
+#                         0 1
+#                         H 0.0 0.0 -0.849220457955
+#                         H 0.0 0.0  0.849220457955
+#                         H 0.0 0.0  2.000000000000
+#                         H 0.0 0.0  3.000000000000
+#                         H 0.0 0.0  4.000000000000
+#                         H 0.0 0.0  5.000000000000
+#                         H 0.0 0.0  6.000000000000
+#                         H 0.0 0.0  7.000000000000
+#                         H 0.0 0.0  8.000000000000
+#                         H 0.0 0.0  9.000000000000
+#                         """)
+
+#molecule = psi4.geometry("""
+#                         0 1
+#                         H 0.0 0.0 -0.849220457955
+#                         H 0.0 0.0  0.849220457955
+#                         H 0.0 0.0  2.000000000000
+#                         H 0.0 0.0  3.000000000000
+#                         H 0.0 0.0  4.000000000000
+#                         H 0.0 0.0  5.000000000000
+#                         H 0.0 0.0  6.000000000000
+#                         H 0.0 0.0  7.000000000000
+#                         H 0.0 0.0  8.000000000000
+#                         H 0.0 0.0  9.000000000000
+#                         H 0.0 0.0  10.000000000000
+#                         H 0.0 0.0  11.000000000000
+#                         H 0.0 0.0  12.000000000000
+#                         H 0.0 0.0  13.000000000000
+#                         H 0.0 0.0  14.000000000000
+#                         H 0.0 0.0  15.000000000000
+#                         units bohr
+#                         """)
+
 # Get geometry as JAX array
 geom = np.asarray(onp.asarray(molecule.geometry()))
 
@@ -196,7 +231,7 @@ def preprocess(geom, basis_dict, nshells):
 print("starting preprocessing")
 a = time.time()
 basis_data, am_data, centers1, centers2 = preprocess(geom, basis_dict, nshells)
-indices = test()
+#indices = test()
 b = time.time()
 print("preprocessing done")
 print(b-a)
@@ -208,6 +243,7 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
     centers_ket = np.take(geom, centers2, axis=0)
 
     print("generating masks")
+    # Generate boolean masks of each integral type
     ssmask = (am_data[:,0] == 0) & (am_data[:,1] == 0)
     spmask = (am_data[:,0] == 0) & (am_data[:,1] == 1)
     psmask = (am_data[:,0] == 1) & (am_data[:,1] == 0)
@@ -225,7 +261,8 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
 
     all_contracted = np.array([])
 
-    def ssmap(centers_bra, centers_ket, basis_data):
+    def ssmap(inp):
+        centers_bra, centers_ket, basis_data = inp
         Ax, Ay, Az = centers_bra
         Cx, Cy, Cz = centers_ket
         alpha_bra, alpha_ket, c1, c2 = basis_data
@@ -234,12 +271,12 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
         return np.where(alpha_bra == 0, 0.0, V_overlap_ss(*args))
 
     if s_orb: 
-        v_ssmap = jax.jit(jax.vmap(ssmap, in_axes=(0,0,0)))
-        ss_primitives = v_ssmap(centers_bra[ssmask], centers_ket[ssmask], basis_data[ssmask])
+        ss_primitives = jax.lax.map(ssmap, (centers_bra[ssmask], centers_ket[ssmask], basis_data[ssmask]))
         ss_contracted = np.sum(ss_primitives, axis=1)
         all_contracted = np.concatenate((all_contracted, ss_contracted.reshape(-1)))
 
-    def psmap(centers_bra, centers_ket, basis_data, am_data):
+    def psmap(inp):
+        centers_bra, centers_ket, basis_data, am_data = inp
         bra_am, ket_am = am_data[0], am_data[1]
         Ax, Ay, Az = centers_bra
         Cx, Cy, Cz = centers_ket
@@ -251,7 +288,8 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
                np.where((bra_am == 1) & (ket_am == 0), V_overlap_ps(*args).T, 
                np.where((bra_am == 0) & (ket_am == 1), V_overlap_ps(*sgra).T, 0.0)))
 
-    def ppmap(centers_bra, centers_ket, basis_data):
+    def ppmap(inp):
+        centers_bra, centers_ket, basis_data = inp
         Ax, Ay, Az = centers_bra
         Cx, Cy, Cz = centers_ket
         alpha_bra, alpha_ket, c1, c2 = basis_data
@@ -261,27 +299,29 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
         #return np.where(alpha_bra == 0, 0.0, V_overlap_pp(*args))
 
     if p_orb:
-        # Create jit compiled, vectorized version so the second call is fast
-        v_psmap = jax.jit(jax.vmap(psmap, in_axes=(0,0,0,0)))
-        v_ppmap = jax.jit(jax.vmap(ppmap, in_axes=(0,0,0)))
-    
-        ps_primitives = v_psmap(centers_bra[psmask], centers_ket[psmask], basis_data[psmask], am_data[psmask])
-        ps_contracted = np.sum(ps_primitives, axis=-1)
+        # TODO it would probably be much faster to concatenate the spmask and psmask, just do one lax.map call. for ps/sp, ds/sd, dp/pd
+        # This would be better if it didnt have to be created here, but started out in this form. 
+        # It would likely be better to not use boolean masks at all, and just have clever loop constructs in preprocess 
+        sp_ps_primitives = jax.lax.map(psmap, (np.concatenate((centers_bra[spmask], centers_bra[psmask])),  
+                                               np.concatenate((centers_ket[spmask], centers_ket[psmask])),
+                                               np.concatenate((basis_data[spmask], basis_data[psmask])),
+                                               np.concatenate((am_data[spmask], am_data[psmask]))))
+        sp_ps_contracted = np.sum(sp_ps_primitives, axis=-1)
 
-        sp_primitives = v_psmap(centers_bra[spmask], centers_ket[spmask], basis_data[spmask], am_data[spmask])
-        sp_contracted = np.sum(sp_primitives, axis=-1)
+        #ps_primitives = jax.lax.map(psmap, (centers_bra[psmask], centers_ket[psmask], basis_data[psmask], am_data[psmask]))
+        #ps_contracted = np.sum(ps_primitives, axis=-1)
 
-        pp_primitives = v_ppmap(centers_bra[ppmask], centers_ket[ppmask], basis_data[ppmask])
+        #sp_primitives = jax.lax.map(psmap, (centers_bra[spmask], centers_ket[spmask], basis_data[spmask], am_data[spmask]))
+        #sp_contracted = np.sum(sp_primitives, axis=-1)
+
+        pp_primitives = jax.lax.map(ppmap, (centers_bra[ppmask], centers_ket[ppmask], basis_data[ppmask]))
         pp_contracted = np.sum(pp_primitives, axis=-1)
 
-        all_contracted = np.concatenate((all_contracted, sp_contracted.reshape(-1), ps_contracted.reshape(-1), pp_contracted.reshape(-1)))
+        #all_contracted = np.concatenate((all_contracted, sp_contracted.reshape(-1), ps_contracted.reshape(-1), pp_contracted.reshape(-1)))
+        all_contracted = np.concatenate((all_contracted, sp_ps_contracted.reshape(-1), pp_contracted.reshape(-1)))
 
-        #print('computed pp')
-        #Nprint(pp_contracted.reshape(-1))
-        #np.concatenate((all_contracted, ps_contracted.reshape(-1), sp_contracted.reshape(-1), pp_contracted.reshape(-1))))
-
-
-    def dsmap(centers_bra, centers_ket, basis_data, am_data):
+    def dsmap(inp):
+        centers_bra, centers_ket, basis_data, am_data = inp
         bra_am, ket_am = am_data[0], am_data[1]
         Ax, Ay, Az = centers_bra
         Cx, Cy, Cz = centers_ket
@@ -293,7 +333,8 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
                np.where((bra_am == 2) & (ket_am == 0), V_overlap_ds(*args).T, 
                np.where((bra_am == 0) & (ket_am == 2), V_overlap_ds(*sgra).T, 0.0)))
 
-    def dpmap(centers_bra, centers_ket, basis_data, am_data):
+    def dpmap(inp):
+        centers_bra, centers_ket, basis_data, am_data = inp
         bra_am, ket_am = am_data[0], am_data[1]
         Ax, Ay, Az = centers_bra
         Cx, Cy, Cz = centers_ket
@@ -305,7 +346,8 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
                np.where((bra_am == 2) & (ket_am == 1), V_overlap_dp(*args).T, 
                np.where((bra_am == 1) & (ket_am == 2), V_overlap_dp(*sgra).T, 0.0)))
 
-    def ddmap(centers_bra, centers_ket, basis_data):
+    def ddmap(inp):
+        centers_bra, centers_ket, basis_data = inp
         Ax, Ay, Az = centers_bra
         Cx, Cy, Cz = centers_ket
         alpha_bra, alpha_ket, c1, c2 = basis_data
@@ -314,35 +356,44 @@ def build_overlap(geom, centers1, centers2, basis_data, am_data):
         return np.where(alpha_bra == 0, 0.0, V_overlap_dd(*args).transpose((1,2,0)))
 
     if d_orb:
-        v_dsmap = jax.jit(jax.vmap(dsmap, in_axes=(0,0,0,0)))
-        v_dpmap = jax.jit(jax.vmap(dpmap, in_axes=(0,0,0,0)))
-        v_ddmap = jax.jit(jax.vmap(ddmap, in_axes=(0,0,0)))
 
-        ds_primitives = v_dsmap(centers_bra[dsmask], centers_ket[dsmask], basis_data[dsmask], am_data[dsmask])
+        ds_primitives = jax.lax.map(dsmap, (centers_bra[dsmask], centers_ket[dsmask], basis_data[dsmask], am_data[dsmask]))
         ds_contracted = np.sum(ds_primitives, axis=-1)
 
-        sd_primitives = v_dsmap(centers_bra[sdmask], centers_ket[sdmask], basis_data[sdmask], am_data[sdmask])
+        sd_primitives = jax.lax.map(dsmap, (centers_bra[sdmask], centers_ket[sdmask], basis_data[sdmask], am_data[sdmask]))
         sd_contracted = np.sum(sd_primitives, axis=-1)
 
-        dp_primitives = v_dpmap(centers_bra[dpmask], centers_ket[dpmask], basis_data[dpmask], am_data[dpmask])
+        dp_primitives = jax.lax.map(dpmap, (centers_bra[dpmask], centers_ket[dpmask], basis_data[dpmask], am_data[dpmask]))
         dp_contracted = np.sum(dp_primitives, axis=-1).T
 
-        pd_primitives = v_dpmap(centers_bra[pdmask], centers_ket[pdmask], basis_data[pdmask], am_data[pdmask])
+        pd_primitives = jax.lax.map(dpmap, (centers_bra[pdmask], centers_ket[pdmask], basis_data[pdmask], am_data[pdmask]))
         pd_contracted = np.sum(pd_primitives, axis=-1)
 
-        dd_primitives = v_ddmap(centers_bra[ddmask], centers_ket[ddmask], basis_data[ddmask])
+        dd_primitives = jax.lax.map(ddmap, (centers_bra[ddmask], centers_ket[ddmask], basis_data[ddmask]))
         dd_contracted = np.sum(dd_primitives, axis=-1)
 
         all_contracted = np.concatenate((all_contracted, ds_contracted.reshape(-1), sd_contracted.reshape(-1), dp_contracted.reshape(-1), pd_contracted.reshape(-1), dd_contracted.reshape(-1)))
     #print(all_contracted.shape)
 
-    new = all_contracted[indices]
+    #new = all_contracted[indices]
+
+    #basic = np.arange(nbf*nbf)
+    #tmp = basic[indices]
+    #print(tmp)
+    #print(indices)
+
+    #print(np.array([0,1,16,17,18,5,6,19,20,21]))
+    #print(indices[:10])
+
+    #print(all_contracted[np.array([0,1,16,17,18,5,6,19,20,21])])
 
     # THIS WORKS
     #S = np.zeros((nbf*nbf))
     #final = jax.ops.index_update(S, indices, all_contracted)
+    #final = all_contracted[indices]
 
-    return final
+    #return final
+    return all_contracted
 
 S = build_overlap(geom, centers1, centers2, basis_data, am_data)
 #grad = jax.jacfwd(build_overlap)(geom, centers1, centers2, basis_data, am_data)
