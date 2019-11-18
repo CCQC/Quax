@@ -13,22 +13,22 @@ from oei_d import *
 from oei_f import * 
 
 # Define molecule
-#molecule = psi4.geometry("""
-#                         0 1
-#                         H 0.0 0.0 -0.849220457955
-#                         H 0.0 0.0  0.849220457955
-#                         units bohr
-#                         """)
-
 molecule = psi4.geometry("""
                          0 1
                          H 0.0 0.0 -0.849220457955
                          H 0.0 0.0  0.849220457955
-                         H 0.0 0.0  2.000000000000
-                         H 0.0 0.0  3.000000000000
-                         H 0.0 0.0  4.000000000000
-                         H 0.0 0.0  5.000000000000
+                         units bohr
                          """)
+
+#molecule = psi4.geometry("""
+#                         0 1
+#                         H 0.0 0.0 -0.849220457955
+#                         H 0.0 0.0  0.849220457955
+#                         H 0.0 0.0  2.000000000000
+#                         H 0.0 0.0  3.000000000000
+#                         H 0.0 0.0  4.000000000000
+#                         H 0.0 0.0  5.000000000000
+#                         """)
 
 #molecule = psi4.geometry("""
 #                         0 1
@@ -58,8 +58,8 @@ geom = np.asarray(onp.asarray(molecule.geometry()))
 # Get Psi Basis Set and basis set dictionary objects
 #basis_name = '6-31g'
 #basis_name = 'sto-3g'
-basis_name = 'cc-pvdz'
-#basis_name = 'cc-pvtz'
+#basis_name = 'cc-pvdz'
+basis_name = 'cc-pvtz'
 basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
 basis_dict = build_basis_set(molecule, basis_name)
 
@@ -119,8 +119,6 @@ def preprocess(geom, basis_dict, nshells):
                 elif bra_am == 2 and ket_am == 1: dp_indices.append(index)
                 elif bra_am == 1 and ket_am == 2: pd_indices.append(index)
                 elif bra_am == 2 and ket_am == 2: dd_indices.append(index)
-
-
 
     #primitive_locations = onp.concatenate((onp.asarray(ss_indices, dtype=np.int64).flatten(),
     #                                       onp.asarray(ps_indices, dtype=np.int64).flatten(), 
@@ -203,79 +201,97 @@ def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
         new_carry = (S, loc1, loc2, centers_bra, centers_ket, basis_data)
         return new_carry, 0
 
+    def pp_scan(carry, i):
+        S, loc1, loc2, centers_bra, centers_ket, basis_data = carry
+        Ax, Ay, Az = centers_bra[i]
+        Cx, Cy, Cz = centers_ket[i]
+        alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = basis_data[i]
+        args = (Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2)
+        val = overlap_pp(*args).reshape(-1) 
+        S = jax.ops.index_add(S, (loc1[i],loc2[i]), val)
+        new_carry = (S, loc1, loc2, centers_bra, centers_ket, basis_data)
+        return new_carry, 0
+
     if p_orb:
-        # NOTE could combine this to one scan call
+        # NOTE could combine this to one scan call, may make memory worse
         # NOTE have to reshape so that 3 primitives are summed into array at each scan call
         final, _ = jax.lax.scan(ps_scan, (S, primitive_locations[1][:,0].reshape(-1,3), primitive_locations[1][:,1].reshape(-1,3), centers_bra[psmask], centers_ket[psmask], basis_data[psmask]), np.arange(np.count_nonzero(psmask)))
         S = final[0]
         final, _ = jax.lax.scan(ps_scan, (S, primitive_locations[2][:,0].reshape(-1,3), primitive_locations[2][:,1].reshape(-1,3), centers_bra[spmask], centers_ket[spmask], basis_data[spmask]), np.arange(np.count_nonzero(spmask)))
         S = final[0]
-        #ps_primitives = jax.lax.map(psmap, (centers_bra[psmask], centers_ket[psmask], basis_data[psmask]))
-        #sp_primitives = jax.lax.map(psmap, (centers_bra[spmask], centers_ket[spmask], basis_data[spmask]))
-        #S = jax.ops.index_add(S, (primitive_locations[1][:,0], primitive_locations[1][:,1]), ps_primitives.reshape(-1))
-        #S = jax.ops.index_add(S, (primitive_locations[2][:,0], primitive_locations[2][:,1]), sp_primitives.reshape(-1))
+        final, _ = jax.lax.scan(pp_scan, (S, primitive_locations[3][:,0].reshape(-1,9), primitive_locations[3][:,1].reshape(-1,9), centers_bra[ppmask], centers_ket[ppmask], basis_data[ppmask]), np.arange(np.count_nonzero(ppmask)))
+        S = final[0]
 
-    def ppmap(inp):
-        centers_bra, centers_ket, basis_data = inp
-        Ax, Ay, Az = centers_bra
-        Cx, Cy, Cz = centers_ket
-        alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = basis_data
-        args = (Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2)
-        return overlap_pp(*args).reshape(-1) 
-
-    if p_orb:
-        pp_primitives = jax.lax.map(ppmap, (centers_bra[ppmask], centers_ket[ppmask], basis_data[ppmask]))
-        S = jax.ops.index_add(S, (primitive_locations[3][:,0], primitive_locations[3][:,1]), pp_primitives.reshape(-1))
-
-    def dsmap(inp):
-        centers_bra, centers_ket, basis_data = inp
-        Ax, Ay, Az = centers_bra
-        Cx, Cy, Cz = centers_ket
-        alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = basis_data
+    def ds_scan(carry, i):
+        S, loc1, loc2, centers_bra, centers_ket, basis_data = carry
+        Ax, Ay, Az = centers_bra[i]
+        Cx, Cy, Cz = centers_ket[i]
+        alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = basis_data[i]
         args = (Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2)
         sgra = (Cx, Cy, Cz, Ax, Ay, Az, alpha_ket, alpha_bra, c2, c1)
-        return np.where((bra_am == 2) & (ket_am == 0), overlap_ds(*args).reshape(-1), 
-               np.where((bra_am == 0) & (ket_am == 2), overlap_ds(*sgra).reshape(-1), 0.0))
+        val = np.where((bra_am == 2) & (ket_am == 0), overlap_ds(*args).reshape(-1), 
+              np.where((bra_am == 0) & (ket_am == 2), overlap_ds(*sgra).reshape(-1), 0.0))
+        S = jax.ops.index_add(S, (loc1[i],loc2[i]), val)
+        new_carry = (S, loc1, loc2, centers_bra, centers_ket, basis_data)
+        return new_carry, 0
 
-    if d_orb:
-        ds_primitives = jax.lax.map(dsmap, (centers_bra[dsmask], centers_ket[dsmask], basis_data[dsmask]))
-        sd_primitives = jax.lax.map(dsmap, (centers_bra[sdmask], centers_ket[sdmask], basis_data[sdmask]))
-        S = jax.ops.index_add(S, (primitive_locations[4][:,0], primitive_locations[4][:,1]), ds_primitives.reshape(-1))
-        S = jax.ops.index_add(S, (primitive_locations[5][:,0], primitive_locations[5][:,1]), sd_primitives.reshape(-1))
-
-    def dpmap(inp):
-        centers_bra, centers_ket, basis_data = inp
-        Ax, Ay, Az = centers_bra
-        Cx, Cy, Cz = centers_ket
-        alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = basis_data
+    def dp_scan(carry, i):
+        S, loc1, loc2, centers_bra, centers_ket, basis_data = carry
+        Ax, Ay, Az = centers_bra[i]
+        Cx, Cy, Cz = centers_ket[i]
+        alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = basis_data[i]
         args = (Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2)
         sgra = (Cx, Cy, Cz, Ax, Ay, Az, alpha_ket, alpha_bra, c2, c1)
-        #return np.where((bra_am == 2) & (ket_am == 1), overlap_dp(*args).reshape(-1),  #TEMP TODO
-        return np.where((bra_am == 2) & (ket_am == 1), overlap_dp(*args).T.reshape(-1), 
-               np.where((bra_am == 1) & (ket_am == 2), overlap_dp(*sgra).reshape(-1), 0.0)) 
+        val = np.where((bra_am == 2) & (ket_am == 1), overlap_dp(*args).T.reshape(-1), 
+              np.where((bra_am == 1) & (ket_am == 2), overlap_dp(*sgra).reshape(-1), 0.0)) 
+        S = jax.ops.index_add(S, (loc1[i],loc2[i]), val)
+        new_carry = (S, loc1, loc2, centers_bra, centers_ket, basis_data)
+        return new_carry, 0
 
-    if d_orb:
-        dp_primitives = jax.lax.map(dpmap, (centers_bra[dpmask], centers_ket[dpmask], basis_data[dpmask]))
-        pd_primitives = jax.lax.map(dpmap, (centers_bra[pdmask], centers_ket[pdmask], basis_data[pdmask])) 
-        S = jax.ops.index_add(S, (primitive_locations[6][:,0], primitive_locations[6][:,1]), dp_primitives.reshape(-1))
-        S = jax.ops.index_add(S, (primitive_locations[7][:,0], primitive_locations[7][:,1]), pd_primitives.reshape(-1))
-        #all_primitives = np.concatenate((all_primitives, dp_primitives.reshape(-1), pd_primitives.reshape(-1)))
-
-
-    def ddmap(inp):
-        centers_bra, centers_ket, basis_data = inp
-        Ax, Ay, Az = centers_bra
-        Cx, Cy, Cz = centers_ket
-        alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = basis_data
+    def dd_scan(carry, i):
+        S, loc1, loc2, centers_bra, centers_ket, basis_data = carry
+        Ax, Ay, Az = centers_bra[i]
+        Cx, Cy, Cz = centers_ket[i]
+        alpha_bra, alpha_ket, c1, c2, bra_am, ket_am = basis_data[i]
         args = (Ax, Ay, Az, Cx, Cy, Cz, alpha_bra, alpha_ket, c1, c2)
-        return overlap_dd(*args).reshape(-1) # TODO need to reshape?
+        val = overlap_dd(*args).reshape(-1)
+        S = jax.ops.index_add(S, (loc1[i],loc2[i]), val)
+        new_carry = (S, loc1, loc2, centers_bra, centers_ket, basis_data)
+        return new_carry, 0
 
     if d_orb:
-        dd_primitives = jax.lax.map(ddmap, (centers_bra[ddmask], centers_ket[ddmask], basis_data[ddmask]))
-        all_primitives = np.concatenate((all_primitives, dd_primitives.reshape(-1)))
-        S = jax.ops.index_add(S, (primitive_locations[8][:,0], primitive_locations[8][:,1]), dd_primitives.reshape(-1))
+        final, _ = jax.lax.scan(ds_scan, (S, primitive_locations[4][:,0].reshape(-1,6), primitive_locations[4][:,1].reshape(-1,6), centers_bra[dsmask], centers_ket[dsmask], basis_data[dsmask]), np.arange(np.count_nonzero(dsmask)))
+        S = final[0]
+        final, _ = jax.lax.scan(ds_scan, (S, primitive_locations[5][:,0].reshape(-1,6), primitive_locations[5][:,1].reshape(-1,6), centers_bra[sdmask], centers_ket[sdmask], basis_data[sdmask]), np.arange(np.count_nonzero(sdmask)))
+        S = final[0]
 
-    print(S)
+        final, _ = jax.lax.scan(dp_scan, (S, primitive_locations[6][:,0].reshape(-1,18), primitive_locations[6][:,1].reshape(-1,18), centers_bra[dpmask], centers_ket[dpmask], basis_data[dpmask]), np.arange(np.count_nonzero(dpmask)))
+        S = final[0]
+        final, _ = jax.lax.scan(dp_scan, (S, primitive_locations[7][:,0].reshape(-1,18), primitive_locations[7][:,1].reshape(-1,18), centers_bra[pdmask], centers_ket[pdmask], basis_data[pdmask]), np.arange(np.count_nonzero(pdmask)))
+        S = final[0]
+
+        final, _ = jax.lax.scan(dd_scan, (S, primitive_locations[8][:,0].reshape(-1,36), primitive_locations[8][:,1].reshape(-1,36), centers_bra[ddmask], centers_ket[ddmask], basis_data[ddmask]), np.arange(np.count_nonzero(ddmask)))
+        S = final[0]
+
+
+        #ds_primitives = jax.lax.map(dsmap, (centers_bra[dsmask], centers_ket[dsmask], basis_data[dsmask]))
+        #sd_primitives = jax.lax.map(dsmap, (centers_bra[sdmask], centers_ket[sdmask], basis_data[sdmask]))
+        #S = jax.ops.index_add(S, (primitive_locations[4][:,0], primitive_locations[4][:,1]), ds_primitives.reshape(-1))
+        #S = jax.ops.index_add(S, (primitive_locations[5][:,0], primitive_locations[5][:,1]), sd_primitives.reshape(-1))
+
+
+    #if d_orb:
+    #    dp_primitives = jax.lax.map(dpmap, (centers_bra[dpmask], centers_ket[dpmask], basis_data[dpmask]))
+    #    pd_primitives = jax.lax.map(dpmap, (centers_bra[pdmask], centers_ket[pdmask], basis_data[pdmask])) 
+    #    S = jax.ops.index_add(S, (primitive_locations[6][:,0], primitive_locations[6][:,1]), dp_primitives.reshape(-1))
+    #    S = jax.ops.index_add(S, (primitive_locations[7][:,0], primitive_locations[7][:,1]), pd_primitives.reshape(-1))
+    #    #all_primitives = np.concatenate((all_primitives, dp_primitives.reshape(-1), pd_primitives.reshape(-1)))
+
+
+    #if d_orb:
+    #    dd_primitives = jax.lax.map(ddmap, (centers_bra[ddmask], centers_ket[ddmask], basis_data[ddmask]))
+    #    all_primitives = np.concatenate((all_primitives, dd_primitives.reshape(-1)))
+    #    S = jax.ops.index_add(S, (primitive_locations[8][:,0], primitive_locations[8][:,1]), dd_primitives.reshape(-1))
 
     # Just one call to index add 
     #print(all_primitives.shape)
@@ -310,15 +326,16 @@ def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
     #S = update(all_primitives, primitive_locations)
     return S
 
-build_overlap(geom, centers1, centers2, basis_data, primitive_locations)
+S = build_overlap(geom, centers1, centers2, basis_data, primitive_locations)
+print(S)
 #S = build_overlap(geom, centers1, centers2, basis_data, primitive_locations)
 #print(S)
 #grad = jax.jacfwd(build_overlap)(geom, centers1, centers2, basis_data, primitive_locations)
 #print(grad.shape)
-cube = jax.jacfwd(jax.jacfwd(jax.jacfwd(build_overlap)))(geom, centers1, centers2, basis_data, primitive_locations)
+#cube = jax.jacfwd(jax.jacfwd(jax.jacfwd(build_overlap)))(geom, centers1, centers2, basis_data, primitive_locations)
 #print(hess)
 
-#mints = psi4.core.MintsHelper(basis_set)
-#psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
-#print(np.allclose(S, psi_S))
+mints = psi4.core.MintsHelper(basis_set)
+psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
+print(np.allclose(S, psi_S))
 
