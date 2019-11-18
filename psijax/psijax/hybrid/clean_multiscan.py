@@ -135,30 +135,35 @@ def preprocess(geom, basis_dict, nshells):
     centers_bra = ss_centers_bra + ps_centers_bra + sp_centers_bra + pp_centers_bra
     centers_ket = ss_centers_ket + ps_centers_ket + sp_centers_ket + pp_centers_ket
 
-    print(onp.asarray(ss_indices).shape)
-    print(onp.asarray(ps_indices).shape)
-    print(onp.asarray(sp_indices).shape)
-    print(onp.asarray(pp_indices).shape)
 
-    tmp = onp.concatenate((onp.asarray(ss_indices, dtype=np.int64).reshape(-1),
-                           onp.asarray(ps_indices, dtype=np.int64).reshape(-1), 
-                           onp.asarray(sp_indices, dtype=np.int64).reshape(-1),
-                           onp.asarray(pp_indices, dtype=np.int64).reshape(-1))).reshape(-1,2)
-    #                                       onp.asarray(ds_indices, dtype=np.int64).reshape(-1),
-    #                                       onp.asarray(sd_indices, dtype=np.int64).reshape(-1),
-    #                                       onp.asarray(dp_indices, dtype=np.int64).reshape(-1),
-    #                                       onp.asarray(pd_indices, dtype=np.int64).reshape(-1),
-    #                                       onp.asarray(dd_indices, dtype=np.int64).reshape(-1))).reshape(-1,2)
-    print('new thing')
-    print(tmp.shape)
-    print('basis data')
-    print(basis_data.shape)
+    #new = [onp.asarray(ss_indices),onp.asarray(ps_indices),onp.asarray(sp_indices),onp.asarray(pp_indices)]
 
+    locations = {'ss':onp.asarray(ss_indices), 'ps':onp.asarray(ps_indices), 'sp':onp.asarray(sp_indices),'pp':onp.asarray(pp_indices)}
+
+    #tmp = onp.concatenate((onp.asarray(ss_indices, dtype=np.int64).reshape(-1),
+    #                       onp.asarray(ps_indices, dtype=np.int64).reshape(-1), 
+    #                       onp.asarray(sp_indices, dtype=np.int64).reshape(-1),
+    #                       onp.asarray(pp_indices, dtype=np.int64).reshape(-1))).reshape(-1,2)
+    ##                                       onp.asarray(ds_indices, dtype=np.int64).reshape(-1),
+    ##                                       onp.asarray(sd_indices, dtype=np.int64).reshape(-1),
+    ##                                       onp.asarray(dp_indices, dtype=np.int64).reshape(-1),
+    ##                                       onp.asarray(pd_indices, dtype=np.int64).reshape(-1),
+    ##                                       onp.asarray(dd_indices, dtype=np.int64).reshape(-1))).reshape(-1,2)
+    #print('new thing')
+    #print(tmp.shape)
+    #print('basis data')
+    #print(basis_data.shape)
+
+    #print(onp.asarray(ss_indices, dtype=np.int64).reshape(-1,2).shape) 
+    #print(onp.asarray(ps_indices, dtype=np.int64).reshape(-1,3).shape) 
+    #print(onp.asarray(sp_indices, dtype=np.int64).reshape(-1,3).shape)
+    #print(onp.asarray(pp_indices, dtype=np.int64).reshape(-1,9).shape)
 
     primitive_locations.append(np.asarray(onp.asarray(ss_indices, dtype=np.int64).reshape(-1,2)))
     primitive_locations.append(np.asarray(onp.asarray(ps_indices, dtype=np.int64).reshape(-1,2)))
     primitive_locations.append(np.asarray(onp.asarray(sp_indices, dtype=np.int64).reshape(-1,2)))
     primitive_locations.append(np.asarray(onp.asarray(pp_indices, dtype=np.int64).reshape(-1,2)))
+    
 
     #primitive_locations.append(np.asarray(onp.asarray(ds_indices, dtype=np.int64).reshape(-1,2)))
     #primitive_locations.append(np.asarray(onp.asarray(sd_indices, dtype=np.int64).reshape(-1,2)))
@@ -177,21 +182,11 @@ def preprocess(geom, basis_dict, nshells):
     #primitive_locations.append(np.asarray(onp.asarray(dd_indices, dtype=np.int64).reshape(-1,36)))
 
 
-    return np.asarray(onp.asarray(basis_data)), centers_bra, centers_ket, primitive_locations, inc
+    return np.asarray(onp.asarray(basis_data)), centers_bra, centers_ket, primitive_locations, inc, locations
 
 print("starting preprocessing")
 a = time.time()
-basis_data, centers1, centers2, primitive_locations, inc = preprocess(geom, basis_dict, nshells)
-
-print(basis_data.shape)
-print(len(centers1))
-print(len(centers2))
-print(primitive_locations[0].shape)
-print(primitive_locations[1].shape)
-print(primitive_locations[2].shape)
-print(primitive_locations[3].shape)
-
-
+basis_data, centers1, centers2, primitive_locations, inc, locations = preprocess(geom, basis_dict, nshells)
 b = time.time()
 print("preprocessing done")
 print(b-a)
@@ -201,17 +196,6 @@ def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
     S = np.zeros((nbf,nbf))
     centers_bra = np.take(geom, centers1, axis=0)
     centers_ket = np.take(geom, centers2, axis=0)
-    #print("generating masks")
-    #ssmask = (basis_data[:,-2] == 0) & (basis_data[:,-1] == 0)
-    #psmask = (basis_data[:,-2] == 1) & (basis_data[:,-1] == 0)
-    #spmask = (basis_data[:,-2] == 0) & (basis_data[:,-1] == 1)
-    #ppmask = (basis_data[:,-2] == 1) & (basis_data[:,-1] == 1)
-    #dsmask = (basis_data[:,-2] == 2) & (basis_data[:,-1] == 0)
-    #sdmask = (basis_data[:,-2] == 0) & (basis_data[:,-1] == 2)
-    #dpmask = (basis_data[:,-2] == 2) & (basis_data[:,-1] == 1)
-    #pdmask = (basis_data[:,-2] == 1) & (basis_data[:,-1] == 2)
-    #ddmask = (basis_data[:,-2] == 2) & (basis_data[:,-1] == 2)
-    #print("masks generated")
     
     s_orb = np.any(basis_data[:,-2] == 0)
     p_orb = np.any(basis_data[:,-2] == 1)
@@ -229,11 +213,11 @@ def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
         S = jax.ops.index_add(S, (loc1[i],loc2[i]), val)
         new_carry = (S, loc1, loc2, centers_bra, centers_ket, basis_data)
         return new_carry, 0
-    print(inc)
 
     if s_orb: 
         a,b = inc[0], inc[1]
-        final, _ = jax.lax.scan(ss_scan, (S, primitive_locations[0][:,0], primitive_locations[0][:,1], centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
+        #final, _ = jax.lax.scan(ss_scan, (S, primitive_locations[0][:,0], primitive_locations[0][:,1], centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
+        final, _ = jax.lax.scan(ss_scan, (S, locations['ss'][...,0], locations['ss'][...,1], centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
         S = final[0]
 
     def ps_scan(carry, i):
@@ -262,13 +246,16 @@ def build_overlap(geom, centers1, centers2, basis_data, primitive_locations):
 
     if p_orb:
         a,b = inc[1], inc[2]
-        final, _ = jax.lax.scan(ps_scan, (S, primitive_locations[1][:,0].reshape(-1,3), primitive_locations[1][:,1].reshape(-1,3), centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
+        #final, _ = jax.lax.scan(ps_scan, (S, primitive_locations[1][:,0].reshape(-1,3), primitive_locations[1][:,1].reshape(-1,3), centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
+        final, _ = jax.lax.scan(ps_scan, (S, locations['ps'][...,0], locations['ps'][...,1], centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
         S = final[0]
         a,b = inc[2], inc[3]
-        final, _ = jax.lax.scan(ps_scan, (S, primitive_locations[2][:,0].reshape(-1,3), primitive_locations[2][:,1].reshape(-1,3), centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
+        #final, _ = jax.lax.scan(ps_scan, (S, primitive_locations[2][:,0].reshape(-1,3), primitive_locations[2][:,1].reshape(-1,3), centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
+        final, _ = jax.lax.scan(ps_scan, (S, locations['sp'][...,0], locations['sp'][...,1], centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
         S = final[0]
         a,b = inc[3], inc[4]
-        final, _ = jax.lax.scan(pp_scan, (S, primitive_locations[3][:,0].reshape(-1,9), primitive_locations[3][:,1].reshape(-1,9), centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
+        final, _ = jax.lax.scan(pp_scan, (S, locations['pp'][...,0], locations['pp'][...,1], centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
+        #final, _ = jax.lax.scan(pp_scan, (S, primitive_locations[3][:,0].reshape(-1,9), primitive_locations[3][:,1].reshape(-1,9), centers_bra[a:b], centers_ket[a:b], basis_data[a:b]), np.arange(basis_data[a:b].shape[0]))
         S = final[0]
 
 
