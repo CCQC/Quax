@@ -122,8 +122,17 @@ def general(basis_data, centers, am, indices):
             aa, bb, cc, dd, coeff = basis_data[i]
             args = (A, B, C, D, aa, bb, cc, dd, coeff)
             am = angular_momenta[i]
+            # NOTE this is how you do 'else' analgoue: do 1 big cond_range check here, then indent the rest below?
+            # for _ in s.cond_range( big bool check):
+                # for _ in s.cond_range(am 0000):
+                #   ...
+                # for _ in s.cond_range(am 1000):
+
+
             for _ in s.cond_range(np.allclose(am,np.array([0,0,0,0]))):
-                val = np.pad(eri_ssss(*args), (0,80), constant_values=0)
+                # have to convert result to array or np.pad doesnt do anything
+                val = np.pad(np.array([eri_ssss(*args)]), (0,80), constant_values=0)
+                #val = np.pad(eri_ssss(*args), (0,80), constant_values=0)
 
             for _ in s.cond_range(np.allclose(am,np.array([1,0,0,0]))):
                 val = np.pad(eri_psss(*args).reshape(-1), (0,78), constant_values=0)
@@ -142,42 +151,55 @@ def general(basis_data, centers, am, indices):
 
             #TODO fix cases such as 1000 0100 0010 0001, can be done preprocessing side! 
             #Just rearrange data packed into 'basis_data' and 'centers' appropriately
+            s.G = jax.ops.index_add(s.G, indices[i], val)
 
             # indices mimics [val0, val1, ..., -1, -1, -1] 
-            for j in s.range(indices.shape[1]):
-                s.G = jax.ops.index_add(s.G, indices[i,j], val[j])
+            #for j in range(81): 
+            #    s.G = jax.ops.index_add(s.G, indices[i,j], val[j])
 
+            # This shoudl definitiely be right, no funny business
+            #for j in s.range(indices.shape[1]):
+            #    s.G = jax.ops.index_add(s.G, jax.ops.index[indices[i,j]], val[j])
         return s.G
 
-    #return val
 
 #new_general = jax.jit(general, static_argnums=(2,))
 
-#def test(basis_data, centers, am, indices):
+#def debug(basis_data, centers, am, indices):
 #    for i in range(10):
 #        A, B, C, D = centers[i]
 #        aa, bb, cc, dd, coeff = basis_data[i]
 #        args = (A, B, C, D, aa, bb, cc, dd, coeff)
 #        am = angular_momenta[i]
-#        val = np.pad(eri_ssss(*args), (0,80))
-#        print(val)
-#        val = np.pad(eri_psss(*args).reshape(-1), (0,78))
-#        print(val)
-#        val = np.pad(eri_psps(*args).reshape(-1), (0,72))
-#        print(val)
-#        val = np.pad(eri_ppss(*args).reshape(-1), (0,72))
-#        print(val)
-#        val = np.pad(eri_ppps(*args).reshape(-1), (0,54))
-#        print(val)
-#        val = eri_pppp(*args).reshape(-1)
-#            s.G = jax.ops.index_add(s.G, jax.ops.index[indices[i]], val)
+#
+#        if np.allclose(am,np.array([0,0,0,0])):
+#            val = np.pad(np.array([eri_ssss(*args)]), (0,80), constant_values=0)
+#            print('S!',val)
+#        elif np.allclose(am,np.array([1,0,0,0])):
+#            val = np.pad(eri_psss(*args).reshape(-1), (0,78), constant_values=0)
+#        elif np.allclose(am,np.array([1,0,1,0])):
+#            val = np.pad(eri_psps(*args).reshape(-1), (0,72), constant_values=0)
+#        elif np.allclose(am,np.array([1,1,0,0])):
+#            val = np.pad(eri_ppss(*args).reshape(-1), (0,72), constant_values=0)
+#        elif np.allclose(am,np.array([1,1,1,0])):
+#            val = np.pad(eri_ppps(*args).reshape(-1), (0,54), constant_values=0)
+#        elif np.allclose(am,np.array([1,1,1,1])):
+#            val = eri_pppp(*args).reshape(-1)
+#        else:
+#            val = np.zeros(81)
+#
+#        #print('indices', indices[i])
+#        #print('values',  val[i])
+#        #print('values',  val)
+#        #    s.G = jax.ops.index_add(s.G, jax.ops.index[indices[i]], val)
+#
+#G = debug(basis_data, final_centers, angular_momenta, indices)
 
-
-
+#TODO
 G = general(basis_data, final_centers, angular_momenta, indices)
-for i in G:
-    print(i)
-#print(G)
+print(G[:20])
+print('last element of G')
+print(G[:-1])
 
 #for i in range(1296):
 #    print(angular_momenta[i], end=' ')
