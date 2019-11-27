@@ -53,6 +53,7 @@ def transform_basisdict(basis_dict, max_prim):
     return new_dict
 
 
+#TODO this is incorrect, mixes 0's and real values together, not what you want
 basis_dict = transform_basisdict(basis_dict, max_prim)
 
 #print("number of basis functions", nbf)
@@ -63,72 +64,63 @@ basis_dict = transform_basisdict(basis_dict, max_prim)
 
 def preprocess(shell_quartets, basis_dict):
 
-    ci, cj, ck, cl = [], [], [], []
-    expi, expj, expk, expl, = [], [], [], []
-    atomi, atomj, atomk, atoml = [], [], [], []
-    ami, amj, amk, aml = [], [], [], []
-    #indices = []
+    coeffs = []
+    exps = []
+    atoms = []
+    ams = []
 
     for i in range(nshells):
         c1, exp1, atom1_idx, am1, idx1, size1 = onp.asarray(basis_dict[i]['coef']), onp.asarray(basis_dict[i]['exp']), basis_dict[i]['atom'], basis_dict[i]['am'], basis_dict[i]['idx'], basis_dict[i]['idx_stride']
-        for j in range(nshells):
-            c2, exp2, atom2_idx, am2, idx2, size2 = onp.asarray(basis_dict[j]['coef']), onp.asarray(basis_dict[j]['exp']), basis_dict[j]['atom'], basis_dict[j]['am'], basis_dict[j]['idx'], basis_dict[j]['idx_stride']  
-            for k in range(nshells):
-                c3, exp3, atom3_idx, am3, idx3, size3 = onp.asarray(basis_dict[k]['coef']), onp.asarray(basis_dict[k]['exp']), basis_dict[k]['atom'], basis_dict[k]['am'], basis_dict[k]['idx'], basis_dict[k]['idx_stride']
-                for l in range(nshells):
-                    c4, exp4, atom4_idx, am4, idx4, size4 = onp.asarray(basis_dict[l]['coef']), onp.asarray(basis_dict[l]['exp']), basis_dict[l]['atom'], basis_dict[l]['am'], basis_dict[l]['idx'], basis_dict[l]['idx_stride']
-
-                    ci.append(c1)
-                    cj.append(c2)
-                    ck.append(c3)
-                    cl.append(c4)
-                    expi.append(exp1)
-                    expj.append(exp2)
-                    expk.append(exp3)
-                    expl.append(exp4)
-                    atomi.append(atom1_idx)
-                    atomj.append(atom2_idx)
-                    atomk.append(atom3_idx)
-                    atoml.append(atom4_idx)
-                    ami.append(am1)
-                    amj.append(am2)
-                    amk.append(am3)
-                    aml.append(am4)
+        coeffs.append(c1)
+        exps.append(exp1)
+        atoms.append(atom1_idx)
+        ams.append(am1)
 
 
-    # Each of these structures has shape (4, shell_quartets, max number of primitives in contraction)
-    coeffs = onp.asarray([ci, cj, ck, cl])
-    exps = onp.asarray([expi, expj, expk, expl])
-    # atoms has shape (4, shell_quartets)
-    atoms = onp.asarray([atomi, atomj, atomk, atoml])
-    # am has shape (4, shell_quartets)
-    am = onp.asarray([ami, amj, amk, aml])
-    return np.asarray(coeffs), np.asarray(exps), np.asarray(atoms), np.asarray(am)
+    ## Each of these structures has shape (4, shell_quartets, max number of primitives in contraction)
+    #coeffs = onp.asarray([ci, cj, ck, cl])
+    #exps = onp.asarray([expi, expj, expk, expl])
+    ## atoms has shape (4, shell_quartets)
+    #atoms = onp.asarray([atomi, atomj, atomk, atoml])
+    ## am has shape (4, shell_quartets)
+    #am = onp.asarray([ami, amj, amk, aml])
+    return np.asarray(coeffs), np.asarray(exps), np.asarray(atoms), np.asarray(ams)
 
         
 coeffs, exps, atoms, am = preprocess(shell_quartets, basis_dict)
-print(am.shape)
+print("coeffs", coeffs.shape)
+print("exps", exps.shape)
+print("atoms", atoms.shape)
+print("am", am.shape)
 print(am)
-print('angular momentum of the 5th shell quartet')
-print(np.array([am[0,5], am[1,5], am[2,5], am[3,5]]))
+
+#print(exps[1])
+
+#print(cartesian_product(exps[1],exps[1],exps[0],exps[0]))
+#print(am)
+#print('angular momentum of the 5th shell quartet')
+#print(np.array([am[0,5], am[1,5], am[2,5], am[3,5]]))
 
 
 def compute(geom, coeffs, exps, atoms, am):
     with loops.Scope() as s:
-        #def primitive(A, B, C, D, aa, bb, cc, dd, coeff, am):
-        #    '''Geometry parameters, exponents, coefficients, angular momentum identifier'''
-        #    args = (A, B, C, D, e1, e2, c1, c2)
+        def primitive(A, B, C, D, aa, bb, cc, dd, coeff, am):
+            '''Geometry parameters, exponents, coefficients, angular momentum identifier'''
+            args = (A, B, C, D, aa, bb, cc, dd, coeff) 
+            primitive = np.where((np.any((aa,bb,cc,dd)) == 0), 0.0, eri_ssss(*args))
+            return primitive
+    
         #    primitive =  np.where(e1 ==  0, 0.0,
         #                 np.where(am ==  0, overlap_ss(*args), 0.0))
         #    return primitive
         # Computes multiple primitive ss overlaps with same center, angular momentum 
-        #vectorized_primitive = jax.vmap(primitive, (None,None,None,None,None,None,0,0,0,0,None))
+        vectorized_primitive = jax.vmap(primitive, (None,None,None,None,0,0,0,0,0,None))
 
         ## Computes a contracted ss overlap 
         #@jax.jit
-        #def contraction(Ax, Ay, Az, Cx, Cy, Cz, e1, e2, c1, c2):
-        #    primitives = vectorized_primitive(Ax, Ay, Az, Cx, Cy, Cz, e1, e2, c1, c2, 0)
-        #    return np.sum(primitives)
+        def contraction(A, B, C, D, aa, bb, cc, dd, coeff, am):
+            primitives = vectorized_primitive(A, B, C, D, aa, bb, cc, dd, coeff, am)
+            return np.sum(primitives)
 
 
         # Just collect 1d arrays for each shell's coefficient, exponent, am, index, size
@@ -140,29 +132,41 @@ def compute(geom, coeffs, exps, atoms, am):
         s.G = np.zeros((nshells,nshells,nshells,nshells))
         #s.G = np.zeros((nbf,nbf,nbf,nbf))
         for i in s.range(nshells):
-            A = geom[atoms[0,i]]
-            aa = exps[0, i]
-            c1 = coeffs[0, i]
+            A = geom[atoms[i]]
+            aa = exps[i]
+            c1 = coeffs[i]
+            ami = am[i]
             for j in s.range(nshells):
-                B = geom[atoms[1,j]]
-                bb = exps[1, j]
-                c2 = coeffs[1, j]
+                B = geom[atoms[j]]
+                bb = exps[j]
+                c2 = coeffs[j]
+                amj = am[j]
                 for k in s.range(nshells):
-                    C = geom[atoms[2,k]]
-                    cc = exps[2, k]
-                    c3 = coeffs[2, k]
+                    C = geom[atoms[k]]
+                    cc = exps[k]
+                    c3 = coeffs[k]
+                    amk = am[k]
                     for l in s.range(nshells):
-                        D = geom[atoms[3,l]]
-                        dd = exps[3, l]
-                        c4 = coeffs[3, l]
+                        D = geom[atoms[l]]
+                        dd = exps[l]
+                        c4 = coeffs[l]
+                        aml = am[l]
+
                         #TODO dummy computation
                         exp_combos = cartesian_product(aa,bb,cc,dd)
-                        coeff_combos = cartesian_product(c1,c2,c3,c4)
-                        am_vec = np.array([am[0,i], am[
-
-
-                        val = np.sum(A) * np.sum(B) * np.sum(C) * np.sum(D)
+                        coeff_combos = np.prod(cartesian_product(c1,c2,c3,c4), axis=1)
+                        am_vec = np.array([ami, amj, amk, aml]) 
+                        val = contraction(A,B,C,D, 
+                                          exp_combos[:,0], 
+                                          exp_combos[:,1], 
+                                          exp_combos[:,2],
+                                          exp_combos[:,3],
+                                          coeff_combos, am_vec)
                         s.G = jax.ops.index_update(s.G, jax.ops.index[i,j,k,l], val)
+
+
+                        #val = np.sum(A) * np.sum(B) * np.sum(C) * np.sum(D)
+                        #s.G = jax.ops.index_update(s.G, jax.ops.index[i,j,k,l], val)
 
         return s.G
 
