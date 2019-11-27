@@ -109,6 +109,8 @@ def preprocess(shell_quartets, basis_dict):
 coeffs, exps, atoms, am = preprocess(shell_quartets, basis_dict)
 print(am.shape)
 print(am)
+print('angular momentum of the 5th shell quartet')
+print(np.array([am[0,5], am[1,5], am[2,5], am[3,5]]))
 
 
 def compute(geom, coeffs, exps, atoms, am):
@@ -134,17 +136,31 @@ def compute(geom, coeffs, exps, atoms, am):
         # The indices would need to be padded i believe in order to get them into an array
         # or just compute indices in the loop? 
 
-        #TEMP
+        #TEMP until you figure out index shiz
         s.G = np.zeros((nshells,nshells,nshells,nshells))
         #s.G = np.zeros((nbf,nbf,nbf,nbf))
         for i in s.range(nshells):
             A = geom[atoms[0,i]]
+            aa = exps[0, i]
+            c1 = coeffs[0, i]
             for j in s.range(nshells):
                 B = geom[atoms[1,j]]
+                bb = exps[1, j]
+                c2 = coeffs[1, j]
                 for k in s.range(nshells):
                     C = geom[atoms[2,k]]
+                    cc = exps[2, k]
+                    c3 = coeffs[2, k]
                     for l in s.range(nshells):
                         D = geom[atoms[3,l]]
+                        dd = exps[3, l]
+                        c4 = coeffs[3, l]
+                        #TODO dummy computation
+                        exp_combos = cartesian_product(aa,bb,cc,dd)
+                        coeff_combos = cartesian_product(c1,c2,c3,c4)
+                        am_vec = np.array([am[0,i], am[
+
+
                         val = np.sum(A) * np.sum(B) * np.sum(C) * np.sum(D)
                         s.G = jax.ops.index_update(s.G, jax.ops.index[i,j,k,l], val)
 
@@ -152,7 +168,7 @@ def compute(geom, coeffs, exps, atoms, am):
 
 
 G = compute(geom, coeffs, exps, atoms, am)
-print(G)
+#print(G)
 
 
 
