@@ -115,9 +115,10 @@ def compute(geom, coeffs, exps, atoms, am, indices, sizes):
             with loops.Scope() as S:
                 primitive = 0 # TEMP TODO
                 for _ in S.cond_range(np.allclose(am,np.array([0,0,0,0]))):
-                    primitive = np.where((np.any((aa,bb,cc,dd)) == 0), 0.0, eri_ssss(*args))
+                    #primitive = np.where((np.any((aa,bb,cc,dd)) == 0), 0.0, eri_ssss(*args))
+                    primitive = np.where((np.count_nonzero(np.array([aa,bb,cc,dd])) == 4), eri_ssss(*args), 0.0)
                 for _ in S.cond_range(np.allclose(am,np.array([1,0,0,0]))):
-                    primitive = np.where((np.any((aa,bb,cc,dd)) == 0), 0.0, eri_psss(*args))
+                    primitive = np.where((np.count_nonzero(np.array([aa,bb,cc,dd])) == 4), eri_psss(*args), 0.0)
                 return primitive
     
         # Computes multiple primitives with same center, angular momentum 
@@ -133,6 +134,7 @@ def compute(geom, coeffs, exps, atoms, am, indices, sizes):
         #s.G = np.zeros((nshells,nshells,nshells,nshells))
         # create with a 'dump' dimension because of index packing and creation issue
         s.G = np.zeros((nbf,nbf,nbf,nbf))
+        idx_vec = np.arange(nbf)
         counti, countj, countk, countl = 0,0,0,0
         for i in s.range(nshells):
             A = geom[atoms[i]]
@@ -175,13 +177,26 @@ def compute(geom, coeffs, exps, atoms, am, indices, sizes):
 
                         # test whether indices can be abstract 
                         # This works because all val's are broadcastable to the indices (3,3,3,3)
-                        #fake = np.array([idx1,idx2,idx3])
-                        fake = np.array([counti,countj,countk])
+                        fake = np.array([idx1,idx2,idx3])
+                        #fake = np.array([counti,countj,countk])
+
                         s.G = jax.ops.index_update(s.G, (fake,fake,fake,fake), val)
-                        counti += size1
-                        countj += size2
-                        countk += size3
-                        countl += size4
+
+                        #s.G = jax.ops.index_update(s.G, (idx_vec[counti:counti+size1],idx_vec[countj:countj+size2],idx_vec[countk:countk+size3],idx_vec[countl:countl+size4]), val)
+                        # IDK this may still work, getting a NAN for some reason
+                        #for v in val.flatten():
+                        #    s.G = jax.ops.index_update(s.G, (idx_vec[counti],idx_vec[countj],idx_vec[countk],idx_vec[countl]), v)
+                        #    counti += 1
+                        #    countj += 1
+                        #    countk += 1
+                        #    countl += 1
+                
+
+
+                        #counti += size1
+                        #countj += size2
+                        #countk += size3
+                        #countl += size4
     
                         
                         #s.G = jax.ops.index_update(s.G, (fake,fake,fake,fake), val)
@@ -212,7 +227,7 @@ def compute(geom, coeffs, exps, atoms, am, indices, sizes):
 
 
 G = compute(geom, coeffs, exps, atoms, am, indices, sizes)
-#print(G)
+print(G[0,0,0,0])
 #
 #mints = psi4.core.MintsHelper(basis_set)
 #psi_G = np.asarray(onp.asarray(mints.ao_eri()))
