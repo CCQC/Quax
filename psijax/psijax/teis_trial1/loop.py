@@ -63,36 +63,38 @@ basis_dict = transform_basisdict(basis_dict, max_prim)
 #print("Biggest contraction: ", biggest_K)
 
 def preprocess(shell_quartets, basis_dict):
-
     coeffs = []
     exps = []
     atoms = []
     ams = []
-
+    indices = []
+    sizes = []
     for i in range(nshells):
         c1, exp1, atom1_idx, am1, idx1, size1 = onp.asarray(basis_dict[i]['coef']), onp.asarray(basis_dict[i]['exp']), basis_dict[i]['atom'], basis_dict[i]['am'], basis_dict[i]['idx'], basis_dict[i]['idx_stride']
         coeffs.append(c1)
         exps.append(exp1)
         atoms.append(atom1_idx)
         ams.append(am1)
+        indices.append(idx1)
+        sizes.append(size1)
+                                                          #TODO hard coded, needs to subtract from largest am size (idx_stride)
+        INDICES = onp.pad((onp.repeat(idx1, size1) + onp.arange(size1)), (0,3-size1), constant_values=-1)
+        print(INDICES)
+        
 
-
-    ## Each of these structures has shape (4, shell_quartets, max number of primitives in contraction)
-    #coeffs = onp.asarray([ci, cj, ck, cl])
-    #exps = onp.asarray([expi, expj, expk, expl])
-    ## atoms has shape (4, shell_quartets)
-    #atoms = onp.asarray([atomi, atomj, atomk, atoml])
-    ## am has shape (4, shell_quartets)
-    #am = onp.asarray([ami, amj, amk, aml])
-    return np.asarray(coeffs), np.asarray(exps), np.asarray(atoms), np.asarray(ams)
+    return np.asarray(coeffs), np.asarray(exps), np.asarray(atoms), np.asarray(ams), np.asarray(indices), np.asarray(sizes)
 
         
-coeffs, exps, atoms, am = preprocess(shell_quartets, basis_dict)
-print("coeffs", coeffs.shape)
-print("exps", exps.shape)
-print("atoms", atoms.shape)
-print("am", am.shape)
-print(am)
+coeffs, exps, atoms, am, indices, sizes = preprocess(shell_quartets, basis_dict)
+print(indices.dtype)
+print(sizes.dtype)
+#print("coeffs", coeffs.shape)
+#print("exps", exps.shape)
+#print("atoms", atoms.shape)
+#print("am", am.shape)
+#print("indices", indices.shape)
+#print("sizes", sizes.shape)
+#print(am)
 
 #print(exps[1])
 
@@ -102,57 +104,65 @@ print(am)
 #print(np.array([am[0,5], am[1,5], am[2,5], am[3,5]]))
 
 
-def compute(geom, coeffs, exps, atoms, am):
+def compute(geom, coeffs, exps, atoms, am, indices, sizes):
+    #dim_indices = np.repeat(indices, sizes) + np.arange(sizes)
+    print(indices)
     with loops.Scope() as s:
         def primitive(A, B, C, D, aa, bb, cc, dd, coeff, am):
             '''Geometry parameters, exponents, coefficients, angular momentum identifier'''
             args = (A, B, C, D, aa, bb, cc, dd, coeff) 
-            primitive = np.where((np.any((aa,bb,cc,dd)) == 0), 0.0, eri_ssss(*args))
-            return primitive
+            
+            with loops.Scope() as S:
+                primitive = 0 # TEMP TODO
+                for _ in S.cond_range(np.allclose(am,np.array([0,0,0,0]))):
+                    primitive = np.where((np.any((aa,bb,cc,dd)) == 0), 0.0, eri_ssss(*args))
+                for _ in S.cond_range(np.allclose(am,np.array([1,0,0,0]))):
+                    primitive = np.where((np.any((aa,bb,cc,dd)) == 0), 0.0, eri_psss(*args))
+                return primitive
     
-        #    primitive =  np.where(e1 ==  0, 0.0,
-        #                 np.where(am ==  0, overlap_ss(*args), 0.0))
-        #    return primitive
-        # Computes multiple primitive ss overlaps with same center, angular momentum 
+        # Computes multiple primitives with same center, angular momentum 
         vectorized_primitive = jax.vmap(primitive, (None,None,None,None,0,0,0,0,0,None))
 
-        ## Computes a contracted ss overlap 
+        ## Computes a contracted integral 
         #@jax.jit
         def contraction(A, B, C, D, aa, bb, cc, dd, coeff, am):
             primitives = vectorized_primitive(A, B, C, D, aa, bb, cc, dd, coeff, am)
-            return np.sum(primitives)
+            return np.sum(primitives, axis=0)
 
-
-        # Just collect 1d arrays for each shell's coefficient, exponent, am, index, size
-        # Wouldh avet ocall a cartesian product within the loop
-        # The indices would need to be padded i believe in order to get them into an array
-        # or just compute indices in the loop? 
-
-        #TEMP until you figure out index shiz
-        s.G = np.zeros((nshells,nshells,nshells,nshells))
-        #s.G = np.zeros((nbf,nbf,nbf,nbf))
+        #TEMP TODO until you figure out index shiz
+        #s.G = np.zeros((nshells,nshells,nshells,nshells))
+        # create with a 'dump' dimension because of index packing and creation issue
+        s.G = np.zeros((nbf,nbf,nbf,nbf))
+        counti, countj, countk, countl = 0,0,0,0
         for i in s.range(nshells):
             A = geom[atoms[i]]
             aa = exps[i]
             c1 = coeffs[i]
             ami = am[i]
+            idx1 = indices[i]
+            size1 = sizes[i]
             for j in s.range(nshells):
                 B = geom[atoms[j]]
                 bb = exps[j]
                 c2 = coeffs[j]
                 amj = am[j]
+                idx2 = indices[j]
+                size2 = sizes[j]
                 for k in s.range(nshells):
                     C = geom[atoms[k]]
                     cc = exps[k]
                     c3 = coeffs[k]
                     amk = am[k]
+                    idx3 = indices[k]
+                    size3 = sizes[k]
                     for l in s.range(nshells):
                         D = geom[atoms[l]]
                         dd = exps[l]
                         c4 = coeffs[l]
                         aml = am[l]
+                        idx4 = indices[l]
+                        size4 = sizes[l]
 
-                        #TODO dummy computation
                         exp_combos = cartesian_product(aa,bb,cc,dd)
                         coeff_combos = np.prod(cartesian_product(c1,c2,c3,c4), axis=1)
                         am_vec = np.array([ami, amj, amk, aml]) 
@@ -162,7 +172,37 @@ def compute(geom, coeffs, exps, atoms, am):
                                           exp_combos[:,2],
                                           exp_combos[:,3],
                                           coeff_combos, am_vec)
-                        s.G = jax.ops.index_update(s.G, jax.ops.index[i,j,k,l], val)
+
+                        # test whether indices can be abstract 
+                        # This works because all val's are broadcastable to the indices (3,3,3,3)
+                        #fake = np.array([idx1,idx2,idx3])
+                        fake = np.array([counti,countj,countk])
+                        s.G = jax.ops.index_update(s.G, (fake,fake,fake,fake), val)
+                        counti += size1
+                        countj += size2
+                        countk += size3
+                        countl += size4
+    
+                        
+                        #s.G = jax.ops.index_update(s.G, (fake,fake,fake,fake), val)
+
+                        #print(val)
+                        # index handling
+                        #size = 3**np.sum(am_vec)
+                        #indices1 = np.tile(np.array([idx1]), np.array([size1])) + np.arange(size1)
+                        #indices2 = np.tile(np.array([idx2]), np.array([size2])) + np.arange(size2)
+                        #indices3 = np.tile(np.array([idx3]), np.array([size3])) + np.arange(size3)
+                        #indices4 = np.tile(np.array([idx4]), np.array([size4])) + np.arange(size4)
+                        # Get indices 
+                        #indices1 = np.arange(size1)
+                        #indices2 = np.arange(size2)
+                        #indices3 = np.arange(size3)
+                        #indices4 = np.arange(size4)
+                        #index = cartesian_product(indices1, indices2, indices3, indices4)
+
+                        #s.G = jax.ops.index_update(s.G, (index[:,0],index[:,1],index[:,2],index[:,3]), val)
+
+                        #s.G = jax.ops.index_update(s.G, jax.ops.index[i,j,k,l], val)
 
 
                         #val = np.sum(A) * np.sum(B) * np.sum(C) * np.sum(D)
@@ -171,9 +211,10 @@ def compute(geom, coeffs, exps, atoms, am):
         return s.G
 
 
-G = compute(geom, coeffs, exps, atoms, am)
+G = compute(geom, coeffs, exps, atoms, am, indices, sizes)
 #print(G)
-
-
-
+#
+#mints = psi4.core.MintsHelper(basis_set)
+#psi_G = np.asarray(onp.asarray(mints.ao_eri()))
+#print(psi_G)
 
