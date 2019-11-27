@@ -177,19 +177,20 @@ def compute(geom, coeffs, exps, atoms, am, indices, sizes):
 
                         # test whether indices can be abstract 
                         # This works because all val's are broadcastable to the indices (3,3,3,3)
-                        fake = np.array([idx1,idx2,idx3])
+                        #fake = np.array([idx1,idx2,idx3])
                         #fake = np.array([counti,countj,countk])
 
-                        s.G = jax.ops.index_update(s.G, (fake,fake,fake,fake), val)
+                        #s.G = jax.ops.index_update(s.G, (fake,fake,fake,fake), val)
 
                         #s.G = jax.ops.index_update(s.G, (idx_vec[counti:counti+size1],idx_vec[countj:countj+size2],idx_vec[countk:countk+size3],idx_vec[countl:countl+size4]), val)
                         # IDK this may still work, getting a NAN for some reason
-                        #for v in val.flatten():
-                        #    s.G = jax.ops.index_update(s.G, (idx_vec[counti],idx_vec[countj],idx_vec[countk],idx_vec[countl]), v)
-                        #    counti += 1
-                        #    countj += 1
-                        #    countk += 1
-                        #    countl += 1
+                        for v in val.flatten():
+                            #s.G = jax.ops.index_update(s.G, (idx_vec[counti],idx_vec[countj],idx_vec[countk],idx_vec[countl]), v)
+                            s.G = jax.ops.index_update(s.G, (idx_vec[idx1],idx_vec[idx2],idx_vec[idx3],idx_vec[idx3]), v)
+                            #counti += 1
+                            #countj += 1
+                            #countk += 1
+                            #countl += 1
                 
 
 
@@ -227,7 +228,10 @@ def compute(geom, coeffs, exps, atoms, am, indices, sizes):
 
 
 G = compute(geom, coeffs, exps, atoms, am, indices, sizes)
-print(G[0,0,0,0])
+print(G)
+#for i in G.flatten()[:100]:
+#    print(i)
+#print(G[0,0,0,0])
 #
 #mints = psi4.core.MintsHelper(basis_set)
 #psi_G = np.asarray(onp.asarray(mints.ao_eri()))
