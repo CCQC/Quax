@@ -77,15 +77,58 @@ def preprocess(shell_quartets, basis_dict):
         ams.append(am1)
         indices.append(idx1)
         sizes.append(size1)
+
+        
                                                           #TODO hard coded, needs to subtract from largest am size (idx_stride)
-        INDICES = onp.pad((onp.repeat(idx1, size1) + onp.arange(size1)), (0,3-size1), constant_values=-1)
-        print(INDICES)
+        #INDICES = onp.pad((onp.repeat(idx1, size1) + onp.arange(size1)), (0,3-size1), constant_values=-1)
+        #print(INDICES)
         
 
     return np.asarray(coeffs), np.asarray(exps), np.asarray(atoms), np.asarray(ams), np.asarray(indices), np.asarray(sizes)
 
+def get_indices(shell_quartets, basis_dict):
+    '''
+    Get all indices of ERIs in (nbf**4,4) array. 
+    Record where each shell quartet starts and stops along the first axis of this index array.
+    '''
+    all_indices = []
+    starts = []
+    stops = []
+    start = 0
+    for i in range(nshells):
+        idx1, size1 = basis_dict[i]['idx'], basis_dict[i]['idx_stride']
+        indices1 = onp.repeat(idx1, size1) + onp.arange(size1)
+        for j in range(nshells):
+            idx2, size2 = basis_dict[j]['idx'], basis_dict[j]['idx_stride']
+            indices2 = onp.repeat(idx2, size2) + onp.arange(size2)
+            for k in range(nshells):
+                idx3, size3 = basis_dict[k]['idx'], basis_dict[k]['idx_stride']
+                indices3 = onp.repeat(idx3, size3) + onp.arange(size3)
+                for l in range(nshells):
+                    idx4, size4 = basis_dict[l]['idx'], basis_dict[l]['idx_stride']
+                    indices4 = onp.repeat(idx4, size4) + onp.arange(size4)
+                    indices = old_cartesian_product(indices1,indices2,indices3,indices4)
+                    all_indices.append(indices)
+                    
+                    stop = start + indices.shape[0] #how much of the indices array this integral takes up
+                    starts.append(start)
+                    stops.append(stop)
+                    start += indices.shape[0]
+                    # this would be in the same order as that which appears in the JAX loop, 
+                    # so theoretically could just stack them along the index axis?   
+
+    # NOTE there may be an issue at the ending index 'stop' point, might complain about going out of range
+    final_indices = np.asarray(onp.vstack(all_indices))
+    starts = np.asarray(onp.asarray(starts))
+    stops = np.asarray(onp.asarray(stops))
+    return final_indices, starts, stops
+
+
         
 coeffs, exps, atoms, am, indices, sizes = preprocess(shell_quartets, basis_dict)
+
+new_indices, starts, stops = get_indices(shell_quartets, basis_dict)
+
 print(indices.dtype)
 print(sizes.dtype)
 #print("coeffs", coeffs.shape)
@@ -106,19 +149,34 @@ print(sizes.dtype)
 
 def compute(geom, coeffs, exps, atoms, am, indices, sizes):
     #dim_indices = np.repeat(indices, sizes) + np.arange(sizes)
-    print(indices)
+
     with loops.Scope() as s:
         def primitive(A, B, C, D, aa, bb, cc, dd, coeff, am):
             '''Geometry parameters, exponents, coefficients, angular momentum identifier'''
             args = (A, B, C, D, aa, bb, cc, dd, coeff) 
-            
+            # Since we had to pad all coefficients and exponents to be the same size to use JAX functions,
+            # we only compute the integral if the coefficient is not 0, otherwise we return 0, and it is effectively a 0-contraction component
             with loops.Scope() as S:
                 primitive = 0 # TEMP TODO
                 for _ in S.cond_range(np.allclose(am,np.array([0,0,0,0]))):
                     #primitive = np.where((np.any((aa,bb,cc,dd)) == 0), 0.0, eri_ssss(*args))
-                    primitive = np.where((np.count_nonzero(np.array([aa,bb,cc,dd])) == 4), eri_ssss(*args), 0.0)
+                    #primitive = np.where((np.count_nonzero(np.array([aa,bb,cc,dd])) == 4), eri_ssss(*args), 0.0)
+                    #NOTE probably easier to check if coeff is 0.  
+                    primitive = np.where(coeff == 0,  0.0, eri_ssss(*args))
+
                 for _ in S.cond_range(np.allclose(am,np.array([1,0,0,0]))):
-                    primitive = np.where((np.count_nonzero(np.array([aa,bb,cc,dd])) == 4), eri_psss(*args), 0.0)
+                    primitive = np.where(coeff == 0,  0.0, eri_psss(*args))
+
+                for _ in S.cond_range(np.allclose(am,np.array([1,1,0,0]))):
+                    primitive = np.where(coeff == 0,  0.0, eri_ppss(*args))
+
+                for _ in S.cond_range(np.allclose(am,np.array([1,0,1,0]))):
+                    primitive = np.where(coeff == 0,  0.0, eri_psps(*args))
+
+                for _ in S.cond_range(np.allclose(am,np.array([1,1,1,0]))):
+                    primitive = np.where(coeff == 0,  0.0, eri_ppps(*args))
+                for _ in S.cond_range(np.allclose(am,np.array([1,1,1,1]))):
+                    primitive = np.where(coeff == 0,  0.0, eri_pppp(*args))
                 return primitive
     
         # Computes multiple primitives with same center, angular momentum 
@@ -175,6 +233,15 @@ def compute(geom, coeffs, exps, atoms, am, indices, sizes):
                                           exp_combos[:,3],
                                           coeff_combos, am_vec)
 
+                        # Most promising: USE SHAPE OF VAL TO INFORM INDICES???
+                        indices1 = np.repeat(idx1, val.shape[0]) + np.arange(val.shape[0])
+                        #indices2 = np.repeat(idx2, val.shape[1]) + np.arange(val.shape[1])
+                        print(indices1)
+
+                        #blah = np.repeat(np.array([idx1,idx2,idx3,idx4]), val.shape) + np.arange(val.shape[0])
+                        #print(blah)
+    
+
                         # test whether indices can be abstract 
                         # This works because all val's are broadcastable to the indices (3,3,3,3)
                         #fake = np.array([idx1,idx2,idx3])
@@ -184,13 +251,21 @@ def compute(geom, coeffs, exps, atoms, am, indices, sizes):
 
                         #s.G = jax.ops.index_update(s.G, (idx_vec[counti:counti+size1],idx_vec[countj:countj+size2],idx_vec[countk:countk+size3],idx_vec[countl:countl+size4]), val)
                         # IDK this may still work, getting a NAN for some reason
-                        for v in val.flatten():
-                            #s.G = jax.ops.index_update(s.G, (idx_vec[counti],idx_vec[countj],idx_vec[countk],idx_vec[countl]), v)
-                            s.G = jax.ops.index_update(s.G, (idx_vec[idx1],idx_vec[idx2],idx_vec[idx3],idx_vec[idx3]), v)
-                            #counti += 1
-                            #countj += 1
-                            #countk += 1
-                            #countl += 1
+
+                        #i = 0
+                        #for v in val.flatten():
+                        #    s.G = jax.ops.index_update(s.G, (idx_vec[counti],idx_vec[countj],idx_vec[countk],idx_vec[countl]), v)
+                        #    #s.G = jax.ops.index_update(s.G, (idx_vec[idx1:idx1+i],idx_vec[idx2],idx_vec[idx3],idx_vec[idx3]), v)
+                        #    i+= 1
+                        #    #counti += 1
+                        #    #countj += 1
+                        #    #countk += 1
+                        #    #countl += 1
+                        #for a1 in range(size1):
+                        #    for a2 in range(size2):
+                        #        for a3 in range(size3):
+                        #            for a4 in range(size4):
+                        #                i+=1
                 
 
 
@@ -228,10 +303,10 @@ def compute(geom, coeffs, exps, atoms, am, indices, sizes):
 
 
 G = compute(geom, coeffs, exps, atoms, am, indices, sizes)
-print(G)
+#print(G)
 #for i in G.flatten()[:100]:
 #    print(i)
-#print(G[0,0,0,0])
+print(G[0,0,0,0])
 #
 #mints = psi4.core.MintsHelper(basis_set)
 #psi_G = np.asarray(onp.asarray(mints.ao_eri()))
