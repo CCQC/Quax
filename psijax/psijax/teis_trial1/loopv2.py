@@ -101,15 +101,10 @@ def compute(geom, coeffs, exps, atoms, am, indices):
             # Since we had to pad all coefficients and exponents to be the same size to use JAX functions,
             # we only compute the integral if the coefficient is not 0, otherwise we return 0, and it is effectively a 0-contraction component
             with loops.Scope() as S:
-                #TODO
-                #for _ in S.cond_range(True):
-                #    primitive = np.where(coeff == 0,  0.0, eri_ssss(*args)).reshape(-1)
-                #TODO
                 for _ in S.cond_range(np.allclose(am,np.array([0,0,0,0]))):
                     primitive = np.where(coeff == 0,  0.0, eri_ssss(*args)).reshape(1,1,1,1)
-
-                #for _ in S.cond_range(np.allclose(am,np.array([1,0,0,0]))):
-                #    primitive = np.where(coeff == 0,  0.0, eri_psss(*args)).reshape(3,1,1,1)
+                for _ in S.cond_range(np.allclose(am,np.array([1,0,0,0]))):
+                    primitive = np.where(coeff == 0,  0.0, eri_psss(*args)).reshape(3,1,1,1)
                 #for _ in S.cond_range(np.allclose(am,np.array([0,1,0,0]))): # WRONG TODO
                 #    primitive = np.where(coeff == 0,  0.0, eri_psss(*args)).reshape(1,3,1,1)
                 #for _ in S.cond_range(np.allclose(am,np.array([0,0,1,0]))): # WRONG TODO
@@ -149,20 +144,15 @@ def compute(geom, coeffs, exps, atoms, am, indices):
 
         ## Computes a contracted integral 
         #@jax.jit
+        #@partial(jax.jit, static_argnums=(9))
         def contraction(A, B, C, D, aa, bb, cc, dd, coeff, am):
             primitives = vectorized_primitive(A, B, C, D, aa, bb, cc, dd, coeff, am)
             contraction = np.sum(primitives, axis=0)
             return contraction
-#            G = np.where(np.all(index_combos > -1, axis=1), 
-#                         jax.ops.index_update(G, 
-#                         (index_combos[:,0], index_combos[:,1], index_combos[:,2], index_combos[:,3]), 
-#                         val.reshape(-1)), G)
-#
-#            G = jax.ops.index_update(G, (index_combos[:,0], index_combos[:,1], index_combos[:,2], index_combos[:,3]), contraction)
-#            return G
 
         indx_array = np.arange(nshells**4).reshape(nshells,nshells,nshells,nshells) 
-        s.G = np.zeros((nbf,nbf,nbf,nbf))
+        #s.G = np.zeros((nbf,nbf,nbf,nbf))
+        s.G = np.ones((nbf,nbf,nbf,nbf))
         idx_vec = np.arange(nbf)
         for i in s.range(nshells):
             A = geom[atoms[i]]
@@ -199,16 +189,31 @@ def compute(geom, coeffs, exps, atoms, am, indices):
                                           exp_combos[:,2],
                                           exp_combos[:,3],
                                           coeff_combos, am_vec)
-                        print(val.shape)
-
                         indices1 = np.repeat(idx1, val.shape[0]) + np.arange(val.shape[0])
                         indices2 = np.repeat(idx2, val.shape[1]) + np.arange(val.shape[1])
                         indices3 = np.repeat(idx3, val.shape[2]) + np.arange(val.shape[2])
                         indices4 = np.repeat(idx4, val.shape[3]) + np.arange(val.shape[3])
-                        #s.G = jax.ops.index_update(s.G, (indices1, indices2, indices3, indices4), val)
-                        #s.G = jax.ops.index_update(s.G, jax.ops.index[indices1, indices2, indices3, indices4], val)
                         index_combos = cartesian_product(indices1,indices2,indices3,indices4)
                         s.G = jax.ops.index_update(s.G, (index_combos[:,0], index_combos[:,1], index_combos[:,2], index_combos[:,3]), val.reshape(-1))
+
+
+                        #s.G = jax.ops.index_update(s.G, (indices1, indices2, indices3, indices4), val)
+                        #s.G = jax.ops.index_add(s.G, (indices1, indices2, indices3, indices4), val)
+                        #s.G = jax.ops.index_update(s.G, jax.ops.index[indices1, indices2, indices3, indices4], val)
+                        #index_combos = cartesian_product(indices1,indices2,indices3,indices4)
+
+                        #for _ in s.cond_range(np.sum(am) == 0):
+                        #    s.G = jax.ops.index_update(s.G, (index_combos[:,0], index_combos[:,1], index_combos[:,2], index_combos[:,3]), val.reshape(-1))
+                        #for _ in s.cond_range(np.sum(am) == 1):
+                        #    s.G = jax.ops.index_update(s.G, (index_combos[:,0], index_combos[:,1], index_combos[:,2], index_combos[:,3]), val.reshape(-1))
+                        #for _ in s.cond_range(val.shape == (1,1,1,1)):
+                        #    s.G = jax.ops.index_update(s.G, (index_combos[:,0], index_combos[:,1], index_combos[:,2], index_combos[:,3]), val.reshape(-1))
+                        #for _ in s.cond_range(val.shape == (3,1,1,1)):
+                        #    s.G = jax.ops.index_update(s.G, (index_combos[:,0], index_combos[:,1], index_combos[:,2], index_combos[:,3]), val.reshape(-1))
+                        #for _ in s.cond_range(val.shape == (1,1,1,3)):
+                        #    s.G = jax.ops.index_update(s.G, (index_combos[:,0], index_combos[:,1], index_combos[:,2], index_combos[:,3]), val.reshape(-1))
+                        #for _ in s.cond_range(val.shape != (1,1,1,3)):
+                        #    s.G = jax.ops.index_update(s.G, (index_combos[:,0], index_combos[:,1], index_combos[:,2], index_combos[:,3]), val.reshape(-1))
 
                         
                         #test = np.all(index_combos != -1, axis=1)
@@ -230,7 +235,8 @@ psi_G = np.asarray(onp.asarray(mints.ao_eri()))
 
 ##print(G)
 for i in range(100):
-    print(G.flatten()[i], psi_G.flatten()[i])
+    print(G.flatten()[i])
+#, psi_G.flatten()[i])
 #print(G[0,0,0,0])
 #
 #print(psi_G)
