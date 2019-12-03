@@ -189,5 +189,19 @@ def compute(geom, exps, coeffs, centers, indices, unique_am, b):
     return G
 
 G = compute(geom, exps, coeffs, centers, indices, unique_am, bounds)
-for i in G.flatten()[:100]:
-    print(i)
+
+mints = psi4.core.MintsHelper(basis_set)
+psi_G = np.asarray(onp.asarray(mints.ao_eri()))
+
+G1 = G.flatten()
+G2 = psi_G.flatten()
+for i in range(10000):
+    b = np.allclose(G1[i], G2[i])
+    if b:
+        print('good')
+        continue
+    else:
+        if G1[i] != 0.0:
+            print('ERROR', G1[i], G2[i])
+            print(onp.unravel_index([i], (10,10,10,10)))
+
