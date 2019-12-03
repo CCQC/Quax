@@ -79,44 +79,56 @@ print(coeffs.shape)
 def general(A,B,C,D,aa,bb,cc,dd,coeff,am):
     # NOTE lax.map may be more efficient! vmap is more convenient since we dont have to map every argument 
     # although partial could probably be used with lax.map to mimic None behavior in vmap
+    # Do not compute dummy padded value in contractions, set to 0
+    ssss = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_ssss(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
+    psss = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_psss(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
+    ppss = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_ppss(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
+    psps = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_psps(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
+    ppps = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_ppps(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
+    pppp = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_pppp(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
+
     if am == 'ssss':
-        primitives = jax.vmap(
-                     lambda A,B,C,D,aa,bb,cc,dd,coeff : np.where(coeff == 0, 0, eri_ssss(A,B,C,D,aa,bb,cc,dd,coeff)),
-                     (None,None,None,None,0,0,0,0,0))(A,B,C,D,aa,bb,cc,dd,coeff)
+        primitves = ssss(A,B,C,D,aa,bb,cc,dd,coeff)
+
+    # NOTE TODO these permutation cases should just be taken care of in the preprocessing step. Would save a lot of time probably
     if am == 'psss':
-        primitives = jax.vmap(
-                     lambda A,B,C,D,aa,bb,cc,dd,coeff : np.where(coeff == 0, 0, eri_psss(A,B,C,D,aa,bb,cc,dd,coeff)),
-                     (None,None,None,None,0,0,0,0,0))(A,B,C,D,aa,bb,cc,dd,coeff)
+        primitives = psss(A,B,C,D,aa,bb,cc,dd,coeff)
     if am == 'spss':
-        primitives = jax.vmap(
-                     lambda A,B,C,D,aa,bb,cc,dd,coeff : np.where(coeff == 0, 0, eri_psss(A,B,C,D,aa,bb,cc,dd,coeff)),
-                     (None,None,None,None,0,0,0,0,0))(B,A,C,D,bb,aa,cc,dd,coeff)
+        primitives = psss(B,A,C,D,bb,aa,cc,dd,coeff)
     if am == 'ssps':
-        primitives = jax.vmap(
-                     lambda A,B,C,D,aa,bb,cc,dd,coeff : np.where(coeff == 0, 0, eri_psss(A,B,C,D,aa,bb,cc,dd,coeff)),
-                     (None,None,None,None,0,0,0,0,0))(C,D,A,B,cc,dd,aa,bb,coeff)
+        primitives = psss(C,D,A,B,cc,dd,aa,bb,coeff)
     if am == 'sssp':
-        primitives = jax.vmap(
-                     lambda A,B,C,D,aa,bb,cc,dd,coeff : np.where(coeff == 0, 0, eri_psss(A,B,C,D,aa,bb,cc,dd,coeff)),
-                     (None,None,None,None,0,0,0,0,0))(D,C,B,A,dd,cc,bb,aa,coeff)
+        primitives = psss(D,C,B,A,dd,cc,bb,aa,coeff)
 
     if am == 'ppss':
-        primitives = jax.vmap(
-                     lambda A,B,C,D,aa,bb,cc,dd,coeff : np.where(coeff == 0, 0, eri_ppss(A,B,C,D,aa,bb,cc,dd,coeff)),
-                     (None,None,None,None,0,0,0,0,0))(A,B,C,D,aa,bb,cc,dd,coeff)
+        primitives = ppss(A,B,C,D,aa,bb,cc,dd,coeff)
     if am == 'sspp':
-        primitives = jax.vmap(
-                     lambda A,B,C,D,aa,bb,cc,dd,coeff : np.where(coeff == 0, 0, eri_ppss(A,B,C,D,aa,bb,cc,dd,coeff)),
-                     (None,None,None,None,0,0,0,0,0))(C,D,A,B,cc,dd,aa,bb,coeff)
+        primitives = ppss(C,D,A,B,cc,dd,aa,bb,coeff)
+
     if am == 'psps':
-        primitives = jax.vmap(
-                     lambda A,B,C,D,aa,bb,cc,dd,coeff : np.where(coeff == 0, 0, eri_psps(A,B,C,D,aa,bb,cc,dd,coeff)),
-                     (None,None,None,None,0,0,0,0,0))(A,B,C,D,aa,bb,cc,dd,coeff)
+        primitives = psps(A,B,C,D,aa,bb,cc,dd,coeff)
+    if am == 'spps':
+        primitives = psps(B,A,C,D,bb,aa,cc,dd,coeff)
+    if am == 'pssp':
+        primitives = psps(A,B,D,C,aa,bb,dd,cc,coeff)
+    if am == 'spsp':
+        primitives = psps(B,A,D,C,bb,aa,dd,cc,coeff)
+
+    if am == 'ppps':
+        primitives = ppps(A,B,C,D,aa,bb,cc,dd,coeff)
+    if am == 'ppsp': 
+    if am == 'pspp': #TODO thes results need to be transposed somewhere
+    if am == 'sppp': #TODO thes results need to be transposed somewhere
+
     if am == 'pppp':
-        primitives = jax.vmap(
-                     lambda A,B,C,D,aa,bb,cc,dd,coeff : np.where(coeff == 0, 0, eri_pppp(A,B,C,D,aa,bb,cc,dd,coeff)),
-                     (None,None,None,None,0,0,0,0,0))(A,B,C,D,aa,bb,cc,dd,coeff)
-    return np.sum(primitives, axis=0)
+        primitives = pppp(A,B,C,D,aa,bb,cc,dd,coeff)
+    return np.sum(primitives, axis=0) # contract
 
 # Map the general two electron integral function over a leading axis of shell quartets
 V_general = jax.vmap(general, (0,0,0,0,0,0,0,0,0,None))
