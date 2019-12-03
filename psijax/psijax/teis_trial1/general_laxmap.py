@@ -9,20 +9,19 @@ from jax.experimental import loops
 from pprint import pprint
 from eri import *
 
-
 # Define molecule
 molecule = psi4.geometry("""
                          0 1
                          H 0.0 0.0 -0.849220457955
                          H 0.0 0.0  0.849220457955
-                         H 0.0 0.0  2.000000000000
-                         H 0.0 0.0  3.000000000000
-                         H 0.0 0.0  4.000000000000
-                         H 0.0 0.0  5.000000000000
-                         H 0.0 0.0  6.000000000000
-                         H 0.0 0.0  7.000000000000
                          units bohr
                          """)
+                         #H 0.0 0.0  2.000000000000
+                         #H 0.0 0.0  3.000000000000
+                         #H 0.0 0.0  4.000000000000
+                         #H 0.0 0.0  5.000000000000
+                         #H 0.0 0.0  6.000000000000
+                         #H 0.0 0.0  7.000000000000
 
 # Get geometry as JAX array
 geom = np.asarray(onp.asarray(molecule.geometry()))
@@ -87,31 +86,26 @@ def preprocess(shell_quartets, basis):
     all_indices = onp.asarray(all_indices)[sort_indx]
     return np.asarray(exps), np.asarray(coeffs), centers, np.asarray(am), np.asarray(all_indices)
 
-exps, coeffs, centers, am, indices = preprocess(shell_quartets, basis_dict)
-junk, bounds =  onp.unique(am, return_index=True, axis=0)
-unique_am = junk.tolist()
-bounds = bounds.tolist()
-print('preprocessing done')
-
-def general(centers,exps,coeff,am):
+def general(data,am):
+    centers, exps, coeff = data
     A, B, C, D = centers[0,:], centers[1,:], centers[2,:], centers[3,:]
     aa, bb, cc, dd = exps[:,0], exps[:,1], exps[:,2], exps[:,3]
 
     # NOTE lax.map may be more efficient! vmap is more convenient since we dont have to map every argument 
     # although partial could probably be used with lax.map to mimic None behavior in vmap
     # Do not compute dummy padded value in contractions, set to 0
-    ssss = jax.jit(jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
-                    np.where(coeff == 0, 0, eri_ssss(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0)))
-    psss = jax.jit(jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
-                    np.where(coeff == 0, 0, eri_psss(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0)))
-    ppss = jax.jit(jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
-                    np.where(coeff == 0, 0, eri_ppss(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0)))
-    psps = jax.jit(jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
-                    np.where(coeff == 0, 0, eri_psps(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0)))
-    ppps = jax.jit(jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
-                    np.where(coeff == 0, 0, eri_ppps(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0)))
-    pppp = jax.jit(jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
-                    np.where(coeff == 0, 0, eri_pppp(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0)))
+    ssss = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_ssss(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
+    psss = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_psss(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
+    ppss = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_ppss(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
+    psps = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_psps(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
+    ppps = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_ppps(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
+    pppp = jax.vmap(lambda A,B,C,D,aa,bb,cc,dd,coeff : 
+                    np.where(coeff == 0, 0, eri_pppp(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
 
     if am == 'ssss':
         primitives = ssss(A,B,C,D,aa,bb,cc,dd,coeff)
@@ -153,12 +147,13 @@ def general(centers,exps,coeff,am):
         primitives = np.transpose(ppps(D,C,B,A,dd,cc,bb,aa,coeff), (0,3,2,1))
     elif am == 'pppp':
         primitives = pppp(A,B,C,D,aa,bb,cc,dd,coeff)
-    return np.sum(primitives, axis=0).reshape(-1) # contract and return flattened vector
+
+    return np.sum(primitives, axis=0).reshape(-1) # contract and return flatten
 
 # Map the general two electron integral function over a leading axis of shell quartets
-V_general = jax.vmap(general, (0,0,0,None))
+#V_general = jax.vmap(general, (0,0,0,None))
 
-def compute(geom, exps, coeffs, centers, indices, unique_am, b):
+def compute(geom, basis_dict, shell_quartets):
     ''' 
 
     unique_am : list of lists of size 4
@@ -167,14 +162,24 @@ def compute(geom, exps, coeffs, centers, indices, unique_am, b):
         The bounds of angular momentum cases. It is the first index occurence of each new angular momentum case along the leading axis of exps and coeffs, which are sorted such
         that like-angular momentum cases are grouped together. Used to tell which function to use for which data
     '''
-    G = np.zeros((nbf,nbf,nbf,nbf))
-    centers = np.take(geom, centers, axis=0)
-    u = b[1:]
-    u.append(-1) # upper (u) and lower (l) bounds of integral class indices 
-    l = b        # used to slice data arrays before passing to integral class functions 
+    exps, coeffs, centers, am, indices = preprocess(shell_quartets, basis_dict)
+    junk, bounds =  onp.unique(am, return_index=True, axis=0)
+    unique_am = junk.tolist()
+    bounds = bounds.tolist()
+    print('preprocessing done')
 
+    centers = np.take(geom, centers, axis=0)
+    u = bounds[1:]
+    u.append(-1) # upper (u) and lower (l) bounds of integral class indices 
+    l = bounds   # used to slice data arrays before passing to integral class functions 
+
+    G = np.zeros((nbf,nbf,nbf,nbf)) 
     # Compute each TEI class and place in G
-    for i in range(len(unique_am)):
+    slices = []
+    sizes = []
+    #for i in range(len(unique_am)):
+    #TODO TODO just compute s, check memory
+    for i in range(1):
         # Find size of this integral class (number of integrals)
         tmp = [(j + 1) * (j + 2) // 2 for j in unique_am[i]]
         size = np.prod(tmp)
@@ -184,11 +189,20 @@ def compute(geom, exps, coeffs, centers, indices, unique_am, b):
             s = slice(l[i], None)
         else:
             s = slice(l[i], u[i])
-        eris = V_general(centers[s],exps[s],coeffs[s],am_class)
+        slices.append(s)
+        sizes.append(size)
+        print(centers[s].shape)
+        print(exps[s].shape)
+        print(coeffs[s].shape)
+        # Slicing the contraction would have to make slices which say what the maximum contraction size is for each case is, 
+        # would only save a little bit i think 
+
+    
+        #eris = jax.lax.map(partial(general, am=am_class), (centers[s], exps[s], coeffs[s]))
         #G = jax.ops.index_update(G, (indices[s,:size,0],indices[s,:size,1],indices[s,:size,2],indices[s,:size,3]), eris)
     return G
 
-G = compute(geom, exps, coeffs, centers, indices, unique_am, bounds)
+G = compute(geom, basis_dict, shell_quartets)
 #grad = jax.jacfwd(compute)(geom, exps, coeffs, centers, indices, unique_am, bounds)
 #print(grad.shape)
 #hess = jax.jacfwd(jax.jacfwd(compute))(geom, exps, coeffs, centers, indices, unique_am, bounds)

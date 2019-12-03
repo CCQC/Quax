@@ -9,6 +9,9 @@ from jax.experimental import loops
 from pprint import pprint
 from eri import *
 
+# CURRENT TEST:
+# REMOVE ALL CONTRACTIONS
+
 
 # Define molecule
 molecule = psi4.geometry("""
@@ -23,6 +26,8 @@ molecule = psi4.geometry("""
                          H 0.0 0.0  7.000000000000
                          units bohr
                          """)
+
+
 
 # Get geometry as JAX array
 geom = np.asarray(onp.asarray(molecule.geometry()))
@@ -51,11 +56,13 @@ def preprocess(shell_quartets, basis):
     for quartet in shell_quartets:
         i,j,k,l = quartet
         #basis_dict[i]['am'], basis_dict[i]['idx'], basis_dict[i]['idx_stride']
-        c1, aa, atom1, am1, idx1, size1 = onp.asarray(basis[i]['coef']), onp.asarray(basis[i]['exp']), basis[i]['atom'], basis[i]['am'], basis[i]['idx'], basis[i]['idx_stride']
-        c2, bb, atom2, am2, idx2, size2 = onp.asarray(basis[j]['coef']), onp.asarray(basis[j]['exp']), basis[j]['atom'], basis[j]['am'], basis[j]['idx'], basis[j]['idx_stride']
-        c3, cc, atom3, am3, idx3, size3 = onp.asarray(basis[k]['coef']), onp.asarray(basis[k]['exp']), basis[k]['atom'], basis[k]['am'], basis[k]['idx'], basis[k]['idx_stride']
-        c4, dd, atom4, am4, idx4, size4 = onp.asarray(basis[l]['coef']), onp.asarray(basis[l]['exp']), basis[l]['atom'], basis[l]['am'], basis[l]['idx'], basis[l]['idx_stride']
+        c1, aa, atom1, am1, idx1, size1 = onp.asarray([basis[i]['coef'][0]]), onp.asarray([basis[i]['exp'][0]]), basis[i]['atom'], basis[i]['am'], basis[i]['idx'], basis[i]['idx_stride']
+        c2, bb, atom2, am2, idx2, size2 = onp.asarray([basis[j]['coef'][0]]), onp.asarray([basis[j]['exp'][0]]), basis[j]['atom'], basis[j]['am'], basis[j]['idx'], basis[j]['idx_stride']
+        c3, cc, atom3, am3, idx3, size3 = onp.asarray([basis[k]['coef'][0]]), onp.asarray([basis[k]['exp'][0]]), basis[k]['atom'], basis[k]['am'], basis[k]['idx'], basis[k]['idx_stride']
+        c4, dd, atom4, am4, idx4, size4 = onp.asarray([basis[l]['coef'][0]]), onp.asarray([basis[l]['exp'][0]]), basis[l]['atom'], basis[l]['am'], basis[l]['idx'], basis[l]['idx_stride']
 
+        #exp_combos = onp.array([[aa,bb,cc,dd],[aa,bb,cc,dd]])
+        #coeff_combos = np.array([c1 * c2 * c3 * c4])
         exp_combos = old_cartesian_product(aa,bb,cc,dd)
         coeff_combos = np.prod(old_cartesian_product(c1,c2,c3,c4), axis=1)
         am_vec = np.array([am1, am2, am3, am4])
@@ -69,9 +76,11 @@ def preprocess(shell_quartets, basis):
         all_indices.append(indices)
 
         # Pad exp, coeff arrays to same size (largest contraction) so they can be put into an array
-        K = exp_combos.shape[0]
-        exps.append(onp.pad(exp_combos, ((0, biggest_K - K), (0,0))))
-        coeffs.append(onp.pad(coeff_combos, (0, biggest_K - K)))
+        #K = exp_combos.shape[0]
+        #exps.append(onp.pad(exp_combos, ((0, biggest_K - K), (0,0))))
+        #coeffs.append(onp.pad(coeff_combos, (0, biggest_K - K)))
+        exps.append(exp_combos)
+        coeffs.append(coeff_combos)
         centers.append([atom1,atom2,atom3,atom4])
         ams.append(am_vec)
 
@@ -87,11 +96,6 @@ def preprocess(shell_quartets, basis):
     all_indices = onp.asarray(all_indices)[sort_indx]
     return np.asarray(exps), np.asarray(coeffs), centers, np.asarray(am), np.asarray(all_indices)
 
-exps, coeffs, centers, am, indices = preprocess(shell_quartets, basis_dict)
-junk, bounds =  onp.unique(am, return_index=True, axis=0)
-unique_am = junk.tolist()
-bounds = bounds.tolist()
-print('preprocessing done')
 
 def general(centers,exps,coeff,am):
     A, B, C, D = centers[0,:], centers[1,:], centers[2,:], centers[3,:]
@@ -158,7 +162,7 @@ def general(centers,exps,coeff,am):
 # Map the general two electron integral function over a leading axis of shell quartets
 V_general = jax.vmap(general, (0,0,0,None))
 
-def compute(geom, exps, coeffs, centers, indices, unique_am, b):
+def compute(geom, basis_dict, shell_quartets):
     ''' 
 
     unique_am : list of lists of size 4
@@ -167,12 +171,18 @@ def compute(geom, exps, coeffs, centers, indices, unique_am, b):
         The bounds of angular momentum cases. It is the first index occurence of each new angular momentum case along the leading axis of exps and coeffs, which are sorted such
         that like-angular momentum cases are grouped together. Used to tell which function to use for which data
     '''
-    G = np.zeros((nbf,nbf,nbf,nbf))
-    centers = np.take(geom, centers, axis=0)
-    u = b[1:]
-    u.append(-1) # upper (u) and lower (l) bounds of integral class indices 
-    l = b        # used to slice data arrays before passing to integral class functions 
+    exps, coeffs, centers, am, indices = preprocess(shell_quartets, basis_dict)
+    junk, bounds =  onp.unique(am, return_index=True, axis=0)
+    unique_am = junk.tolist()
+    bounds = bounds.tolist()
+    print('preprocessing done')
 
+    centers = np.take(geom, centers, axis=0)
+    u = bounds[1:]
+    u.append(-1) # upper (u) and lower (l) bounds of integral class indices 
+    l = bounds   # used to slice data arrays before passing to integral class functions 
+
+    G = np.zeros((nbf,nbf,nbf,nbf)) 
     # Compute each TEI class and place in G
     for i in range(len(unique_am)):
         # Find size of this integral class (number of integrals)
@@ -185,18 +195,18 @@ def compute(geom, exps, coeffs, centers, indices, unique_am, b):
         else:
             s = slice(l[i], u[i])
         eris = V_general(centers[s],exps[s],coeffs[s],am_class)
-        #G = jax.ops.index_update(G, (indices[s,:size,0],indices[s,:size,1],indices[s,:size,2],indices[s,:size,3]), eris)
+        G = jax.ops.index_update(G, (indices[s,:size,0],indices[s,:size,1],indices[s,:size,2],indices[s,:size,3]), eris)
     return G
 
-G = compute(geom, exps, coeffs, centers, indices, unique_am, bounds)
+G = compute(geom, basis_dict, shell_quartets)
 #grad = jax.jacfwd(compute)(geom, exps, coeffs, centers, indices, unique_am, bounds)
 #print(grad.shape)
 #hess = jax.jacfwd(jax.jacfwd(compute))(geom, exps, coeffs, centers, indices, unique_am, bounds)
 #print(hess.shape)
 
 
-mints = psi4.core.MintsHelper(basis_set)
-psi_G = np.asarray(onp.asarray(mints.ao_eri()))
-print(np.allclose(G, psi_G))
+#mints = psi4.core.MintsHelper(basis_set)
+#psi_G = np.asarray(onp.asarray(mints.ao_eri()))
+#print(np.allclose(G, psi_G))
 
 

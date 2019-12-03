@@ -24,6 +24,7 @@ molecule = psi4.geometry("""
                          units bohr
                          """)
 
+
 # Get geometry as JAX array
 geom = np.asarray(onp.asarray(molecule.geometry()))
 
@@ -87,11 +88,6 @@ def preprocess(shell_quartets, basis):
     all_indices = onp.asarray(all_indices)[sort_indx]
     return np.asarray(exps), np.asarray(coeffs), centers, np.asarray(am), np.asarray(all_indices)
 
-exps, coeffs, centers, am, indices = preprocess(shell_quartets, basis_dict)
-junk, bounds =  onp.unique(am, return_index=True, axis=0)
-unique_am = junk.tolist()
-bounds = bounds.tolist()
-print('preprocessing done')
 
 def general(centers,exps,coeff,am):
     A, B, C, D = centers[0,:], centers[1,:], centers[2,:], centers[3,:]
@@ -158,7 +154,7 @@ def general(centers,exps,coeff,am):
 # Map the general two electron integral function over a leading axis of shell quartets
 V_general = jax.vmap(general, (0,0,0,None))
 
-def compute(geom, exps, coeffs, centers, indices, unique_am, b):
+def compute(geom, basis_dict, shell_quartets):
     ''' 
 
     unique_am : list of lists of size 4
@@ -167,14 +163,21 @@ def compute(geom, exps, coeffs, centers, indices, unique_am, b):
         The bounds of angular momentum cases. It is the first index occurence of each new angular momentum case along the leading axis of exps and coeffs, which are sorted such
         that like-angular momentum cases are grouped together. Used to tell which function to use for which data
     '''
-    G = np.zeros((nbf,nbf,nbf,nbf))
-    centers = np.take(geom, centers, axis=0)
-    u = b[1:]
-    u.append(-1) # upper (u) and lower (l) bounds of integral class indices 
-    l = b        # used to slice data arrays before passing to integral class functions 
+    exps, coeffs, centers, am, indices = preprocess(shell_quartets, basis_dict)
+    junk, bounds =  onp.unique(am, return_index=True, axis=0)
+    unique_am = junk.tolist()
+    bounds = bounds.tolist()
+    print('preprocessing done')
 
+    centers = np.take(geom, centers, axis=0)
+    u = bounds[1:]
+    u.append(-1) # upper (u) and lower (l) bounds of integral class indices 
+    l = bounds   # used to slice data arrays before passing to integral class functions 
+
+    G = np.zeros((nbf,nbf,nbf,nbf)) 
     # Compute each TEI class and place in G
-    for i in range(len(unique_am)):
+    #TODO DONT COMPUTE PPPP, reduce by 1
+    for i in range(len(unique_am) - 1):
         # Find size of this integral class (number of integrals)
         tmp = [(j + 1) * (j + 2) // 2 for j in unique_am[i]]
         size = np.prod(tmp)
@@ -185,18 +188,18 @@ def compute(geom, exps, coeffs, centers, indices, unique_am, b):
         else:
             s = slice(l[i], u[i])
         eris = V_general(centers[s],exps[s],coeffs[s],am_class)
-        #G = jax.ops.index_update(G, (indices[s,:size,0],indices[s,:size,1],indices[s,:size,2],indices[s,:size,3]), eris)
+        G = jax.ops.index_update(G, (indices[s,:size,0],indices[s,:size,1],indices[s,:size,2],indices[s,:size,3]), eris)
     return G
 
-G = compute(geom, exps, coeffs, centers, indices, unique_am, bounds)
+G = compute(geom, basis_dict, shell_quartets)
 #grad = jax.jacfwd(compute)(geom, exps, coeffs, centers, indices, unique_am, bounds)
 #print(grad.shape)
 #hess = jax.jacfwd(jax.jacfwd(compute))(geom, exps, coeffs, centers, indices, unique_am, bounds)
 #print(hess.shape)
 
 
-mints = psi4.core.MintsHelper(basis_set)
-psi_G = np.asarray(onp.asarray(mints.ao_eri()))
-print(np.allclose(G, psi_G))
+#mints = psi4.core.MintsHelper(basis_set)
+#psi_G = np.asarray(onp.asarray(mints.ao_eri()))
+#print(np.allclose(G, psi_G))
 
 
