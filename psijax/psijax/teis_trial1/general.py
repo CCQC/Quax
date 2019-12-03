@@ -148,11 +148,13 @@ def general(centers,exps,coeff,am):
     if am == 'ppsp': 
         primitives = ppps(A,B,D,C,aa,bb,dd,cc,coeff)
     if am == 'pspp': #TODO thes results need to be transposed somewhere
-        #primitives = np.transpose(ppps(C,D,A,B,cc,dd,aa,bb,coeff), (0,1,4,2,3))
-        primitives = ppps(C,D,A,B,cc,dd,aa,bb,coeff)
+        primitives = np.transpose(ppps(C,D,A,B,cc,dd,aa,bb,coeff), (0,3,1,2))
+        #primitives = ppps(C,D,A,B,cc,dd,aa,bb,coeff)
+        #print(primitives.shape)
     if am == 'sppp': #TODO thes results need to be transposed somewhere
         #primitives = np.transpose(ppps(D,C,B,A,dd,cc,bb,aa,coeff), (0,1,4,3,2))
-        primitives = ppps(D,C,B,A,dd,cc,bb,aa,coeff)
+        primitives = np.transpose(ppps(D,C,B,A,dd,cc,bb,aa,coeff), (0,3,2,1))
+        #print(primitives.shape)
     if am == 'pppp':
         primitives = pppp(A,B,C,D,aa,bb,cc,dd,coeff)
     return np.sum(primitives, axis=0).reshape(-1) # contract and return flattened vector
@@ -173,7 +175,7 @@ def compute(geom, exps, coeffs, centers, indices, unique_am, b):
     G = np.zeros((nbf,nbf,nbf,nbf))
     centers = np.take(geom, centers, axis=0)
     u = b[1:]
-    u.append(-1) # upper and lower bounds of integral class indices 
+    u.append(-1) # upper (u) and lower (l) bounds of integral class indices 
     l = b        # used to slice data arrays before passing to integral class functions 
 
     # Compute each TEI class and place in G
@@ -183,7 +185,10 @@ def compute(geom, exps, coeffs, centers, indices, unique_am, b):
         size = np.prod(tmp)
         # convert list of AM [0101] to string spsp, etc   
         am_class = ''.join(['s' if j == 0 else 'p' if j == 1 else 'd' for j in unique_am[i]])
-        s = slice(l[i], u[i])
+        if u[i] == -1:
+            s = slice(l[i], None)
+        else:
+            s = slice(l[i], u[i])
         eris = V_general(centers[s],exps[s],coeffs[s],am_class)
         G = jax.ops.index_update(G, (indices[s,:size,0],indices[s,:size,1],indices[s,:size,2],indices[s,:size,3]), eris)
     return G
@@ -193,15 +198,4 @@ G = compute(geom, exps, coeffs, centers, indices, unique_am, bounds)
 mints = psi4.core.MintsHelper(basis_set)
 psi_G = np.asarray(onp.asarray(mints.ao_eri()))
 
-G1 = G.flatten()
-G2 = psi_G.flatten()
-for i in range(10000):
-    b = np.allclose(G1[i], G2[i])
-    if b:
-        print('good')
-        continue
-    else:
-        if G1[i] != 0.0:
-            print('ERROR', G1[i], G2[i])
-            print(onp.unravel_index([i], (10,10,10,10)))
 
