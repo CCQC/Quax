@@ -72,11 +72,27 @@ def preprocess(shell_quartets, basis):
 
 exps, coeffs, centers, am = preprocess(shell_quartets, basis_dict)
 #print(exps.shape)
-print(coeffs.shape)
+#print(coeffs.shape)
+
+junk, bounds =  onp.unique(am, return_index=True, axis=0)
+unique_am = junk.tolist()
+print(unique_am)
+#bounds = bounds.tolist()
+#print(bounds)
+
 #print(len(centers))
 #print(am.shape)
 
-def general(A,B,C,D,aa,bb,cc,dd,coeff,am):
+def general(centers,exps,coeff,am):
+    A = centers[0,:]
+    B = centers[1,:]
+    C = centers[2,:]
+    D = centers[3,:]
+    aa = exps[:,0]
+    bb = exps[:,1]
+    cc = exps[:,2]
+    dd = exps[:,3]
+
     # NOTE lax.map may be more efficient! vmap is more convenient since we dont have to map every argument 
     # although partial could probably be used with lax.map to mimic None behavior in vmap
     # Do not compute dummy padded value in contractions, set to 0
@@ -94,9 +110,10 @@ def general(A,B,C,D,aa,bb,cc,dd,coeff,am):
                     np.where(coeff == 0, 0, eri_pppp(A,B,C,D,aa,bb,cc,dd,coeff)),(None,None,None,None,0,0,0,0,0))
 
     if am == 'ssss':
-        primitves = ssss(A,B,C,D,aa,bb,cc,dd,coeff)
+        primitives = ssss(A,B,C,D,aa,bb,cc,dd,coeff)
 
     # NOTE TODO these permutation cases should just be taken care of in the preprocessing step. Would save a lot of time probably
+    # issue: cannot take care of tranposes in preprocessing step
     if am == 'psss':
         primitives = psss(A,B,C,D,aa,bb,cc,dd,coeff)
     if am == 'spss':
@@ -120,37 +137,72 @@ def general(A,B,C,D,aa,bb,cc,dd,coeff,am):
     if am == 'spsp':
         primitives = psps(B,A,D,C,bb,aa,dd,cc,coeff)
 
+    # PPPS is a weird case, it returns a (3,3,3), where each dim is differentiation w.r.t. 0, then 1, then 2
+    # You must transpose the result when you permute in some cases 
     if am == 'ppps':
         primitives = ppps(A,B,C,D,aa,bb,cc,dd,coeff)
     if am == 'ppsp': 
+        primitives = ppps(A,B,D,C,aa,bb,dd,cc,coeff)
     if am == 'pspp': #TODO thes results need to be transposed somewhere
+        #primitives = np.transpose(ppps(C,D,A,B,cc,dd,aa,bb,coeff), (0,1,4,2,3))
+        primitives = ppps(C,D,A,B,cc,dd,aa,bb,coeff)
     if am == 'sppp': #TODO thes results need to be transposed somewhere
-
+        #primitives = np.transpose(ppps(D,C,B,A,dd,cc,bb,aa,coeff), (0,1,4,3,2))
+        primitives = ppps(D,C,B,A,dd,cc,bb,aa,coeff)
     if am == 'pppp':
         primitives = pppp(A,B,C,D,aa,bb,cc,dd,coeff)
-    return np.sum(primitives, axis=0) # contract
+    return np.sum(primitives, axis=0).reshape(-1) # contract and return flattened vector
 
 # Map the general two electron integral function over a leading axis of shell quartets
-V_general = jax.vmap(general, (0,0,0,0,0,0,0,0,0,None))
+#V_general = jax.vmap(general, (0,0,0,0,0,0,0,0,0,None))
+V_general = jax.vmap(general, (0,0,0,None))
 
-def compute(geom, exps, coeffs, centers, am):
+def compute(geom, exps, coeffs, centers, unique_am, b):
+    ''' 
+
+    unique_am : list of lists of size 4
+        Represents the sorted angular momentum cases, 0000, 0001,..., 1111, etc
+    bounds : array
+        The bounds of angular momentum cases. It is the first index occurence of each new angular momentum case along the leading axis of exps and coeffs, which are sorted such
+        that like-angular momentum cases are grouped together. 
+        Used to tell which function to use for which data
+    '''
     centers = np.take(geom, centers, axis=0)
+    l,u = 0,1
+    for case in unique_am:
+        # convert list of AM [0101] to string spsp, etc   # must end in else
+        tag = ''.join(['s' if j == 0 else 'p' if j == 1 else 'd' for j in case])
+        if tag == 'pppp':
+            result = V_general(centers[b[l]:],exps[b[l]:],coeffs[b[l]:],tag)
+        else:
+            result = V_general(centers[b[l]:b[u]],exps[b[l]:b[u]],coeffs[b[l]:b[u]],tag)
+        print(result.shape)
+        l += 1
+        u += 1
+    #print(result.shape)
+    #result = V_general(centers[b[1]:b[2]],exps[b[1]:b[2]],coeffs[b[1]:b[2]],'psss')
+    #print(result.shape)
+    #result = V_general(centers[b[1]:b[2]],exps[b[1]:b[2]],coeffs[b[1]:b[2]],'spss')
+    #print(result.shape)
+    #result = V_general(centers[b[1]:b[2]],exps[b[1]:b[2]],coeffs[b[1]:b[2]],'ssps')
+    #print(result.shape)
+    #result = V_general(centers[b[1]:b[2]],exps[b[1]:b[2]],coeffs[b[1]:b[2]],'sssp')
+    #print(result.shape)
 
-    A = centers[:,0,:]
-    B = centers[:,1,:]
-    C = centers[:,2,:]
-    D = centers[:,3,:]
-    aa = exps[:,:,0]
-    bb = exps[:,:,1]
-    cc = exps[:,:,2]
-    dd = exps[:,:,3]
+    #result = V_general(centers[b[3]:b[4]],exps[b[3]:b[4]],coeffs[b[3]:b[4]],'ppss')
+    #print(result.shape)
+    #result = V_general(centers[b[4]:b[5]],exps[b[4]:b[5]],coeffs[b[4]:b[5]],'sspp')
+    #print(result.shape)
 
-    result = V_general(A,B,C,D,aa,bb,cc,dd,coeffs,'ssss')
-    result = V_general(A,B,C,D,aa,bb,cc,dd,coeffs,'psss')
-    result = V_general(A,B,C,D,aa,bb,cc,dd,coeffs,'ssps')
-    result = V_general(A,B,C,D,aa,bb,cc,dd,coeffs,'ppss')
-    result = V_general(A,B,C,D,aa,bb,cc,dd,coeffs,'sspp')
-    result = V_general(A,B,C,D,aa,bb,cc,dd,coeffs,'pppp')
+    #result = V_general(centers[b[4]:b[5]],exps[b[4]:b[5]],coeffs[b[4]:b[5]],'psps')
+    #print(result.shape)
+
+    #result = V_general(centers[b[4]:b[5]],exps[b[4]:b[5]],coeffs[b[4]:b[5]],'psps')
+    #print(result.shape)
 
 
-compute(geom, exps, coeffs, centers, am)
+    #result = V_general(centers[b[5]:b[6]],exps[b[5]:b[6]],coeffs[b[5]:b[6]],'pppp')
+    #print(result.shape)
+
+
+compute(geom, exps, coeffs, centers, unique_am, bounds)
