@@ -38,60 +38,64 @@ def preprocess(shell_quartets, basis):
     coeffs = []
     centers = []
     ams = []
+    all_indices = []
     for quartet in shell_quartets:
         i,j,k,l = quartet
         #basis_dict[i]['am'], basis_dict[i]['idx'], basis_dict[i]['idx_stride']
-        c1, aa, atom1, am1 = onp.asarray(basis[i]['coef']), onp.asarray(basis[i]['exp']), basis[i]['atom'], basis[i]['am']
-        c2, bb, atom2, am2 = onp.asarray(basis[j]['coef']), onp.asarray(basis[j]['exp']), basis[j]['atom'], basis[j]['am']
-        c3, cc, atom3, am3 = onp.asarray(basis[k]['coef']), onp.asarray(basis[k]['exp']), basis[k]['atom'], basis[k]['am']
-        c4, dd, atom4, am4 = onp.asarray(basis[l]['coef']), onp.asarray(basis[l]['exp']), basis[l]['atom'], basis[l]['am']
-
+        c1, aa, atom1, am1, idx1, size1 = onp.asarray(basis[i]['coef']), onp.asarray(basis[i]['exp']), basis[i]['atom'], basis[i]['am'], basis[i]['idx'], basis[i]['idx_stride']
+        c2, bb, atom2, am2, idx2, size2 = onp.asarray(basis[j]['coef']), onp.asarray(basis[j]['exp']), basis[j]['atom'], basis[j]['am'], basis[j]['idx'], basis[j]['idx_stride']
+        c3, cc, atom3, am3, idx3, size3 = onp.asarray(basis[k]['coef']), onp.asarray(basis[k]['exp']), basis[k]['atom'], basis[k]['am'], basis[k]['idx'], basis[k]['idx_stride']
+        c4, dd, atom4, am4, idx4, size4 = onp.asarray(basis[l]['coef']), onp.asarray(basis[l]['exp']), basis[l]['atom'], basis[l]['am'], basis[l]['idx'], basis[l]['idx_stride']
 
         exp_combos = old_cartesian_product(aa,bb,cc,dd)
-        coeff_combos = np.prod(cartesian_product(c1,c2,c3,c4), axis=1)
+        coeff_combos = np.prod(old_cartesian_product(c1,c2,c3,c4), axis=1)
         am_vec = np.array([am1, am2, am3, am4])
-        # Pad all arrays to same size (largest contraction)
+
+        indices1 = onp.repeat(idx1, size1) + onp.arange(size1)
+        indices2 = onp.repeat(idx2, size2) + onp.arange(size2)
+        indices3 = onp.repeat(idx3, size3) + onp.arange(size3)
+        indices4 = onp.repeat(idx4, size4) + onp.arange(size4)
+        indices = old_cartesian_product(indices1,indices2,indices3,indices4)
+        indices = onp.pad(indices, ((0, 81-indices.shape[0]),(0,0)), constant_values=-1)
+        all_indices.append(indices)
+
+        # Pad exp, coeff arrays to same size (largest contraction) so they can be put into an array
         K = exp_combos.shape[0]
         exps.append(onp.pad(exp_combos, ((0, biggest_K - K), (0,0))))
-            
         coeffs.append(onp.pad(coeff_combos, (0, biggest_K - K)))
-        
         centers.append([atom1,atom2,atom3,atom4])
         ams.append(am_vec)
 
     #TODO take care of different cases of psss, ppss, psps, ppps within preprocess function
-    # Sort all data by angular momentum case. 
-    # NOTE can get places where start/stop using onp.unique
+    # Sort all data by angular momentum class. 
+    # can get places where start/stop using onp.unique
     am = onp.asarray(ams)
     sort_indx = onp.lexsort((am[:,3],am[:,2],am[:,1],am[:,0])) 
     exps = onp.asarray(exps)[sort_indx]
     coeffs = onp.asarray(coeffs)[sort_indx]
     centers = onp.asarray(centers)[sort_indx].tolist()
     am = am[sort_indx]
-    return np.asarray(exps), np.asarray(coeffs), centers, np.asarray(am)
+    all_indices = onp.asarray(all_indices)[sort_indx]
+    return np.asarray(exps), np.asarray(coeffs), centers, np.asarray(am), np.asarray(all_indices)
 
-exps, coeffs, centers, am = preprocess(shell_quartets, basis_dict)
-#print(exps.shape)
-#print(coeffs.shape)
+exps, coeffs, centers, am, indices = preprocess(shell_quartets, basis_dict)
+print(exps.shape)
+print(coeffs.shape)
+print(am.shape)
+print(indices.shape)
 
 junk, bounds =  onp.unique(am, return_index=True, axis=0)
 unique_am = junk.tolist()
 print(unique_am)
-#bounds = bounds.tolist()
+bounds = bounds.tolist()
 #print(bounds)
 
 #print(len(centers))
 #print(am.shape)
 
 def general(centers,exps,coeff,am):
-    A = centers[0,:]
-    B = centers[1,:]
-    C = centers[2,:]
-    D = centers[3,:]
-    aa = exps[:,0]
-    bb = exps[:,1]
-    cc = exps[:,2]
-    dd = exps[:,3]
+    A, B, C, D = centers[0,:], centers[1,:], centers[2,:], centers[3,:]
+    aa, bb, cc, dd = exps[:,0], exps[:,1], exps[:,2], exps[:,3]
 
     # NOTE lax.map may be more efficient! vmap is more convenient since we dont have to map every argument 
     # although partial could probably be used with lax.map to mimic None behavior in vmap
@@ -157,52 +161,33 @@ def general(centers,exps,coeff,am):
 #V_general = jax.vmap(general, (0,0,0,0,0,0,0,0,0,None))
 V_general = jax.vmap(general, (0,0,0,None))
 
-def compute(geom, exps, coeffs, centers, unique_am, b):
+def compute(geom, exps, coeffs, centers, indices, unique_am, b):
     ''' 
 
     unique_am : list of lists of size 4
         Represents the sorted angular momentum cases, 0000, 0001,..., 1111, etc
-    bounds : array
+    bounds : list 
         The bounds of angular momentum cases. It is the first index occurence of each new angular momentum case along the leading axis of exps and coeffs, which are sorted such
-        that like-angular momentum cases are grouped together. 
-        Used to tell which function to use for which data
+        that like-angular momentum cases are grouped together. Used to tell which function to use for which data
     '''
+    G = np.zeros((nbf,nbf,nbf,nbf))
     centers = np.take(geom, centers, axis=0)
-    l,u = 0,1
-    for case in unique_am:
-        # convert list of AM [0101] to string spsp, etc   # must end in else
-        tag = ''.join(['s' if j == 0 else 'p' if j == 1 else 'd' for j in case])
-        if tag == 'pppp':
-            result = V_general(centers[b[l]:],exps[b[l]:],coeffs[b[l]:],tag)
-        else:
-            result = V_general(centers[b[l]:b[u]],exps[b[l]:b[u]],coeffs[b[l]:b[u]],tag)
-        print(result.shape)
-        l += 1
-        u += 1
-    #print(result.shape)
-    #result = V_general(centers[b[1]:b[2]],exps[b[1]:b[2]],coeffs[b[1]:b[2]],'psss')
-    #print(result.shape)
-    #result = V_general(centers[b[1]:b[2]],exps[b[1]:b[2]],coeffs[b[1]:b[2]],'spss')
-    #print(result.shape)
-    #result = V_general(centers[b[1]:b[2]],exps[b[1]:b[2]],coeffs[b[1]:b[2]],'ssps')
-    #print(result.shape)
-    #result = V_general(centers[b[1]:b[2]],exps[b[1]:b[2]],coeffs[b[1]:b[2]],'sssp')
-    #print(result.shape)
+    u = b[1:]
+    u.append(-1) # upper and lower bounds of integral class indices 
+    l = b        # used to slice data arrays before passing to integral class functions 
 
-    #result = V_general(centers[b[3]:b[4]],exps[b[3]:b[4]],coeffs[b[3]:b[4]],'ppss')
-    #print(result.shape)
-    #result = V_general(centers[b[4]:b[5]],exps[b[4]:b[5]],coeffs[b[4]:b[5]],'sspp')
-    #print(result.shape)
+    # Compute each TEI class and place in G
+    for i in range(len(unique_am)):
+        # Find size of this integral class (number of integrals)
+        tmp = [(j + 1) * (j + 2) // 2 for j in unique_am[i]]
+        size = np.prod(tmp)
+        # convert list of AM [0101] to string spsp, etc   
+        am_class = ''.join(['s' if j == 0 else 'p' if j == 1 else 'd' for j in unique_am[i]])
+        s = slice(l[i], u[i])
+        eris = V_general(centers[s],exps[s],coeffs[s],am_class)
+        G = jax.ops.index_update(G, (indices[s,:size,0],indices[s,:size,1],indices[s,:size,2],indices[s,:size,3]), eris)
+    return G
 
-    #result = V_general(centers[b[4]:b[5]],exps[b[4]:b[5]],coeffs[b[4]:b[5]],'psps')
-    #print(result.shape)
-
-    #result = V_general(centers[b[4]:b[5]],exps[b[4]:b[5]],coeffs[b[4]:b[5]],'psps')
-    #print(result.shape)
-
-
-    #result = V_general(centers[b[5]:b[6]],exps[b[5]:b[6]],coeffs[b[5]:b[6]],'pppp')
-    #print(result.shape)
-
-
-compute(geom, exps, coeffs, centers, unique_am, bounds)
+G = compute(geom, exps, coeffs, centers, indices, unique_am, bounds)
+for i in G.flatten()[:100]:
+    print(i)
