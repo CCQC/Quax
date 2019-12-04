@@ -110,7 +110,6 @@ def homogenize_basisdict(basis_dict, max_prim):
         #indices = onp.repeat(idx, size) + onp.arange(size)
         #print(indices)
     return new_dict
-
 new_basis_dict = homogenize_basisdict(basis_dict, max_prim)
 
 def new_preprocess(basis):
