@@ -6,15 +6,15 @@ from jax.config import config; config.update("jax_enable_x64", True)
  
 xgrid_array = np.asarray(onp.arange(0, 30, 1e-5))
 # Load boys function values, defined in the range x=0,30, at 1e-5 intervals
-# The factorial pre-factors and minus signs are appropriately fused into the boys function values
+# NOTE: The factorial pre-factors and minus signs are appropriately fused into the boys function values
 boys = np.asarray(onp.load('boys/boys_F0_F10_grid_0_30_1e5.npy'))
 
 def boys0(x):
     interval = 1e-5 # The interval of the precomputed Boys function grid
     i = jax.lax.convert_element_type(jax.lax.round(x / interval), np.int64) # index of gridpoint nearest to x
     xgrid = xgrid_array[i] # grid x-value
-
     xx = x - xgrid
+
     #Assume fused factorial factors/minus signs, preslice, convert to lax ops 
     s = boys[:,i]
     F = jax.lax.add(s[0], 
@@ -24,6 +24,57 @@ def boys0(x):
         jax.lax.add(jax.lax.mul(jax.lax.pow(xx,4.),s[4]), 
                     jax.lax.mul(jax.lax.pow(xx,5.),s[5]))))))
     return F
+
+#NOTE: the below custom jvp definition works, but doesnt affect performance of ERI hessians at all, oddly enough
+#@jax.custom_transforms
+#def boys0(x):
+#    interval = 1e-5 # The interval of the precomputed Boys function grid
+#    i = jax.lax.convert_element_type(jax.lax.round(x / interval), np.int64) # index of gridpoint nearest to x
+#    xgrid = xgrid_array[i] # grid x-value
+#    xx = x - xgrid
+#
+#    #Assume fused factorial factors/minus signs, preslice, convert to lax ops 
+#    s = boys[:,i]
+#    F = np.array([s[0], jax.lax.mul(xx,s[1]), jax.lax.mul(jax.lax.pow(xx,2.),s[2]),
+#                  jax.lax.mul(jax.lax.pow(xx,3.),s[3]),jax.lax.mul(jax.lax.pow(xx,4.),s[4]), 
+#                  jax.lax.mul(jax.lax.pow(xx,5.),s[5])])
+#    return F
+#
+#def boys0_jvp_rule(g, ans, x):
+#    """
+#    We use a Boys function implementation given by eqn 33 of Weiss, Ochsenfeld, J. Comp. Chem. 2015, 36, 1390-1398
+#    Noting that the Boys0 function and its derivatives are, for
+#    xx = (x- xgrid), F0, F1, F2.. are precomputed Boys function values at xgrid, 
+#    F  = F0 - xx F1 + xx^2 F2 - xx^3 F3 + xx^4 F4 + xx^5 F5
+#    dF =  0 - F1 + 2xx F2 - 3xx^2 + 4xx^3 F4 + 5xx^4 F5
+#    ddF =  0 - 0 + 2 F2 - 6xx + 12xx^2 F4 + 15xx^3 F5
+#
+#    You are really just dividing the previous by pad(arange(n_nonzero), (size_previous - size_arange_nonzero, 0)) / xx
+#    """
+#    interval = 1e-5 # The interval of the precomputed Boys function grid
+#    i = jax.lax.convert_element_type(jax.lax.round(x / interval), np.int64) # index of gridpoint nearest to x
+#    xgrid = xgrid_array[i] # grid x-value
+#    xx = x - xgrid
+#
+#    # If a value in boys vector is 0, this function has already been differentiated, or its just 0 anyway
+#    # pad the beginning of this array with 0's to match length of 'ans'
+#    tmp1 = np.arange(np.count_nonzero(ans)) / (xx + 1e-12)
+#    tmp = np.pad(tmp1, (ans.shape[0] - tmp1.shape[0], 0))
+#    return g * ans * tmp
+
+#
+#    #Assume fused factorial factors/minus signs, preslice, convert to lax ops 
+#    s = boys[:,i]
+#    F = g * jax.lax.add(s[1],  
+#        jax.lax.add(jax.lax.mul(2*xx,s[2]),
+#        jax.lax.add(jax.lax.mul(jax.lax.pow(3*xx,2.),s[3]),
+#        jax.lax.add(jax.lax.mul(jax.lax.pow(4*xx,3.),s[4]), 
+#                    jax.lax.mul(jax.lax.pow(5*xx,4.),s[5])))))
+#
+#    #result = g * jax.lax.div(-jax.lax.sub(ans, jax.lax.exp(-x)),  jax.lax.mul(jax.lax._const(x,2), x))
+#    return F 
+#jax.defjvp(boys0, boys0_jvp_rule)
+
 
 def old(boys_arg):
     F = jax.lax.select(boys_arg < 1e-12, taylor(boys_arg), boys_old(boys_arg)) 
