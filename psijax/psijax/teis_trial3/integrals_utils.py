@@ -5,20 +5,25 @@ from functools import partial
 from jax.config import config; config.update("jax_enable_x64", True)
  
 xgrid_array = np.asarray(onp.arange(0, 30, 1e-5))
+# Load boys function values, defined in the range x=0,30, at 1e-5 intervals
+# The factorial pre-factors and minus signs are appropriately fused into the boys function values
 boys = np.asarray(onp.load('boys/boys_F0_F10_grid_0_30_1e5.npy'))
 
-@jax.jit
 def boys0(x):
-    interval = 1e-5
-    i = jax.lax.convert_element_type(jax.lax.round(x / interval), np.int64)
-    xgrid = xgrid_array[i]
-    #F0 ~ boys[0,i]
-    xx = x - xgrid
-    F = boys[0,i] - xx * boys[1,i] + 0.5 * xx**2 * boys[2,i] - \
-        (1/6) * xx**3 * boys[3,i] + (1/24) * xx**4 * boys[4,i] - \
-        (1/120) * xx**5 * boys[5,i]
-    return F
+    interval = 1e-5 # The interval of the precomputed Boys function grid
+    i = jax.lax.convert_element_type(jax.lax.round(x / interval), np.int64) # index of gridpoint nearest to x
+    xgrid = xgrid_array[i] # grid x-value
 
+    xx = x - xgrid
+    #Assume fused factorial factors/minus signs, preslice, convert to lax ops 
+    s = boys[:,i]
+    F = jax.lax.add(s[0], 
+        jax.lax.add(jax.lax.mul(xx,s[1]),  
+        jax.lax.add(jax.lax.mul(jax.lax.pow(xx,2.),s[2]),
+        jax.lax.add(jax.lax.mul(jax.lax.pow(xx,3.),s[3]),
+        jax.lax.add(jax.lax.mul(jax.lax.pow(xx,4.),s[4]), 
+                    jax.lax.mul(jax.lax.pow(xx,5.),s[5]))))))
+    return F
 
 def old(boys_arg):
     F = jax.lax.select(boys_arg < 1e-12, taylor(boys_arg), boys_old(boys_arg)) 
@@ -30,14 +35,6 @@ def boys_old(x):
 def taylor(arg):
     return 1.0 + (-arg * 0.3333333333333333333) + ((-arg)**2 * 0.1) + ((-arg)**3 * 0.023809523809523808) \
            + ((-arg)**4 * 0.004629629629629629) + ((-arg)**5 * 0.0007575757575757576) + ((-arg)**6 * 0.0001068376068376068)
-
-
-#print(boys0(0.0) , old(0.0)  ) 
-#print(boys0(0.1) , old(0.1)  )
-#print(boys0(0.3) , old(0.3)  )
-#print(boys0(0.5) , old(0.5)  )
-#print(boys0(1.0) , old(1.0)  )
-#print(boys0(20.0), old(20.0) )
 
 
 #
@@ -52,8 +49,6 @@ def taylor(arg):
 #    result = g * jax.lax.div(-jax.lax.sub(ans, jax.lax.exp(-x)),  jax.lax.mul(jax.lax._const(x,2), x))
 #    return result 
 #jax.defjvp(boys0, boys0_jvp_rule)
-
-
 
 #           + ((-arg)**7 * 0.004629629629629629) + ((-arg)**8 * 0.0007575757575757576) + ((-arg)**9 * 0.0001068376068376068)
 

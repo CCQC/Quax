@@ -1,14 +1,10 @@
 import numpy as np
 from scipy import special
 
-
 def boys_general(n, x):
     denom = 2 * n + 1
     num = special.hyp1f1(n+0.5,n+1.5,-x)
     return num / denom
-
-for i in range(10000):
-    print(boys_general(0, 0.5))
 
 grid = np.arange(0, 30, 1e-5)
 
@@ -26,7 +22,10 @@ F10 = boys_general(10, grid)
 
 F = np.vstack([F0,F1,F2,F3,F4,F5,F6,F7,F8,F9,F10])
 
-#np.save('boys/boys_F0_F10_grid_0_30_1e5', F)
+# Fuse factorial pre-factors into the boys function arguments
+F = np.einsum('ij,i->ij', F, np.array([1,-1,0.5,-1/6,1/24,-1/120,1/720,1/5040,1/40320,1/362880,1/3628800]))
+
+np.save('boys/boys_F0_F10_grid_0_30_1e5', F)
 
 
 
