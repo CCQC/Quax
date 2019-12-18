@@ -237,8 +237,8 @@ def general(centers,exps,coeff,am,geom):
 # Map the general two electron integral function over a leading axis of shell quartets
 V_general = jax.vmap(general, (0,0,0,None,None))
 
-def compute(geom, basis_dict, shell_quartets):
-#def compute(g1, g2, basis_dict, shell_quartets):
+#def compute(geom, basis_dict, shell_quartets):
+def compute(g1, g2, basis_dict, shell_quartets):
     ''' 
 
     unique_am : list of lists of size 4
@@ -247,7 +247,7 @@ def compute(geom, basis_dict, shell_quartets):
         The bounds of angular momentum cases. It is the first index occurence of each new angular momentum case along the leading axis of exps and coeffs, which are sorted such
         that like-angular momentum cases are grouped together. Used to tell which function to use for which data
     '''
-    #geom = np.vstack((g1,g2))
+    geom = np.vstack((g1,g2))
     exps, coeffs, centers, am, indices = new_preprocess(basis_dict)
     print('preprocessing done')
     junk, bounds =  onp.unique(am, return_index=True, axis=0)
@@ -285,19 +285,19 @@ def compute(geom, basis_dict, shell_quartets):
         G = jax.ops.index_update(G, (indices[s,:size,0],indices[s,:size,1],indices[s,:size,2],indices[s,:size,3]), eris)
     return G
 
-G = compute(geom, basis_dict, shell_quartets)
+#G = compute(geom, basis_dict, shell_quartets)
 #grad = jax.jacfwd(compute)(geom,basis_dict, shell_quartets)
 #hess = jax.jacfwd(jax.jacfwd(compute))(geom,basis_dict, shell_quartets)
 #cube = jax.jacfwd(jax.jacfwd(jax.jacfwd(compute)))(geom,basis_dict, shell_quartets)
 #quar = jax.jacfwd(jax.jacfwd(jax.jacfwd(jax.jacfwd(compute))))(geom,basis_dict, shell_quartets)
-#quar = jax.jacfwd(jax.jacfwd(jax.jacfwd(jax.jacfwd(compute))))(geom[0], geom[1], basis_dict, shell_quartets)
-#print(grad.shape)
+quar = jax.jacfwd(jax.jacfwd(jax.jacfwd(jax.jacfwd(compute))))(geom[0], geom[1], basis_dict, shell_quartets)
+print(grad.shape)
 #hess = jax.jacfwd(jax.jacfwd(compute))(geom, exps, coeffs, centers, indices, unique_am, bounds)
 #print(hess.shape)
 
 
-mints = psi4.core.MintsHelper(basis_set)
-psi_G = np.asarray(onp.asarray(mints.ao_eri()))
-print(np.allclose(G, psi_G))
+#mints = psi4.core.MintsHelper(basis_set)
+#psi_G = np.asarray(onp.asarray(mints.ao_eri()))
+#print(np.allclose(G, psi_G))
 
 

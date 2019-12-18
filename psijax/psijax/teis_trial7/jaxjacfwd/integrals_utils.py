@@ -5,26 +5,43 @@ from functools import partial
 from jax.config import config; config.update("jax_enable_x64", True)
  
 xgrid_array = np.asarray(onp.arange(0, 30, 1e-5))
-print(xgrid_array.shape)
 # Load boys function values, defined in the range x=0,30, at 1e-5 intervals
 # NOTE: The factorial pre-factors and minus signs are appropriately fused into the boys function values
 boys = np.asarray(onp.load('boys/boys_F0_F10_grid_0_30_1e5.npy'))
-print(boys.shape)
+
+#def boys0(x):
+#    interval = 1e-5 # The interval of the precomputed Boys function grid
+#    i = jax.lax.convert_element_type(jax.lax.round(x / interval), np.int64) # index of gridpoint nearest to x
+#    xgrid = xgrid_array[i] # grid x-value
+#    xx = x - xgrid
+#
+#    #Assume fused factorial factors/minus signs, preslice, convert to lax ops 
+#    s = boys[:,i]
+#    F = jax.lax.add(s[0], 
+#        jax.lax.add(jax.lax.mul(xx,s[1]),  
+#        jax.lax.add(jax.lax.mul(jax.lax.pow(xx,2.),s[2]),
+#        jax.lax.add(jax.lax.mul(jax.lax.pow(xx,3.),s[3]),
+#        jax.lax.add(jax.lax.mul(jax.lax.pow(xx,4.),s[4]), 
+#                    jax.lax.mul(jax.lax.pow(xx,5.),s[5]))))))
+#    return F
 
 def boys0(x):
     interval = 1e-5 # The interval of the precomputed Boys function grid
     i = jax.lax.convert_element_type(jax.lax.round(x / interval), np.int64) # index of gridpoint nearest to x
     xgrid = xgrid_array[i] # grid x-value
     xx = x - xgrid
+    # when x>= 30, the grid breaks down. See how expensive this is.
 
-    #Assume fused factorial factors/minus signs, preslice, convert to lax ops 
+    # We either have to make the grid huge, or use np.where and the border expression F0(x>=30) = sqrt(pi) / 2 * sqrt(x)
+    # TODO causes huge memory blow ups in np.where?
     s = boys[:,i]
-    F = jax.lax.add(s[0], 
-        jax.lax.add(jax.lax.mul(xx,s[1]),  
-        jax.lax.add(jax.lax.mul(jax.lax.pow(xx,2.),s[2]),
-        jax.lax.add(jax.lax.mul(jax.lax.pow(xx,3.),s[3]),
-        jax.lax.add(jax.lax.mul(jax.lax.pow(xx,4.),s[4]), 
-                    jax.lax.mul(jax.lax.pow(xx,5.),s[5]))))))
+    F = np.where(x<= 30, jax.lax.add(s[0], 
+                         jax.lax.add(jax.lax.mul(xx,s[1]),  
+                         jax.lax.add(jax.lax.mul(jax.lax.pow(xx,2.),s[2]),
+                         jax.lax.add(jax.lax.mul(jax.lax.pow(xx,3.),s[3]),
+                         jax.lax.add(jax.lax.mul(jax.lax.pow(xx,4.),s[4]), 
+                         jax.lax.mul(jax.lax.pow(xx,5.),s[5])))))),
+                         np.sqrt(np.pi) / (2 * np.sqrt(x)))
     return F
 
 #NOTE: the below custom jvp definition works, but doesnt affect performance of ERI hessians at all, oddly enough

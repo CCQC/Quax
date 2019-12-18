@@ -32,8 +32,9 @@ boys = np.asarray(onp.load('boys/boys_F0_F10_grid_0_30_1e5.npy'))
 #        np.where(n == 4, jax.grad(jax.grad(jax.grad(jax.grad(analytic))))(x), 0)))))
 #            )
 #    return b
-    
-def boysn(x,n):
+
+def boys_lookup(x,n):
+    '''This function fails for x>30, which occurs when atoms are far apart and/or when orbital expnoents are large'''
     interval = 1e-5 
     i = jax.lax.convert_element_type(np.round(x / interval), np.int64) # index of gridpoint nearest to x
     xgrid = xgrid_array[i] # grid x-value
@@ -43,7 +44,39 @@ def boysn(x,n):
     F = f[0] - xx * f[1] + 0.5 * xx**2 * f[2] - (1/6) * xx**3 * f[3] + (1/24) * xx**4 * f[4] - (1/120) * xx**5 * f[5]
     return F
 
-#@jax.jit
+def boys_border(x,n):
+    ''' 
+    Eqn 11 from Weiss, Ochsenfeld, J. Comp. Chem. 2015 36 1390
+    '''
+    F = np.sqrt(np.pi) / (2 * np.sqrt(x))
+    for i in range(n):
+        F = F * (i+ 0.5) / x
+    # couldnt get scan to work w/o conditionals since first case is different than all others...
+    #def recursion(carry, i):
+    #    f, x = carry
+    #    new_f = (i + 0.5) * f / x
+    #    new_carry = (new_f, x)
+    #    return new_carry, 0 
+
+    #f0 = np.sqrt(np.pi) / (2 * np.sqrt(x))
+    #F, junk = jax.lax.scan(recursion, (f0, x), np.arange(n))
+    #return F[0]
+    return F
+
+def boysn(x,n):
+    return np.where(x>=30, boys_border(x,n), boys_lookup(x,n))
+
+#def boysn(x,n):
+#    '''This function fails for x>30, which occurs when atoms are far apart and/or when orbital expnoents are large'''
+#    interval = 1e-5 
+#    i = jax.lax.convert_element_type(np.round(x / interval), np.int64) # index of gridpoint nearest to x
+#    xgrid = xgrid_array[i] # grid x-value
+#    xx = x - xgrid
+#    tmp = boys[:,i]
+#    f = tmp[np.arange(6) + n]
+#    F = f[0] - xx * f[1] + 0.5 * xx**2 * f[2] - (1/6) * xx**3 * f[3] + (1/24) * xx**4 * f[4] - (1/120) * xx**5 * f[5]
+#    return F
+
 def base(A, B, C, D, aa, bb, cc, dd, coeff):
     zeta = jax.lax.add(aa,bb) 
     eta = jax.lax.add(cc,dd)
@@ -64,16 +97,13 @@ def base(A, B, C, D, aa, bb, cc, dd, coeff):
 # rho/zeta = eta / eta + zeta
 
 # All equations obtained from Obara, Saika 1986, Table I
-#@jax.jit
 def eri_ssss(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m):# checked
     return ssss_0 * boysn(boys_arg, m)
     
-#@jax.jit
 def eri_psss(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m):# checked
     psss = (P-A) * ssss_0 * boysn(boys_arg, m) + (W-P) * ssss_0 * boysn(boys_arg, m+1)
     return psss
 
-#@jax.jit
 def eri_psps(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m):# checked
     psss_0 = eri_psss(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m+0)
     psss_1 = eri_psss(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m+1)
@@ -83,7 +113,6 @@ def eri_psps(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m):# checked
     third = (1 / (2*(zeta + eta))) * np.eye(3) * ssss_1 
     return first + second + third
 
-#@jax.jit
 def eri_ppss(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m):# checked
     psss_0 = eri_psss(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m+0)
     psss_1 = eri_psss(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m+1)
@@ -92,12 +121,11 @@ def eri_ppss(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m):# checked
     third = (1 / (2*zeta)) * np.eye(3) * (ssss_0 * boysn(boys_arg,m+0) - eta / (eta + zeta) * ssss_0 * boysn(boys_arg, m+1))
     return first + second + third
 
-#@jax.jit
 def eri_ppps(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m): # checked
     ppss_0 = eri_ppss(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m)
     ppss_1 = eri_ppss(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m+1)
-# This works since zeta/eta/P/Q/W are invariant to swaps within bra or swaps within ket.
-# If you need to swap bra/ket, you would need to swap AB/CD, zeta/eta, and P/Q, but W is invariant
+    # This works since zeta/eta/P/Q/W are invariant to swaps within bra or swaps within ket.
+    # If you need to swap bra/ket, you would need to swap AB/CD, zeta/eta, and P/Q, but W is invariant
     spss_1 = eri_psss(B,A,C,D,zeta,eta,P,Q,W, boys_arg, ssss_0, m+1) 
     psss_1 = eri_psss(A,B,C,D,zeta,eta,P,Q,W, boys_arg, ssss_0, m+1)
     first = np.einsum('k,ij->ijk',Q-C,ppss_0)
@@ -105,7 +133,6 @@ def eri_ppps(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m): # checked
     third = (1 / (2*(zeta + eta))) * (np.einsum('ik,j->ijk', np.eye(3), spss_1) + np.einsum('jk,i->ijk', np.eye(3), psss_1))
     return first + second + third
 
-#@jax.jit
 def eri_pppp(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m): #checked
     ppps_0 = eri_ppps(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m+0)
     ppps_1 = eri_ppps(A, B, C, D, zeta, eta, P, Q, W, boys_arg, ssss_0, m+1)
