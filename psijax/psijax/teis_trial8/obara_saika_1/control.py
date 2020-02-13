@@ -87,12 +87,12 @@ def Gxyz(lA,mA,nA,lB,mB,nB,lC,mC,nC,lD,mD,nD,a,b,c,d,RA,RB,RC,RD):
   Gxyz *= math.exp( -(a*b*ABsq)/gP ) 
   Gxyz *= math.exp( -(c*d*CDsq)/gQ )
 
-  Na = N(a,lA,mA,nA)
-  Nb = N(b,lB,mB,nB)
-  Nc = N(c,lC,mC,nC)
-  Nd = N(d,lD,mD,nD)
+  #Na = N(a,lA,mA,nA)
+  #Nb = N(b,lB,mB,nB)
+  #Nc = N(c,lC,mC,nC)
+  #Nd = N(d,lD,mD,nD)
 
-  Gxyz *= Na * Nb * Nc * Nd
+  #Gxyz *= Na * Nb * Nc * Nd
 
   return Gxyz
 
