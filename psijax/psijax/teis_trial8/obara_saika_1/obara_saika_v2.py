@@ -23,6 +23,7 @@ def primitive_eri(g1, g2, g3, g4):
     CDsq = np.dot(RC-RD,RC-RD)
     ssss = ssss_0(a,b,c,d,a+b,c+d,ABsq,CDsq)
     boys_evals = boys_evals * ssss
+    print('beginning recursion...')
     return os_begin(0,g1,g2,g3,g4, boys_evals)
 
 
@@ -60,7 +61,7 @@ def os_begin(m, g1, g2, g3, g4, boys_evals):
     elif l_4[2] > 0:
         return os_recursion(2, m, *os_gaussian_factory(2, g4, g3, g2, g1), boys_evals)
     else:
-        return boys_evals[m] #* ssss
+        return boys_evals[m]
 
 def os_recursion(i, m, g1, g2, g3, g4, g5, g6, g7, g8, boys_evals):
     '''
@@ -85,15 +86,18 @@ def os_recursion(i, m, g1, g2, g3, g4, g5, g6, g7, g8, boys_evals):
     a_4 = g4[2]
     a_5 = a_1 + a_2  # zeta
     a_6 = a_3 + a_4  # eta 
+    # THERES a bug herer with exponents... a_7 should not change
     a_7 = (a_5 * a_6) / (a_5 + a_6) # self variable before recursion  
+    print('a_7', a_7)
     r_1 = g1[1]
     r_2 = g2[1]
+    r_3 = g3[1]
+    r_4 = g4[1]
     r_5 = gaussian_product(a_1, r_1, a_2, r_2) # P: done in recursion function
-    r_6 = gaussian_product(a_1, r_1, a_2, r_2) # Q: stored inside self.r_7 (W) before recursion
+    r_6 = gaussian_product(a_3, r_3, a_4, r_4) # Q: stored inside self.r_7 (W) before recursion
     r_7 = gaussian_product(a_5, r_5, a_6, r_6) # W: stored as self before recursion
 
     
-    # normally theres boolean checks here for efficiency
     #if r_5[i] != r_1[i]:
     if not np.allclose(r_5[i],r_1[i]):
         out1 = (r_5[i] - r_1[i]) * os_begin(m, g1, g2, g3, g4, boys_evals)
