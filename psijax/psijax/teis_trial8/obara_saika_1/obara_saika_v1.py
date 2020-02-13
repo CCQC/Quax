@@ -37,13 +37,14 @@ def os_begin(m, g1, g2, g3, g4):
     a,b,c,d = g1[2], g2[2], g3[2], g4[2]
     zeta = a + b
     eta = c + d
-    RP = gaussian_product(a,b,RA,RB)
-    RQ = gaussian_product(c,d,RC,RD)
+    RP = gaussian_product(a,RA,b,RB)
+    RQ = gaussian_product(c,RC,d,RD)
     PQ = np.dot(RP-RQ,RP-RQ)
     boys_arg = (zeta * eta / (zeta + eta)) * PQ
 
-    m = np.sum(g1[0]) + np.sum(g2[0]) + np.sum(g3[0]) + np.sum(g4[0])
-    nu = np.arange(m+1)
+    #l_total = np.sum(g1[0]) + np.sum(g2[0]) + np.sum(g3[0]) + np.sum(g4[0])
+    l_total = 4 # TODO currently hardcoded for debugging, always switch this 
+    nu = np.arange(l_total + 1)
     boys_evals = boys(nu, np.full_like(nu,boys_arg))
 
     ABsq = np.dot(RA-RB,RA-RB)
@@ -111,29 +112,20 @@ def os_recursion(i, m, g1, g2, g3, g4, g5, g6, g7, g8):
 
     
     # normally theres boolean checks here for efficiency
-    #if r_5[i] != r_1[i]:
-    out1 = (r_5[i] - r_1[i]) * os_begin(m, g1, g2, g3, g4)
-    #if r_7[i] != r_5[i]:
-    out2 = (r_7[i] - r_5[i]) * os_begin(m + 1, g1, g2, g3, g4)
-    #if g5[0][i] >= 0:
-    out3 = delta(g1[0][i]) * (1 / (2 * a_5)) * os_begin(m, g5, g2, g3, g4)
-    out4 = delta(g1[0][i]) * (a_7 / (2 * a_5 ** 2)) * os_begin(m+1, g5, g2, g3, g4)
-    #if g6[0][i] >= 0:
-    out5 = delta(g2[0][i]) * (1 / (2 * a_5)) * os_begin(m, g1, g6, g3, g4)
-    out6 = delta(g2[0][i]) * (a_7 / (2 * a_5 ** 2)) * os_begin(m+1, g1, g6, g3, g4)
-    #if g7[0][i] >= 0:
-    out7 = delta(g3[0][i]) * (1 / (2 * (a_5 + a_6))) * os_begin(m+1, g1, g2, g7, g4)
-    #if g8[0][i] >= 0:
-    out8 = delta(g4[0][i]) * (1 / (2 * (a_5 + a_6))) * os_begin(m+1, g1, g2, g3, g8)
-
-    print('out1',out1)
-    print('out2',out2)
-    print('out3',out3)
-    print('out4',out4)
-    print('out5',out5)
-    print('out6',out6)
-    print('out7',out7)
-    print('out8',out8)
+    if r_5[i] != r_1[i]:
+        out1 = (r_5[i] - r_1[i]) * os_begin(m, g1, g2, g3, g4)
+    if r_7[i] != r_5[i]:
+        out2 = (r_7[i] - r_5[i]) * os_begin(m + 1, g1, g2, g3, g4)
+    if g5[0][i] >= 0:
+        out3 = delta(g1[0][i]) * (1 / (2 * a_5)) * os_begin(m, g5, g2, g3, g4)
+        out4 = delta(g1[0][i]) * (a_7 / (2 * a_5 ** 2)) * os_begin(m+1, g5, g2, g3, g4)
+    if g6[0][i] >= 0:
+        out5 = delta(g2[0][i]) * (1 / (2 * a_5)) * os_begin(m, g1, g6, g3, g4)
+        out6 = delta(g2[0][i]) * (a_7 / (2 * a_5 ** 2)) * os_begin(m+1, g1, g6, g3, g4)
+    if g7[0][i] >= 0:
+        out7 = delta(g3[0][i]) * (1 / (2 * (a_5 + a_6))) * os_begin(m+1, g1, g2, g7, g4)
+    if g8[0][i] >= 0:
+        out8 = delta(g4[0][i]) * (1 / (2 * (a_5 + a_6))) * os_begin(m+1, g1, g2, g3, g8)
     return out1 + out2 + out3 - out4 + out5 - out6 + out7 + out8
 
 def os_gaussian_factory(i, g1, g2, g3, g4):
@@ -175,11 +167,11 @@ def os_gaussian_factory(i, g1, g2, g3, g4):
         return g1z1, g2, g3, g4, g1z2, g2z1, g3z1, g4z1
 
     
-g1 = create_primitive(0,0,0, np.array([0.0,0.0, 0.9]), 0.5) 
-g2 = create_primitive(0,0,0, np.array([0.0,0.0,-0.9]), 0.5) 
-g3 = create_primitive(0,0,0, np.array([0.0,0.0, 0.9]), 0.5) 
-g4 = create_primitive(0,0,0, np.array([0.0,0.0,-0.9]), 0.5) 
-
-result = os_begin(0, g1, g2, g3, g4)
-print(result)
+#g1 = create_primitive(0,0,0, np.array([0.0,0.0, 0.9]), 0.5) 
+#g2 = create_primitive(0,0,0, np.array([0.0,0.0,-0.9]), 0.5) 
+#g3 = create_primitive(0,0,0, np.array([0.0,0.0, 0.9]), 0.5) 
+#g4 = create_primitive(0,0,0, np.array([0.0,0.0,-0.9]), 0.5) 
+#
+#result = os_begin(0, g1, g2, g3, g4)
+#print(result)
 
