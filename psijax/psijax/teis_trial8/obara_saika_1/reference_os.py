@@ -400,17 +400,16 @@ class ObaraSaika:
             return g1z1, g2, g3, g4, g1z2, g2z1, g3z1, g4z1
 
 
-#    def __init__(self, contraction, exponent, coordinates, integral_exponents):
 
-basis1 = Basis([PrimitiveBasis(1.0, 0.5,  (0.0,0.0, 0.9), (1,0,0))], (0.0,0.0, 0.9), (1,0,0))
-basis2 = Basis([PrimitiveBasis(1.0, 0.5,  (0.0,0.0,-0.9), (1,0,0))], (0.0,0.0,-0.9), (1,0,0))
-basis3 = Basis([PrimitiveBasis(1.0, 0.5,  (0.0,0.0, 0.9), (1,0,0))], (0.0,0.0, 0.9), (1,0,0))
-basis4 = Basis([PrimitiveBasis(1.0, 0.5,  (0.0,0.0,-0.9), (1,0,0))], (0.0,0.0,-0.9), (1,0,0))
-#basis2 = Basis(1.0, 0.5,  (0.0,0.0,-0.9), (1,0,0))
-#basis3 = Basis(1.0, 0.5,  (0.0,0.0, 0.9), (1,0,0))
-#basis4 = Basis(1.0, 0.5,  (0.0,0.0,-0.9), (1,0,0))
-obj = ObaraSaika()
-result = obj.integrate(basis1, basis2, basis3, basis4)
-print(result)
+#basis1 = Basis([PrimitiveBasis(1.0, 0.5,  (0.0,0.0, 0.9), (1,0,1))], (0.0,0.0, 0.9), (1,0,1))
+#basis2 = Basis([PrimitiveBasis(1.0, 0.5,  (0.0,0.0,-0.9), (1,0,1))], (0.0,0.0,-0.9), (1,0,1))
+#basis3 = Basis([PrimitiveBasis(1.0, 0.5,  (0.0,0.0, 0.9), (1,0,1))], (0.0,0.0, 0.9), (1,0,1))
+#basis4 = Basis([PrimitiveBasis(1.0, 0.5,  (0.0,0.0,-0.9), (1,0,1))], (0.0,0.0,-0.9), (1,0,1))
+##basis2 = Basis(1.0, 0.5,  (0.0,0.0,-0.9), (1,0,0))
+##basis3 = Basis(1.0, 0.5,  (0.0,0.0, 0.9), (1,0,0))
+##basis4 = Basis(1.0, 0.5,  (0.0,0.0,-0.9), (1,0,0))
+#obj = ObaraSaika()
+#result = obj.integrate(basis1, basis2, basis3, basis4)
+#print(result)
 
 
