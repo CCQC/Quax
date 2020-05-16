@@ -30,7 +30,6 @@ def vrr(xyza,lmna,alphaa, xyzb,alphab, xyzc,lmnc,alphac, xyzd,alphad,M):
     Kcd = np.sqrt(2) * np.pi**1.25 / (alphac + alphad)\
           * np.exp(-alphac * alphad / (alphac + alphad) * rcd2)
     rpq2 = (px-qx)**2 + (py-qy)**2 + (pz-qz)**2
-    #T = zeta * eta / (zeta + eta) * rpq2
     boys_arg = zeta * eta / (zeta + eta) * rpq2
     mtot = la + ma + na + lc + mc + nc + M
 
@@ -38,16 +37,12 @@ def vrr(xyza,lmna,alphaa, xyzb,alphab, xyzc,lmnc,alphac, xyzd,alphad,M):
     boys_arg = np.repeat(boys_arg,mtot + 1)
     boys_vals = boys(boys_indices, boys_arg)
 
-
-    vrr_terms = {}
+    vrr_terms = np.zeros((la+1,ma+1,na+1,lc+1,mc+1,nc+1,mtot+1)) 
     for im in range(mtot+1):
         vrr_terms[0,0,0,0,0,0,im] = (
-            #Kab*Kcd/np.sqrt(zeta+eta)*Fgterms[im]
             Kab*Kcd/np.sqrt(zeta+eta) * boys_vals[im]
             )
 
-
-    # Todo: use itertools.product() for the nested for loops
     for i in range(la):
         for im in range(mtot-i):
             vrr_terms[i+1,0,0, 0,0,0, im] = (
