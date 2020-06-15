@@ -85,13 +85,14 @@ def B_array(l1,l2,l3,l4,p,a,b,q,c,d,g1,g2,delta):
 
 def boys(m,x):
     return 0.5 * (x + 1e-11)**(-(m + 0.5)) * jax.lax.igamma(m + 0.5, x + 1e-11) * np.exp(jax.lax.lgamma(m + 0.5))
+
 #def boys(n,x):
 #    result = np.where(x < 1e-8, 1 / (2 * n + 1) - x *  (1 / (2 * n + 3)), 
 #                      0.5 * (x)**(-(n + 0.5)) * jax.lax.igamma(n + 0.5,x) * np.exp(jax.lax.lgamma(n + 0.5)))
 #    return result
 
 @jax.jit
-def contracted_tei(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4): 
+def contracted_tei(La,Lb,Lc,Ld, A, B, C, D, exp1, exp2, exp3, exp4, c1, c2, c3, c4): 
     """
     """
     la, ma, na = La
@@ -129,7 +130,7 @@ def contracted_tei(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4):
               # compute this particular primitive, add to s.contracted_eri
               coef = c1[s.i] * c2[s.j] * c3[s.k] * c4[s.l]
               for _ in s.cond_range(coef > 0.):
-                aa, bb, cc, dd = aa[s.i], bb[s.j], cc[s.k], dd[s.l]
+                aa, bb, cc, dd = exp1[s.i], exp2[s.j], exp3[s.k], exp4[s.l]
                 # all of these are dependent on different orbital exponents
                 # so they must be accessed inside contraction loop
                 xyzp = gaussian_product(aa,A,bb,B)
@@ -137,8 +138,8 @@ def contracted_tei(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4):
                 xp,yp,zp = xyzp
                 xq,yq,zq = xyzq
                 rpq2 = np.dot(xyzp-xyzq,xyzp-xyzq)
-                gamma1 = aa+bb
-                gamma2 = cc+dd
+                gamma1 = aa + bb
+                gamma2 = cc + dd
                 delta = 0.25*(1/gamma1+1/gamma2)
                 Bx = B_array(la,lb,lc,ld,xp,xa,xb,xq,xc,xd,gamma1,gamma2,delta)
                 By = B_array(ma,mb,mc,md,yp,ya,yb,yq,yc,yd,gamma1,gamma2,delta)
@@ -166,18 +167,20 @@ def contracted_tei(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4):
         s.i += 1
       return s.contracted_eri
 
-
-## Test single evaluation
+#
+### Test single evaluation
 #xyza = np.array([0.0,0.1,0.9])
 #xyzb = np.array([0.0,-0.1,-0.9])
 #xyzc = np.array([0.0,-0.1, 0.9])
 #xyzd = np.array([0.0,-0.1,-0.9])
-#coef = np.array([1.0,1.0,1.0])
-#aa = np.array([0.5,0.5,0.5])
-#L = [1,1,1,1,1,1,1,1,1,1,1,1]
-#La = [1,1,1]
-#
-#result = contracted_tei(La,La,La,La,xyza,xyzb,xyzc,xyzd,aa,aa,aa,aa,coef,coef,coef,coef)
+#coef = np.array([1.0])
+#aa = np.array([0.5])
+#bb = np.array([0.4])
+#cc = np.array([0.3])
+#dd = np.array([0.2])
+#La = [0,0,0]
+##
+#result = contracted_tei(La,La,La,La,xyza,xyzb,xyzc,xyzd,aa,bb,cc,dd,coef,coef,coef,coef)
 #print(result)
 
 

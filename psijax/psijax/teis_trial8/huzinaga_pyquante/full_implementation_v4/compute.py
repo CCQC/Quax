@@ -73,22 +73,22 @@ def experiment(geom, basis):
         dims.append(basis[i]['idx_stride'])
 
     coeffs = np.array(coeffs)
-    exps = np.array(coeffs) 
+    exps = np.array(exps) 
     atoms = np.array(atoms)
     ams = np.array(ams)
     indices = np.array(indices)
     dims = np.array(dims)
 
     angular_momentum = np.array([[0,0,0], 
-                                [1,0,0],                             
-                                [0,1,0],
-                                [0,0,1],
-                                [2,0,0],
-                                [1,1,0],
-                                [1,0,1],
-                                [0,2,0],
-                                [0,1,1],
-                                [0,0,2]])
+                                 [1,0,0],                             
+                                 [0,1,0],
+                                 [0,0,1],
+                                 [2,0,0],
+                                 [1,1,0],
+                                 [1,0,1],
+                                 [0,2,0],
+                                 [0,1,1],
+                                 [0,0,2]])
 
     leading_indices = np.array([0,1,4])
 
@@ -115,7 +115,6 @@ def experiment(geom, basis):
               Lc = angular_momentum[d3 + ld3]
               Ld = angular_momentum[d4 + ld4]
               tei = contracted_tei(La,Lb,Lc,Ld,A,B,C,D,aa,bb,cc,dd,c1,c2,c3,c4)
-              print(tei)
               # add to appropriate index in G
               i = indices[b1] + d1
               j = indices[b2] + d2
@@ -124,7 +123,12 @@ def experiment(geom, basis):
               G[i,j,k,l] = tei
     return G
 
-
 G = experiment(geom, basis_dict)
+
+mints = psi4.core.MintsHelper(basis_set)
+psi_G = np.asarray(onp.asarray(mints.ao_eri()))
+print(np.allclose(G, psi_G))
+#print(G)
+print(psi_G)
 
 
