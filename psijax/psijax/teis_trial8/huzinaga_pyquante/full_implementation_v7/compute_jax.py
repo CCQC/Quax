@@ -10,20 +10,19 @@ from jax.experimental import loops
 from pprint import pprint
 from tei import primitive_quartet
 
-# Define molecule
 molecule = psi4.geometry("""
                          0 1
                          H 0.0 0.0 -0.849220457955
                          H 0.0 0.0  0.849220457955
                          units bohr
                          """)
+
 # Get geometry as JAX array
 geom = np.asarray(onp.asarray(molecule.geometry()))
 
 basis_name = 'cc-pvqz'
 basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
 basis_dict = build_basis_set(molecule, basis_name)
-pprint(basis_dict)
 # Homogenize the basis set dictionary
 max_prim = basis_set.max_nprimitive()
 max_am = basis_set.max_am()
@@ -130,8 +129,26 @@ def experiment(geom, basis):
 G = experiment(geom, basis_dict)
 mints = psi4.core.MintsHelper(basis_set)
 psi_G = np.asarray(onp.asarray(mints.ao_eri()))
-print(np.allclose(G, psi_G))
+print("Matches Psi4: ", np.allclose(G, psi_G))
 
-# DEBUG
+##print(onp.where(onp.equal(onp.asarray(G), onp.asarray(psi_G))))
+print("Indices which are incorrect:")
+problem_idx = onp.vstack(onp.where(~onp.isclose(G, psi_G))).T
+print(problem_idx)
+print(problem_idx.shape)
+
+for idx in problem_idx:
+    i,j,k,l = idx
+    print(G[i,j,k,l],psi_G[i,j,k,l])
+
+
+
+
+
+
+
+
+
+
 
 

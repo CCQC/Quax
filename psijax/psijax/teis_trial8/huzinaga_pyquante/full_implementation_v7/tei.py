@@ -6,26 +6,14 @@ from jax.config import config; config.update("jax_enable_x64", True)
 from jax.experimental import loops
 #https://github.com/rpmuller/pyquante2/blob/master/pyquante2/ints/two.py
 
-#def factorial(n):
-#  n = n.astype(float)
-#  return jax.lax.exp(jax.lax.lgamma(n + 1))
-
-#def factorial(n):
-#  with loops.Scope() as s:
-#    s.result = 1
-#    s.k = 1
-#    for _ in s.while_range(lambda: s.k < n + 1):
-#      s.result *= s.k
-#      s.k += 1
-#    return s.result
-
 def factorial(n):
+  '''Note: switch to float for high values of n>20 for stability'''
   with loops.Scope() as s:
-    s.result = 1.
-    s.k = 1.
+    s.result = 1
+    s.k = 1
     for _ in s.while_range(lambda: s.k < n + 1):
       s.result *= s.k
-      s.k += 1.
+      s.k += 1
     return s.result
 
 def binom(n,k):
@@ -66,11 +54,9 @@ def B_term(i1,i2,r1,r2,u,l1,l2,l3,l4,Px,Ax,Bx,Qx,Cx,Dx,gamma1,gamma2,delta):
 def B_array(l1,l2,l3,l4,p,a,b,q,c,d,g1,g2,delta):
     # This originally made arrays with argument-dependent shapes. Need fix size for jit compiling
     # Hard code only up to f functions (fxxx, fxxx | fxxx, fxxx) = l1 + l2 + l3 + l4 
-    #Imax = l1+l2+l3+l4+1 # wait do i need to add 1 to make 13?
-    #B = np.zeros(Imax)
+    #Imax = l1+l2+l3+l4+1; B = np.zeros(Imax) 
     with loops.Scope() as s:
-      s.B = np.zeros(12)
-      #s.B = np.zeros(13)
+      s.B = np.zeros(13)
       s.i2 = 0
       s.r1 = 0
       s.r2 = 0
@@ -95,14 +81,15 @@ def B_array(l1,l2,l3,l4,p,a,b,q,c,d,g1,g2,delta):
         s.i1 -= 1
       return s.B
 
-#def boys(m,x):
-#    return 0.5 * (x + 1e-9)**(-(m + 0.5)) * jax.lax.igamma(m + 0.5, x + 1e-9) * np.exp(jax.lax.lgamma(m + 0.5))
-    #return 0.5 * x * m
 
-def boys(n,x):
-    result = np.where(x < 1e-8, 1 / (2 * n + 1) - x *  (1 / (2 * n + 3)), 
-                      0.5 * (x)**(-(n + 0.5)) * jax.lax.igamma(n + 0.5,x) * np.exp(jax.lax.lgamma(n + 0.5)))
-    return result
+def boys(m,x):
+    return 0.5 * (x + 1e-9)**(-(m + 0.5)) * jax.lax.igamma(m + 0.5, x + 1e-9) * np.exp(jax.lax.lgamma(m + 0.5))
+
+#def boys(n,x):
+#    result = np.where(x < 1e-8, 1 / (2 * n + 1) - x *  (1 / (2 * n + 3)), 
+#                      0.5 * (x)**(-(n + 0.5)) * jax.lax.igamma(n + 0.5,x) * np.exp(jax.lax.lgamma(n + 0.5)))
+#    return result
+
 
 def primitive_quartet(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4): 
     """
@@ -120,7 +107,7 @@ def primitive_quartet(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4):
 
     rab2 = np.dot(A-B,A-B)
     rcd2 = np.dot(C-D,C-D)
-    coef = c1 * c2 * c3* c4
+    coef = c1 * c2 * c3 * c4
     xyzp = gaussian_product(aa,A,bb,B)
     xyzq = gaussian_product(cc,C,dd,D)
     xp,yp,zp = xyzp
@@ -133,7 +120,8 @@ def primitive_quartet(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4):
     By = B_array(ma,mb,mc,md,yp,ya,yb,yq,yc,yd,gamma1,gamma2,delta)
     Bz = B_array(na,nb,nc,nd,zp,za,zb,zq,zc,zd,gamma1,gamma2,delta)
     boys_arg = 0.25*rpq2/delta
-    boys_eval = boys(np.arange(12), boys_arg) # f functions
+    #boys_eval = boys(np.arange(12), boys_arg) # f functions
+    boys_eval = boys(np.arange(13), boys_arg) # f functions
 
     with loops.Scope() as s:
       s.I = 0
