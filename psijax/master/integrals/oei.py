@@ -94,7 +94,7 @@ def A_array(l1,l2,PA,PB,CP,g):
       return s.A
 
 
-def potential(aa, La, A, bb, Lb, B, geom):
+def potential(aa, La, A, bb, Lb, B, geom, charges):
     """
     Computes a single electron-nuclear attraction integral
     """
@@ -132,7 +132,7 @@ def potential(aa, La, A, bb, Lb, B, geom):
               S.K += 1
             S.J += 1
           S.I += 1
-      val += -2 * np.pi / gamma * np.exp(-aa * bb * rab2 / gamma) * S.total
+      val += charges[i] * -2 * np.pi / gamma * np.exp(-aa * bb * rab2 / gamma) * S.total
     return val
 
 
@@ -170,6 +170,8 @@ def oei_arrays(geom, basis):
     nprim = coeffs.shape[0]
     primitive_quartets = cartesian_product(np.arange(nprim), np.arange(nprim))
 
+    charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
+
     # Save various AM distributions for indexing
     # Obtain all possible primitive quartet index combinations 
     primitive_duets = cartesian_product(np.arange(nprim), np.arange(nprim))
@@ -203,7 +205,7 @@ def oei_arrays(geom, basis):
             # Compute one electron integrals and add to appropriate index
             overlap_int = overlap(aa,La,A,bb,Lb,B) * c1 * c2
             kinetic_int = kinetic(aa,La,A,bb,Lb,B) * c1 * c2
-            potential_int = potential(aa,La,A,bb,Lb,B,geom) * c1 * c2
+            potential_int = potential(aa,La,A,bb,Lb,B,geom,charges) * c1 * c2
             s.S = jax.ops.index_add(s.S, jax.ops.index[i,j], overlap_int) 
             s.T = jax.ops.index_add(s.T, jax.ops.index[i,j], kinetic_int) 
             s.V = jax.ops.index_add(s.V, jax.ops.index[i,j], potential_int) 
@@ -216,12 +218,12 @@ import numpy as onp
 from basis_utils import build_basis_set
 molecule = psi4.geometry("""
                          0 1
-                         H 0.0 0.0 -0.849220457955
-                         H 0.0 0.0  0.849220457955
+                         C 0.0 0.0 -0.849220457955
+                         C 0.0 0.0  0.849220457955
                          units bohr
                          """)
 geom = np.asarray(onp.asarray(molecule.geometry()))
-basis_name = 'cc-pvqz'
+basis_name = 'cc-pvdz'
 basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
 basis_dict = build_basis_set(molecule, basis_name)
 S,T,V = oei_arrays(geom, basis_dict)
