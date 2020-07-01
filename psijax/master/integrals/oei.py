@@ -53,16 +53,14 @@ def kinetic(aa,La,A,bb,Lb,B):
     la,ma,na = La
     lb,mb,nb = Lb
     term0 = bb*(2*(lb+mb+nb)+3) * overlap(aa,La,A,bb,Lb,B)
-    term1 = -2 * bb*2 * (overlap(aa,(l1,m1,n1),A, bb,(l2+2,m2,n2),B) \
+    term1 = -2 * bb**2 * (overlap(aa,(la,ma,na), A, bb,(lb+2,mb,nb),B) \
              + overlap(aa,(la,ma,na),A,bb,(lb,mb+2,nb),B) \
              + overlap(aa,(la,ma,na),A,bb,(lb,mb,nb+2),B))
 
-    term2 = -0.5*(l2*(l2-1)*overlap(aa,(la,ma,na),A,bb,(lb-2,mb,nb),B) \
-                  + m2*(m2-1)*overlap(aa,(la,ma,na),A,bb,(lb,mb-2,nb),B) +
-                  + n2*(n2-1)*overlap(aa,(la,ma,na),A,bb,(lb,mb,nb-2),B))
-    return term0+term1+term2
-
-
+    term2 = -0.5*(lb*(lb-1)*overlap(aa,(la,ma,na),A,bb,(lb-2,mb,nb),B) \
+                  + mb*(mb-1)*overlap(aa,(la,ma,na),A,bb,(lb,mb-2,nb),B) +
+                  + nb*(nb-1)*overlap(aa,(la,ma,na),A,bb,(lb,mb,nb-2),B))
+    return term0 + term1 + term2
 
 def oei_arrays(geom, basis):
     '''
@@ -123,17 +121,20 @@ def oei_arrays(geom, basis):
         for _ in s.while_range(lambda: s.a < dims[p1]):
           s.b = 0
           for _ in s.while_range(lambda: s.b < dims[p2]):
+            # Gather angular momentum and index
             La = angular_momentum_combinations[s.a + ld1]
             Lb = angular_momentum_combinations[s.b + ld2]
             i = indices[p1] + s.a
             j = indices[p2] + s.b
-            
+            # Compute one electron integrals and add to appropriate index
             overlap_int = overlap(aa,La,A,bb,Lb,B) * c1 * c2
+            kinetic_int = kinetic(aa,La,A,bb,Lb,B) * c1 * c2
             s.S = jax.ops.index_add(s.S, jax.ops.index[i,j], overlap_int) 
+            s.T = jax.ops.index_add(s.T, jax.ops.index[i,j], kinetic_int) 
             s.b += 1
           s.a += 1
 
-    return s.S
+    return s.S,s.T
     #return s.S,s.T,s.V
 
 import psi4
@@ -146,14 +147,14 @@ molecule = psi4.geometry("""
                          units bohr
                          """)
 geom = np.asarray(onp.asarray(molecule.geometry()))
-basis_name = 'cc-pvdz'
+basis_name = 'cc-pvqz'
 basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
 basis_dict = build_basis_set(molecule, basis_name)
-S = oei_arrays(geom, basis_dict)
+S,T = oei_arrays(geom, basis_dict)
 mints = psi4.core.MintsHelper(basis_set)
 psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
-print(S)
-print(psi_S)
-print("Matches Psi4: ", np.allclose(S, psi_S))
+psi_T = np.asarray(onp.asarray(mints.ao_kinetic()))
+print("Overlap matches Psi4: ", np.allclose(S, psi_S))
+print("Kinetic matches Psi4: ", np.allclose(T, psi_T))
 
 
