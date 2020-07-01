@@ -4,6 +4,7 @@ from jax.config import config; config.update("jax_enable_x64", True)
 from jax.experimental import loops
 from integrals_utils import gaussian_product, boys, binomial_prefactor, factorial, cartesian_product, am_leading_indices, angular_momentum_combinations
 from functools import partial
+np.set_printoptions(linewidth=400)
 
 def double_factorial(n):
     '''Given integer, return double factorial n!! = n * (n-2) * (n-4) * ... '''
@@ -37,16 +38,11 @@ def overlap_component(l1,l2,PAx,PBx,gamma):
     The 1d overlap integral component. Taketa, Hunzinaga, Oohata 2.12
     """
     K = 1 + (l1 + l2) // 2  
-    #for i in range(1+int(floor(0.5*(l1+l2)))):
-        #total += binomial_prefactor(2*i,l1,l2,PAx,PBx)* \
-        #         double_factorial(2*i-1)/pow(2*gamma,i)
     with loops.Scope() as s:
       s.total = 0.
       s.i = 0
       for _ in s.while_range(lambda: s.i < K):
-        #s.total += binomial_prefactor(2*s.i,l1,l2,PAx,PBx) * double_factorial(2*s.i-1) / (2*gamma)**s.i
-        s.total += binomial_prefactor(2*s.i,l1,l2,PAx,PBx) #* double_factorial(2*s.i-1) / (2*gamma)**s.i
-        #s.total += 2.5
+        s.total += binomial_prefactor(2*s.i,l1,l2,PAx,PBx) * double_factorial(2*s.i-1) / (2*gamma)**s.i
         s.i += 1
       return s.total
 
@@ -132,8 +128,10 @@ def oei_arrays(geom, basis):
             i = indices[p1] + s.a
             j = indices[p2] + s.b
             
-            overlap_int = overlap(aa,La,A,bb,Lb,B)
+            overlap_int = overlap(aa,La,A,bb,Lb,B) * c1 * c2
             s.S = jax.ops.index_add(s.S, jax.ops.index[i,j], overlap_int) 
+            s.b += 1
+          s.a += 1
 
     return s.S
     #return s.S,s.T,s.V
@@ -147,13 +145,15 @@ molecule = psi4.geometry("""
                          H 0.0 0.0  0.849220457955
                          units bohr
                          """)
-#geom = np.asarray(onp.asarray(molecule.geometry()))
-#basis_name = 'cc-pvdz'
-#basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
-#basis_dict = build_basis_set(molecule, basis_name)
-#S = oei_arrays(geom, basis_dict)
-#mints = psi4.core.MintsHelper(basis_set)
-#psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
-#print("Matches Psi4: ", np.allclose(S, psi_S))
+geom = np.asarray(onp.asarray(molecule.geometry()))
+basis_name = 'cc-pvdz'
+basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
+basis_dict = build_basis_set(molecule, basis_name)
+S = oei_arrays(geom, basis_dict)
+mints = psi4.core.MintsHelper(basis_set)
+psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
+print(S)
+print(psi_S)
+print("Matches Psi4: ", np.allclose(S, psi_S))
 
 
