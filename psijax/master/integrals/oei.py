@@ -52,15 +52,89 @@ def kinetic(aa,La,A,bb,Lb,B):
     """
     la,ma,na = La
     lb,mb,nb = Lb
-    term0 = bb*(2*(lb+mb+nb)+3) * overlap(aa,La,A,bb,Lb,B)
-    term1 = -2 * bb**2 * (overlap(aa,(la,ma,na), A, bb,(lb+2,mb,nb),B) \
-             + overlap(aa,(la,ma,na),A,bb,(lb,mb+2,nb),B) \
-             + overlap(aa,(la,ma,na),A,bb,(lb,mb,nb+2),B))
+    term1 = bb*(2*(lb+mb+nb)+3) * overlap(aa,La,A,bb,Lb,B)
 
-    term2 = -0.5*(lb*(lb-1)*overlap(aa,(la,ma,na),A,bb,(lb-2,mb,nb),B) \
-                  + mb*(mb-1)*overlap(aa,(la,ma,na),A,bb,(lb,mb-2,nb),B) +
-                  + nb*(nb-1)*overlap(aa,(la,ma,na),A,bb,(lb,mb,nb-2),B))
-    return term0 + term1 + term2
+    term2 = -2 * bb**2 * (overlap(aa,(la,ma,na), A, bb,(lb+2,mb,nb),B) \
+                        + overlap(aa,(la,ma,na),A,bb,(lb,mb+2,nb),B) \
+                        + overlap(aa,(la,ma,na),A,bb,(lb,mb,nb+2),B))
+
+    term3 = -0.5 * (lb * (lb-1) * overlap(aa,(la,ma,na),A,bb,(lb-2,mb,nb),B) \
+                  + mb * (mb-1) * overlap(aa,(la,ma,na),A,bb,(lb,mb-2,nb),B) \
+                  + nb* (nb-1) * overlap(aa,(la,ma,na),A,bb,(lb,mb,nb-2),B))
+    return term1 + term2 + term3
+
+def A_term(i,r,u,l1,l2,PAx,PBx,CPx,gamma):
+    """
+    Taketa, Hunzinaga, Oohata 2.18
+    """
+    return (-1)**i * binomial_prefactor(i,l1,l2,PAx,PBx) * (-1)**u * factorial(i) * CPx**(i-2*r-2*u) * \
+           (0.25 / gamma)**(r+u) / factorial(r) / factorial(u) / factorial(i-2*r-2*u)
+
+
+def A_array(l1,l2,PA,PB,CP,g):
+    with loops.Scope() as s:
+      # Hard code only up to f functions (fxxx | fxxx) => l1 + l2 + 1 = 7
+      s.A = np.zeros(7)
+      s.i = 0
+      s.r = 0
+      s.u = 0 
+
+      s.i = l1 + l2  
+      for _ in s.while_range(lambda: s.i > -1):   
+        s.r = s.i // 2
+        for _ in s.while_range(lambda: s.r > -1):
+          s.u = (s.i - 2 * s.r) // 2 
+          for _ in s.while_range(lambda: s.u > -1):
+            I = s.i - 2 * s.r - s.u 
+            term = A_term(s.i,s.r,s.u,l1,l2,PA,PB,CP,g)
+            s.A = jax.ops.index_add(s.A, I, term)
+            s.u -= 1
+          s.r -= 1
+        s.i -= 1
+      return s.A
+
+
+def potential(aa, La, A, bb, Lb, B, geom):
+    """
+    Computes a single electron-nuclear attraction integral
+    """
+    la,ma,na = La
+    lb,mb,nb = Lb
+    gamma = aa + bb
+    P = gaussian_product(aa,A,bb,B)
+    rab2 = np.dot(A-B,A-B)
+
+    val = 0
+    for i in range(geom.shape[0]):
+      C = geom[i]
+      rcp2 = np.dot(C-P,C-P)
+      dPA = P-A
+      dPB = P-B
+      dPC = P-C
+
+      Ax = A_array(la,lb,dPA[0],dPB[0],dPC[0],gamma)
+      Ay = A_array(ma,mb,dPA[1],dPB[1],dPC[1],gamma)
+      Az = A_array(na,nb,dPA[2],dPB[2],dPC[2],gamma)
+
+      boys_arg = gamma * rcp2
+
+      with loops.Scope() as S:
+        S.total = 0.
+        S.I = 0
+        S.J = 0
+        S.K = 0
+        for _ in S.while_range(lambda: S.I < la + lb + 1):
+          S.J = 0 
+          for _ in S.while_range(lambda: S.J < ma + mb + 1):
+            S.K = 0 
+            for _ in S.while_range(lambda: S.K < na + nb + 1):
+              S.total += Ax[S.I] * Ay[S.J] * Az[S.K] * boys(S.I + S.J + S.K, boys_arg)
+              S.K += 1
+            S.J += 1
+          S.I += 1
+      val += -2 * np.pi / gamma * np.exp(-aa * bb * rab2 / gamma) * S.total
+    return val
+
 
 def oei_arrays(geom, basis):
     '''
@@ -129,13 +203,13 @@ def oei_arrays(geom, basis):
             # Compute one electron integrals and add to appropriate index
             overlap_int = overlap(aa,La,A,bb,Lb,B) * c1 * c2
             kinetic_int = kinetic(aa,La,A,bb,Lb,B) * c1 * c2
+            potential_int = potential(aa,La,A,bb,Lb,B,geom) * c1 * c2
             s.S = jax.ops.index_add(s.S, jax.ops.index[i,j], overlap_int) 
             s.T = jax.ops.index_add(s.T, jax.ops.index[i,j], kinetic_int) 
+            s.V = jax.ops.index_add(s.V, jax.ops.index[i,j], potential_int) 
             s.b += 1
           s.a += 1
-
-    return s.S,s.T
-    #return s.S,s.T,s.V
+    return s.S,s.T,s.V
 
 import psi4
 import numpy as onp
@@ -150,11 +224,16 @@ geom = np.asarray(onp.asarray(molecule.geometry()))
 basis_name = 'cc-pvqz'
 basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
 basis_dict = build_basis_set(molecule, basis_name)
-S,T = oei_arrays(geom, basis_dict)
+S,T,V = oei_arrays(geom, basis_dict)
 mints = psi4.core.MintsHelper(basis_set)
 psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
 psi_T = np.asarray(onp.asarray(mints.ao_kinetic()))
+psi_V = np.asarray(onp.asarray(mints.ao_potential()))
 print("Overlap matches Psi4: ", np.allclose(S, psi_S))
 print("Kinetic matches Psi4: ", np.allclose(T, psi_T))
+print("Potential matches Psi4: ", np.allclose(V, psi_V))
+
+
+
 
 
