@@ -1,0 +1,324 @@
+
+    -----------------------------------------------------------------------
+          Psi4: An Open-Source Ab Initio Electronic Structure Package
+                               Psi4 1.3.2 release
+
+                         Git: Rev {HEAD} ecbda83 
+
+
+    R. M. Parrish, L. A. Burns, D. G. A. Smith, A. C. Simmonett,
+    A. E. DePrince III, E. G. Hohenstein, U. Bozkaya, A. Yu. Sokolov,
+    R. Di Remigio, R. M. Richard, J. F. Gonthier, A. M. James,
+    H. R. McAlexander, A. Kumar, M. Saitow, X. Wang, B. P. Pritchard,
+    P. Verma, H. F. Schaefer III, K. Patkowski, R. A. King, E. F. Valeev,
+    F. A. Evangelista, J. M. Turney, T. D. Crawford, and C. D. Sherrill,
+    J. Chem. Theory Comput. 13(7) pp 3185--3197 (2017).
+    (doi: 10.1021/acs.jctc.7b00174)
+
+
+                         Additional Contributions by
+    P. Kraus, H. Kruse, M. H. Lechner, M. C. Schieber, R. A. Shaw,
+    A. Alenaizan, R. Galvelis, Z. L. Glick, S. Lehtola, and J. P. Misiewicz
+
+    -----------------------------------------------------------------------
+
+
+    Psi4 started on: Wednesday, 30 October 2019 10:31PM
+
+    Process ID: 735
+    Host:       adabbott
+    PSIDATADIR: /home/adabbott/anaconda3/envs/peslearn/share/psi4
+    Memory:     500.0 MiB
+    Threads:    1
+    
+  ==> Input File <==
+
+--------------------------------------------------------------------------
+import psi4
+import numpy as np
+np.set_printoptions(linewidth=599)
+
+basis {
+assign s_orb
+[ s_orb ]
+cartesian
+****
+H     0
+P   1   1.00
+      0.50000000000      1.0000000000
+****
+Li     0
+P   1   1.00
+      0.40000000000      1.0000000000
+****
+}
+
+molecule h2o {
+symmetry c1
+units bohr
+0 1
+H 0.000000000000 0.000000000000 -0.849220457955
+#H 0.000000000000 0.000000000000  0.849220457955
+Li 0.000000000000 0.000000000000  0.849220457955
+}
+
+set scf_type pk
+set mp2_type conv
+set puream false
+#set puream true
+set e_convergence 10
+set d_convergence 10
+e, wfn = energy('hf', return_wfn=True)
+
+
+mol = wfn.molecule()
+bs = wfn.basisset()
+basis = psi4.core.BasisSet.build(mol)
+mints = psi4.core.MintsHelper(basis)
+
+basis.print_detail_out()
+print(basis.shell(0).coef(0))
+
+print(basis.shell(1).coef(0))
+
+
+
+S = mints.ao_overlap()
+#T = mints.ao_kinetic()
+#V = mints.ao_potential()
+#G = mints.ao_eri()
+
+print(np.asarray(S))
+print(np.asarray(S) / 0.29965573757661185 )
+print(np.asarray(S) / 0.29965573757661185**2 )
+#print(np.asarray(T))
+#print(np.asarray(V))
+#
+#print(np.asarray(G))
+
+--------------------------------------------------------------------------
+
+*** tstart() called on adabbott
+*** at Wed Oct 30 22:31:13 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUSE8D856F8
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1 entry H          line     5 inputblock s_orb 
+    atoms 2 entry LI         line     9 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: C_inf_v
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -1.485109925913     1.007825032230
+         LI           0.000000000000     0.000000000000     0.213330989997     7.016003436600
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     23.68100  C =     23.68100 [cm^-1]
+  Rotational constants: A = ************  B = 709938.53229  C = 709938.53229 [MHz]
+  Nuclear repulsion =    1.766325794378690
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 4
+  Nalpha       = 2
+  Nbeta        = 2
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-10
+  Density threshold  = 1.00e-10
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUSE8D856F8
+    Blend: S_ORB
+    Number of shells: 2
+    Number of basis function: 6
+    Number of Cartesian functions: 6
+    Spherical Harmonics?: false
+    Max angular momentum: 1
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A          6       6       0       0       0       0
+   -------------------------------------------------------
+    Total       6       6       2       2       2       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:               2
+      Number of primitives:              2
+      Number of atomic orbitals:         6
+      Number of basis functions:         6
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 462 doubles for integral storage.
+  We computed 6 shell quartets total.
+  Whereas there are 6 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 4.8137434519E-01.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.86229502121534   -8.62295e-01   0.00000e+00 
+   @RHF iter   1:    -1.55990424480749   -6.97609e-01   1.81392e-02 DIIS
+   @RHF iter   2:    -1.60140132858517   -4.14971e-02   1.30688e-02 DIIS
+   @RHF iter   3:    -1.63994241247334   -3.85411e-02   3.08934e-03 DIIS
+   @RHF iter   4:    -1.64092390230237   -9.81490e-04   1.19963e-03 DIIS
+   @RHF iter   5:    -1.64099153948582   -6.76372e-05   1.23930e-04 DIIS
+   @RHF iter   6:    -1.64099217205478   -6.32569e-07   4.51223e-06 DIIS
+   @RHF iter   7:    -1.64099217294971   -8.94928e-10   6.39806e-08 DIIS
+   @RHF iter   8:    -1.64099217294989   -1.80744e-13   7.30520e-10 DIIS
+   @RHF iter   9:    -1.64099217294989    4.44089e-16   6.46135e-12 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.218606     2A     -0.057254  
+
+    Virtual:                                                              
+
+       3A      0.297516     4A      0.345096     5A      1.089799  
+       6A      1.094787  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     2 ]
+
+  @RHF Final Energy:    -1.64099217294989
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              1.7663257943786896
+    One-Electron Energy =                  -6.2629160555342995
+    Two-Electron Energy =                   2.8555980882057193
+    Total Energy =                         -1.6409921729498911
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:    -0.8451
+
+  Electronic Dipole Moment: [e a0]
+     X:    -0.0000      Y:    -0.0000      Z:     0.7628
+
+  Dipole Moment: [e a0]
+     X:    -0.0000      Y:    -0.0000      Z:    -0.0823     Total:     0.0823
+
+  Dipole Moment: [D]
+     X:    -0.0000      Y:    -0.0000      Z:    -0.2093     Total:     0.2093
+
+
+*** tstop() called on adabbott at Wed Oct 30 22:31:13 2019
+Module time:
+	user time   =       0.27 seconds =       0.00 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.27 seconds =       0.00 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+   => Loading Basis Set <=
+
+    Name: ANONYMOUSE8D856F8
+    Role: ORBITAL
+    Keyword: None
+    atoms 1 entry H          line     5 inputblock s_orb 
+    atoms 2 entry LI         line     9 inputblock s_orb 
+
+  -AO BASIS SET INFORMATION:
+    Name                   = ANONYMOUSE8D856F8
+    Blend                  = S_ORB
+    Total number of shells = 2
+    Number of primitives   = 2
+    Number of AO           = 6
+    Number of SO           = 6
+    Maximum AM             = 1
+    Spherical Harmonics    = FALSE
+
+  -Contraction Scheme:
+    Atom   Type   All Primitives // Shells:
+   ------ ------ --------------------------
+       1     H     1p // 1p 
+       2    LI     1p // 1p 
+
+  ==> AO Basis Functions <==
+
+    [ ANONYMOUSE8D856F8 ]
+    cartesian
+    ****
+    H   1
+    P   1 1.00
+                         0.50000000           1.00000000
+    ****
+   LI   2
+    P   1 1.00
+                         0.40000000           1.00000000
+    ****
+
+
+    Psi4 stopped on: Wednesday, 30 October 2019 10:31PM
+    Psi4 wall time for execution: 0:00:00.32
+
+*** Psi4 exiting successfully. Buy a developer a beer!

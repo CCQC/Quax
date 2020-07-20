@@ -1,0 +1,14 @@
+memory 20 GB
+
+molecule h2 {
+0 1 
+symmetry c1
+H 0.0 0.0 0.9
+H 0.0 0.0 0.0
+}
+
+set basis cc-pv6z
+set puream false
+set scf_type pk
+
+energy('hf')

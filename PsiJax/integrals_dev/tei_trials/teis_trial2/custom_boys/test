@@ -1,0 +1,22 @@
+
+print("Checking jacrev values")
+print(jax.jacrev(control)(0.),jax.jacrev(boys)(0.))
+print(jax.jacrev(control)(0.5),jax.jacrev(boys)(0.5))
+print(jax.jacrev(control)(10.5),jax.jacrev(boys)(10.5))
+
+
+print("Checking jacrev jacrev values")
+print(jax.jacrev(jax.jacrev(control))(0.), jax.jacrev(jax.jacrev(boys))(0.))
+print(jax.jacrev(jax.jacrev(control))(0.5),jax.jacrev(jax.jacrev(boys))(0.5))
+print(jax.jacrev(jax.jacrev(control))(10.5),jax.jacrev(jax.jacrev(boys))(10.5))
+
+print("Checking jacrev jacrev jacrev values")
+print(jax.jacrev(jax.jacrev(jax.jacrev(control)))(0.), jax.jacrev(jax.jacrev(jax.jacrev(boys)))(0.))
+print(jax.jacrev(jax.jacrev(jax.jacrev(control)))(0.5),jax.jacrev(jax.jacrev(jax.jacrev(boys)))(0.5))
+print(jax.jacrev(jax.jacrev(jax.jacrev(control)))(10.5),jax.jacrev(jax.jacrev(jax.jacrev(boys)))(10.5))
+
+
+print("Checking jacrev jacrev jacrev jacrev values")
+print(jax.jacrev(jax.jacrev(jax.jacrev(jax.jacrev(control))))(0.), jax.jacrev(jax.jacrev(jax.jacrev(jax.jacrev(boys))))(0.))
+print(jax.jacrev(jax.jacrev(jax.jacrev(jax.jacrev(control))))(0.5), jax.jacrev(jax.jacrev(jax.jacrev(jax.jacrev(boys))))(0.5))
+print(jax.jacrev(jax.jacrev(jax.jacrev(jax.jacrev(control))))(10.5), jax.jacrev(jax.jacrev(jax.jacrev(jax.jacrev(boys))))(10.5))

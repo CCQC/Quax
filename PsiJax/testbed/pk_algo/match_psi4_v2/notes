@@ -1,0 +1,77 @@
+
+J part of PK vector is trivial. It's just the unique TEI's themselves.
+
+One part of K/2,, the IKJL index, always negatively contributes. its a mixed batch of indices
+The factor is 0.5 if i == k or j == l and 0.25 otherwise 
+
+Thus,
+tmpPK = g - g[IKJL slice] * ones[0.5 multiplier mask] * ones[0.25 mutliplier mask]
+
+where ones is np.ones_like(g) 
+
+The issue is the  g[ILJK slice] term, which only appears sometimes, thus is not the same
+length as the otehr two terms. So this tmpPK needs to be masked again and updated.
+
+tmpPK[ILJK slice] -= g[ILJK slice] * ones[0.5 multiplier mask] * ones[0.25 multiplier mask]  
+
+
+
+Actually wait. The real problem that needs solving is that a given integral (ij|kl)
+with index q running from 0,1,2,3,4,5.... has several corresponding elements of PK
+that it contributes to.
+
+It contributes first to the compound index IJKL = f(i,j,k,l) in PK as the plain old integral (ij|kl)
+
+It also contributes to compound index IKJL = f(i,j,k,l) in PK times some factor
+
+If i != j and k != l, it also contributes to compound index ILJK = f(i,j,k,l) in PK times some factor.
+
+
+So each integral sprawls out to two or three places in PK and additively contributes.
+
+Algorithm:
+When indices are generated in the first place, (?)
+Grab index IJKL. (note: positively contributes)
+
+Grab index IKLJ. (note: negatively contributes)
+    If i == k or j == l, its a 0.5 term
+    else: its a 0.25 term
+
+if i != j and k != l:
+    Grab index ILJK  (note: negatively contributes)
+    if i == l or j == k, its a 0.5 term
+    else: its a 0.25 term
+else:
+    Save ILJK as -1? can filter with np.where(x > -1) 
+
+PK is zeros.
+full_indices = [IJKL, IKLJ, ILJK]
+               [IJKL, IKLJ, ILJK]
+               [IJKL, IKLJ, ILJK]
+               ...
+               n_unique_ints
+
+
+Is this the same as old way for the case of IJKL, IKJL contributions?    
+PK = jax.ops.index_add(PK, full_indices[:,0], g) 
+PK = jax.ops.index_add(PK, full_indices[:,1], -g * IKJL_multiplier)
+Then just have to figure out how to deal with ILJK... hmmm
+
+    # If index is > -1, use the integral from g 
+    real_ILJK = np.where(full_indices[:,2] > -1, g, 0.0) 
+                                     g[np.where
+
+
+    
+
+
+
+
+
+
+
+
+
+    
+
+

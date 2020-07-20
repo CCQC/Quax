@@ -1,0 +1,169 @@
+
+For my use case, I have a function containing nested for-loops, and the bounds of each loop are dependent on function arguments. 
+```python
+def f(a,b):
+  for i in range(a):
+    for j in range(b):
+    # ...
+```
+
+As-is, a function like this is not jit-compilable, since I cannot pass abstract arguments to Python's `range`. However, I can jit-compile (and use vmap/scan/other awesome JAX stuff) if I use a `lax.while_loop` with the aid of the experimental.loops module for simplicity (thanks, @gnecula !) 
+
+For example, the following simple Python loop,
+```python
+def control(a,b):                    
+  quantity = 0                       
+  i = a + b                          
+  while i > 0:                       
+    j = 2 * i + 1                    
+    while j > 0:                     
+      k = 2 * j + 1                  
+      while k > 0:                   
+        quantity += i + j + k        
+        k -= 1                       
+      j -= 1                         
+    i -= 1                           
+  return quantity                    
+```
+
+can be converted to a JAX-friendly version: 
+
+```python
+import jax                        
+import jax.numpy as np            
+import numpy as onp               
+from jax.experimental import loops
+
+def test(a,b):                                                
+  with loops.Scope() as s:                                    
+    s.quantity = 0.0
+    s.a = a
+    s.b = b                                          
+    s.i = s.a + s.b                                               
+    s.j = 2 * s.i + 1                                         
+    s.k = 2 * s.j + 1                                         
+                                                              
+    for _ in s.while_range(lambda: s.i > 0):                  
+      s.j = 2 * s.i + 1                                       
+      for _ in s.while_range(lambda: s.j > 0):                
+        s.k = 2 * s.j + 1                                     
+        for _ in s.while_range(lambda: s.k > 0):              
+          s.quantity += s.i + s.j + s.k                       
+          s.k -= 1                                            
+        s.j -= 1                                              
+      s.i -= 1                                                
+    return s.quantity                                         
+```
+
+Since this function is now jit-compilable, I can use vmap to vectorize it across many possible inputs and get great performance relative to naive python code:
+
+```python
+A = np.repeat(np.arange(10), 1000)
+B = np.repeat(np.arange(10), 1000)
+v_test = jax.vmap(test, (0,0))
+%timeit v_test(A,B).block_until_ready()
+# 1 loop, best of 3: 951 ms per loop
+```
+```python
+A = onp.repeat(onp.arange(10), 1000)
+B = onp.repeat(onp.arange(10), 1000)
+%timeit result = [control(A[i],B[i]) for i in range(A.shape[0])]
+# 1 loop, best of 3: 25 s per loop
+```
+
+### The Issue
+The above function `test` works great as written, but I have found several strange bugs when it is expressed in slightly different ways. For example, if the sum in the innermost loop `s.quantity += s.i + s.j + s.k` gets swapped such that `s.k` comes before `s.i` or `s.j`, the loop runs indefinitely, with constant memory increase until out of memory:
+
+```python
+def test2(a,b):                                                
+  with loops.Scope() as s:                                    
+    s.quantity = 0.0
+    s.a = a
+    s.b = b                                          
+    s.i = s.a + s.b                                               
+    s.j = 2 * s.i + 1                                         
+    s.k = 2 * s.j + 1                                         
+                                                              
+    for _ in s.while_range(lambda: s.i > 0):                  
+      s.j = 2 * s.i + 1                                       
+      for _ in s.while_range(lambda: s.j > 0):                
+        s.k = 2 * s.j + 1                                     
+        for _ in s.while_range(lambda: s.k > 0): 
+          #s.quantity += s.i + s.j + s.k  # This works!
+          s.quantity += s.i + s.k + s.j   # This runs indefinitely   
+          s.k -= 1                                            
+        s.j -= 1                                              
+      s.i -= 1                                                
+    return s.quantity
+
+print(test2(3.,2.))                                       
+```
+
+Upon further inspection, I found that this bug only occurs when I _define a loop scope variable which is not used directly in the loop_, in this case `s.a` and `s.b`. The following block of code demonstrates this a little more clearly:
+
+```python
+def test3(a,b):
+  with loops.Scope() as s:
+    s.quantity = 0.0
+
+    s.dummy = 1. # define a scope variable that may or may not participate in the loop
+
+    s.i = a + b
+    s.j = 2 * s.i + 1
+    s.k = 2 * s.j + 1
+
+    for _ in s.while_range(lambda: s.i > 0):
+      s.j = 2 * s.i + 1
+      for _ in s.while_range(lambda: s.j > 0):
+        s.k = 2 * s.j + 1
+        for _ in s.while_range(lambda: s.k > 0):
+          #s.quantity += s.i + s.j + s.k            # This works!
+          #s.quantity += s.i + s.k + s.j            # Runs indefinitely
+          s.quantity += s.i + s.k + s.j + s.dummy   # This works!
+          s.k -= 1
+        s.j -= 1
+      s.i -= 1
+    return s.quantity
+
+print(test3(3.,2.))
+```
+
+So, we tentatively arrive at the following conclusion:
+  * The while-loops do not terminate if you 
+    1. define a loop scope variable which is unused in the loop, and 
+    2. do operations in the loop in an order that does not match the nested loop order. In the above example, `s.i + s.j + s.k` works, but `s.i + s.k + s.j` results in an infinite loop. 
+
+Alone, this bug is relatively benign; just make sure you only define loops.Scope() variables which are used in the loop! However, while investigating this, I found another case where operation order in the loop influences whether or not the loop halts. In this case, defining an _inner-loop_ loops.Scope() variable in terms of function arguments and jit-compiling the function causes a similar issue:
+
+```python
+def test4(a,b):
+  with loops.Scope() as s:
+    s.quantity = 0.0
+    s.i = a + b
+    s.j = 2 * s.i + 1
+    s.k = b + 2
+
+    for _ in s.while_range(lambda: s.i > 0):
+      s.j = 2 * s.i + 1
+      for _ in s.while_range(lambda: s.j > 0):
+        s.k = b + 2 # NOTE this changed! 
+        for _ in s.while_range(lambda: s.k > 0):
+          #s.quantity += s.i + s.j + s.k # This works!
+          s.quantity += s.i + s.k + s.j  # Runs indefinitely only when jit-compiled
+          s.k -= 1
+        s.j -= 1
+      s.i -= 1
+    return s.quantity
+
+print(test4(3.,2.))
+print(jax.jit(test4)(3.,2.))  # never halts for s.i + s.k + s.j
+```
+
+In this case,
+  * The nested while-loops never terminate if you:
+    1. jit-compile the function, 
+    2. define a nested loops.Scope() variable in terms of values outside the scope (`s.k = b + 2`), and 
+    3. sum quantities in certain orders (`s.i + s.j + s.k` works, but `s.i + s.k + s.j` runs indefinitely).
+
+
+

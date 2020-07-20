@@ -1,0 +1,4004 @@
+
+{ lambda t ba bg by cf cl ey qw ;  ; a b c d e f g h i.
+  let j = mul i 34.986836655249725
+      k = add e f
+      l = add g h
+      m = add k l
+      n = pow m -0.5
+      o = mul j n
+      p = neg e
+      q = mul p f
+      r = div 1.0 k
+      s = mul q r
+      u = mul s t
+      v = sub a b
+      w = dot_general[ dimension_numbers=(((0,), (0,)), ((), ()))
+                       precision=None ] v v
+      x = mul s w
+      y = exp x
+      z = safe_mul u y
+      bb = dot_general[ dimension_numbers=(((1,), (0,)), ((), ()))
+                        precision=None ] ba v
+      bc = dot_general[ dimension_numbers=(((0,), (1,)), ((), ()))
+                        precision=None ] v ba
+      bd = add_any bb bc
+      be = mul s bd
+      bf = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] be
+      bh = dot_general[ dimension_numbers=(((1,), (0,)), ((), ()))
+                        precision=None ] bg v
+      bi = dot_general[ dimension_numbers=(((0,), (1,)), ((), ()))
+                        precision=None ] v bg
+      bj = add_any bh bi
+      bk = mul s bj
+      bl = safe_mul bk y
+      bm = broadcast[ sizes=(3,) ] bl
+      bn = transpose[ permutation=(1, 0) ] bm
+      bo = safe_mul bf bn
+      bp = add_any z bo
+      bq = mul r bp
+      br = mul o bq
+      bs = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                             shape=(3, 3, 3) ] br
+      bt = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                             shape=(3, 3, 3, 3) ] bs
+      bu = neg g
+      bv = mul bu h
+      bw = div 1.0 l
+      bx = mul bv bw
+      bz = mul bx by
+      ca = sub c d
+      cb = dot_general[ dimension_numbers=(((0,), (0,)), ((), ()))
+                        precision=None ] ca ca
+      cc = mul bx cb
+      cd = exp cc
+      ce = safe_mul bz cd
+      cg = dot_general[ dimension_numbers=(((1,), (0,)), ((), ()))
+                        precision=None ] cf ca
+      ch = dot_general[ dimension_numbers=(((0,), (1,)), ((), ()))
+                        precision=None ] ca cf
+      ci = add_any cg ch
+      cj = mul bx ci
+      ck = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] cj
+      cm = dot_general[ dimension_numbers=(((1,), (0,)), ((), ()))
+                        precision=None ] cl ca
+      cn = dot_general[ dimension_numbers=(((0,), (1,)), ((), ()))
+                        precision=None ] ca cl
+      co = add_any cm cn
+      cp = mul bx co
+      cq = safe_mul cp cd
+      cr = broadcast[ sizes=(3,) ] cq
+      cs = transpose[ permutation=(1, 0) ] cr
+      ct = safe_mul ck cs
+      cu = add_any ce ct
+      cv = mul bw cu
+      cw = broadcast[ sizes=(3, 3) ] cv
+      cx = transpose[ permutation=(2, 3, 0, 1) ] cw
+      cy = mul bt cx
+      cz = mul k l
+      da = add k l
+      db = div cz da
+      dc = mul e a
+      dd = mul f b
+      de = add dc dd
+      df = mul de r
+      dg = mul g c
+      dh = mul h d
+      di = add dg dh
+      dj = mul di bw
+      dk = sub df dj
+      dl = dot_general[ dimension_numbers=(((0,), (0,)), ((), ()))
+                        precision=None ] dk dk
+      dm = mul db dl
+      dn = lt dm 1e-08
+      do = neg dm
+      dp = mul do 0.3333333333333333
+      dq = add dp 1.0
+      dr = neg dm
+      ds = pow dr 2.0
+      dt = mul ds 0.1
+      du = add dq dt
+      dv = neg dm
+      dw = pow dv 3.0
+      dx = mul dw 0.023809523809523808
+      dy = add du dx
+      dz = neg dm
+      ea = pow dz 4.0
+      eb = mul ea 0.004629629629629629
+      ec = add dy eb
+      ed = neg dm
+      ee = pow ed 5.0
+      ef = mul ee 0.0007575757575757576
+      eg = add ec ef
+      eh = neg dm
+      ei = pow eh 6.0
+      ej = mul ei 0.0001068376068376068
+      ek = add eg ej
+      el = rsqrt dm
+      em = mul 0.8862269254527579 el
+      en = sqrt dm
+      eo = erf en
+      ep = mul em eo
+      eq = select dn ek ep
+      er = mul cy eq
+      es = safe_mul cj cd
+      et = mul bw es
+      eu = broadcast[ sizes=(3, 3) ] et
+      ev = transpose[ permutation=(2, 0, 1) ] eu
+      ew = mul bs ev
+      ex = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                             shape=(3, 3, 3, 3) ] ew
+      ez = mul h ey
+      fa = mul ez bw
+      fb = neg fa
+      fc = dot_general[ dimension_numbers=(((1,), (0,)), ((), ()))
+                        precision=None ] fb dk
+      fd = dot_general[ dimension_numbers=(((0,), (1,)), ((), ()))
+                        precision=None ] dk fb
+      fe = add_any fc fd
+      ff = mul db fe
+      fg = neg ff
+      fh = mul fg 0.3333333333333333
+      fi = neg ff
+      fj = pow dr 1.0
+      fk = mul 2.0 fj
+      fl = safe_mul fi fk
+      fm = mul fl 0.1
+      fn = add_any fh fm
+      fo = neg ff
+      fp = pow dv 2.0
+      fq = mul 3.0 fp
+      fr = safe_mul fo fq
+      fs = mul fr 0.023809523809523808
+      ft = add_any fn fs
+      fu = neg ff
+      fv = pow dz 3.0
+      fw = mul 4.0 fv
+      fx = safe_mul fu fw
+      fy = mul fx 0.004629629629629629
+      fz = add_any ft fy
+      ga = neg ff
+      gb = pow ed 4.0
+      gc = mul 5.0 gb
+      gd = safe_mul ga gc
+      ge = mul gd 0.0007575757575757576
+      gf = add_any fz ge
+      gg = neg ff
+      gh = pow eh 5.0
+      gi = mul 6.0 gh
+      gj = safe_mul gg gi
+      gk = mul gj 0.0001068376068376068
+      gl = add_any gf gk
+      gm = tie_in gl 0
+      gn = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] gm
+      go = broadcast[ sizes=() ] gn
+      gp = broadcast_in_dim[ broadcast_dimensions=()
+                             shape=(3,) ] go
+      gq = select dn gl gp
+      gr = pow dm -1.5
+      gs = mul -0.5 gr
+      gt = safe_mul ff gs
+      gu = mul 0.8862269254527579 gt
+      gv = mul gu eo
+      gw = div 0.5 en
+      gx = safe_mul ff gw
+      gy = mul en en
+      gz = neg gy
+      ha = exp gz
+      hb = mul gx ha
+      hc = mul 1.1283791670955126 hb
+      hd = mul em hc
+      he = add_any gv hd
+      hf = tie_in he 0
+      hg = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] hf
+      hh = broadcast[ sizes=() ] hg
+      hi = broadcast_in_dim[ broadcast_dimensions=()
+                             shape=(3,) ] hh
+      hj = select dn hi he
+      hk = add_any gq hj
+      hl = broadcast[ sizes=(3, 3, 3) ] hk
+      hm = transpose[ permutation=(3, 0, 1, 2) ] hl
+      hn = mul ex hm
+      ho = add_any er hn
+      hp = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                             shape=(3, 3, 3) ] br
+      hq = mul bw cq
+      hr = broadcast[ sizes=(3, 3) ] hq
+      hs = transpose[ permutation=(2, 0, 1) ] hr
+      ht = mul hp hs
+      hu = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                             shape=(3, 3, 3, 3) ] ht
+      hv = mul g cf
+      hw = mul hv bw
+      hx = neg hw
+      hy = dot_general[ dimension_numbers=(((1,), (0,)), ((), ()))
+                        precision=None ] hx dk
+      hz = dot_general[ dimension_numbers=(((0,), (1,)), ((), ()))
+                        precision=None ] dk hx
+      ia = add_any hy hz
+      ib = mul db ia
+      ic = neg ib
+      id = mul ic 0.3333333333333333
+      ie = neg ib
+      if = pow dr 1.0
+      ig = mul 2.0 if
+      ih = safe_mul ie ig
+      ii = mul ih 0.1
+      ij = add_any id ii
+      ik = neg ib
+      il = pow dv 2.0
+      im = mul 3.0 il
+      in = safe_mul ik im
+      io = mul in 0.023809523809523808
+      ip = add_any ij io
+      iq = neg ib
+      ir = pow dz 3.0
+      is = mul 4.0 ir
+      it = safe_mul iq is
+      iu = mul it 0.004629629629629629
+      iv = add_any ip iu
+      iw = neg ib
+      ix = pow ed 4.0
+      iy = mul 5.0 ix
+      iz = safe_mul iw iy
+      ja = mul iz 0.0007575757575757576
+      jb = add_any iv ja
+      jc = neg ib
+      jd = pow eh 5.0
+      je = mul 6.0 jd
+      jf = safe_mul jc je
+      jg = mul jf 0.0001068376068376068
+      jh = add_any jb jg
+      ji = tie_in jh 0
+      jj = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] ji
+      jk = broadcast[ sizes=() ] jj
+      jl = broadcast_in_dim[ broadcast_dimensions=()
+                             shape=(3,) ] jk
+      jm = select dn jh jl
+      jn = pow dm -1.5
+      jo = mul -0.5 jn
+      jp = safe_mul ib jo
+      jq = mul 0.8862269254527579 jp
+      jr = mul jq eo
+      js = div 0.5 en
+      jt = safe_mul ib js
+      ju = mul en en
+      jv = neg ju
+      jw = exp jv
+      jx = mul jt jw
+      jy = mul 1.1283791670955126 jx
+      jz = mul em jy
+      ka = add_any jr jz
+      kb = tie_in ka 0
+      kc = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] kb
+      kd = broadcast[ sizes=() ] kc
+      ke = broadcast_in_dim[ broadcast_dimensions=()
+                             shape=(3,) ] kd
+      kf = select dn ke ka
+      kg = add_any jm kf
+      kh = broadcast[ sizes=(3, 3) ] kg
+      ki = transpose[ permutation=(2, 0, 1) ] kh
+      kj = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                             shape=(3, 3, 3, 3) ] ki
+      kk = mul hu kj
+      kl = mul bw cd
+      km = mul br kl
+      kn = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                             shape=(3, 3, 3) ] km
+      ko = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                             shape=(3, 3, 3, 3) ] kn
+      kp = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                        precision=None ] hx fb
+      kq = transpose[ permutation=(1, 0) ] kp
+      kr = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                        precision=None ] fb hx
+      ks = add_any kq kr
+      kt = mul db ks
+      ku = neg kt
+      kv = mul ku 0.3333333333333333
+      kw = neg kt
+      kx = safe_mul kw ig
+      ky = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] ie
+      kz = pow dr 0.0
+      la = mul 1.0 kz
+      lb = safe_mul fi la
+      lc = mul 2.0 lb
+      ld = broadcast[ sizes=(3,) ] lc
+      le = transpose[ permutation=(1, 0) ] ld
+      lf = safe_mul ky le
+      lg = add_any kx lf
+      lh = mul lg 0.1
+      li = add_any kv lh
+      lj = neg kt
+      lk = safe_mul lj im
+      ll = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] ik
+      lm = pow dv 1.0
+      ln = mul 2.0 lm
+      lo = safe_mul fo ln
+      lp = mul 3.0 lo
+      lq = broadcast[ sizes=(3,) ] lp
+      lr = transpose[ permutation=(1, 0) ] lq
+      ls = safe_mul ll lr
+      lt = add_any lk ls
+      lu = mul lt 0.023809523809523808
+      lv = add_any li lu
+      lw = neg kt
+      lx = safe_mul lw is
+      ly = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] iq
+      lz = pow dz 2.0
+      ma = mul 3.0 lz
+      mb = safe_mul fu ma
+      mc = mul 4.0 mb
+      md = broadcast[ sizes=(3,) ] mc
+      me = transpose[ permutation=(1, 0) ] md
+      mf = safe_mul ly me
+      mg = add_any lx mf
+      mh = mul mg 0.004629629629629629
+      mi = add_any lv mh
+      mj = neg kt
+      mk = safe_mul mj iy
+      ml = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] iw
+      mm = pow ed 3.0
+      mn = mul 4.0 mm
+      mo = safe_mul ga mn
+      mp = mul 5.0 mo
+      mq = broadcast[ sizes=(3,) ] mp
+      mr = transpose[ permutation=(1, 0) ] mq
+      ms = safe_mul ml mr
+      mt = add_any mk ms
+      mu = mul mt 0.0007575757575757576
+      mv = add_any mi mu
+      mw = neg kt
+      mx = safe_mul mw je
+      my = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] jc
+      mz = pow eh 4.0
+      na = mul 5.0 mz
+      nb = safe_mul gg na
+      nc = mul 6.0 nb
+      nd = broadcast[ sizes=(3,) ] nc
+      ne = transpose[ permutation=(1, 0) ] nd
+      nf = safe_mul my ne
+      ng = add_any mx nf
+      nh = mul ng 0.0001068376068376068
+      ni = add_any mv nh
+      nj = tie_in ni 0
+      nk = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] nj
+      nl = broadcast[ sizes=(3,) ] nk
+      nm = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] nl
+      nn = select dn ni nm
+      no = tie_in ni 0
+      np = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] no
+      nq = broadcast[ sizes=() ] np
+      nr = broadcast_in_dim[ broadcast_dimensions=()
+                             shape=(3,) ] nq
+      ns = tie_in nr 0
+      nt = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] ns
+      nu = broadcast[ sizes=(3,) ] nt
+      nv = select dn nu nr
+      nw = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] nv
+      nx = add_any nn nw
+      ny = safe_mul kt jo
+      nz = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] ib
+      oa = pow dm -2.5
+      ob = mul -1.5 oa
+      oc = safe_mul ff ob
+      od = mul -0.5 oc
+      oe = broadcast[ sizes=(3,) ] od
+      of = transpose[ permutation=(1, 0) ] oe
+      og = safe_mul nz of
+      oh = add_any ny og
+      oi = mul 0.8862269254527579 oh
+      oj = mul oi eo
+      ok = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] jq
+      ol = broadcast[ sizes=(3,) ] hc
+      om = transpose[ permutation=(1, 0) ] ol
+      on = mul ok om
+      oo = add_any oj on
+      op = broadcast[ sizes=(3,) ] gu
+      oq = transpose[ permutation=(1, 0) ] op
+      or = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] jy
+      os = mul oq or
+      ot = safe_mul kt js
+      ou = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] ib
+      ov = neg gx
+      ow = mul ov 0.5
+      ox = mul en en
+      oy = div ow ox
+      oz = broadcast[ sizes=(3,) ] oy
+      pa = transpose[ permutation=(1, 0) ] oz
+      pb = safe_mul ou pa
+      pc = add_any ot pb
+      pd = mul pc jw
+      pe = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] jt
+      pf = mul gx en
+      pg = mul en gx
+      ph = add_any pf pg
+      pi = neg ph
+      pj = safe_mul pi jw
+      pk = broadcast[ sizes=(3,) ] pj
+      pl = transpose[ permutation=(1, 0) ] pk
+      pm = mul pe pl
+      pn = add_any pd pm
+      po = mul 1.1283791670955126 pn
+      pp = mul em po
+      pq = add_any os pp
+      pr = add_any oo pq
+      ps = tie_in pr 0
+      pt = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] ps
+      pu = broadcast[ sizes=() ] pt
+      pv = broadcast_in_dim[ broadcast_dimensions=()
+                             shape=(3,) ] pu
+      pw = tie_in pv 0
+      px = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] pw
+      py = broadcast[ sizes=(3,) ] px
+      pz = select dn pv py
+      qa = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] pz
+      qb = tie_in pr 0
+      qc = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] qb
+      qd = broadcast[ sizes=(3,) ] qc
+      qe = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] qd
+      qf = select dn qe pr
+      qg = add_any qa qf
+      qh = add_any nx qg
+      qi = broadcast[ sizes=(3, 3) ] qh
+      qj = transpose[ permutation=(2, 3, 0, 1) ] qi
+      qk = mul ko qj
+      ql = add_any kk qk
+      qm = add_any ho ql
+      qn = safe_mul be y
+      qo = mul r qn
+      qp = mul o qo
+      qq = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] qp
+      qr = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                             shape=(3, 3, 3) ] qq
+      qs = broadcast[ sizes=(3,) ] cv
+      qt = transpose[ permutation=(1, 2, 0) ] qs
+      qu = mul qr qt
+      qv = broadcast_in_dim[ broadcast_dimensions=(0, 1, 3)
+                             shape=(3, 3, 3, 3) ] qu
+      qx = mul f qw
+      qy = mul qx r
+      qz = dot_general[ dimension_numbers=(((1,), (0,)), ((), ()))
+                        precision=None ] qy dk
+      ra = dot_general[ dimension_numbers=(((0,), (1,)), ((), ()))
+                        precision=None ] dk qy
+      rb = add_any qz ra
+      rc = mul db rb
+      rd = neg rc
+      re = mul rd 0.3333333333333333
+      rf = neg rc
+      rg = pow dr 1.0
+      rh = mul 2.0 rg
+      ri = safe_mul rf rh
+      rj = mul ri 0.1
+      rk = add_any re rj
+      rl = neg rc
+      rm = pow dv 2.0
+      rn = mul 3.0 rm
+      ro = safe_mul rl rn
+      rp = mul ro 0.023809523809523808
+      rq = add_any rk rp
+      rr = neg rc
+      rs = pow dz 3.0
+      rt = mul 4.0 rs
+      ru = safe_mul rr rt
+      rv = mul ru 0.004629629629629629
+      rw = add_any rq rv
+      rx = neg rc
+      ry = pow ed 4.0
+      rz = mul 5.0 ry
+      sa = safe_mul rx rz
+      sb = mul sa 0.0007575757575757576
+      sc = add_any rw sb
+      sd = neg rc
+      se = pow eh 5.0
+      sf = mul 6.0 se
+      sg = safe_mul sd sf
+      sh = mul sg 0.0001068376068376068
+      si = add_any sc sh
+      sj = tie_in si 0
+      sk = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] sj
+      sl = broadcast[ sizes=() ] sk
+      sm = broadcast_in_dim[ broadcast_dimensions=()
+                             shape=(3,) ] sl
+      sn = select dn si sm
+      so = pow dm -1.5
+      sp = mul -0.5 so
+      sq = safe_mul rc sp
+      sr = mul 0.8862269254527579 sq
+      ss = mul sr eo
+      st = div 0.5 en
+      su = safe_mul rc st
+      sv = mul en en
+      sw = neg sv
+      sx = exp sw
+      sy = mul su sx
+      sz = mul 1.1283791670955126 sy
+      ta = mul em sz
+      tb = add_any ss ta
+      tc = tie_in tb 0
+      td = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] tc
+      te = broadcast[ sizes=() ] td
+      tf = broadcast_in_dim[ broadcast_dimensions=()
+                             shape=(3,) ] te
+      tg = select dn tf tb
+      th = add_any sn tg
+      ti = broadcast[ sizes=(3,) ] th
+      tj = transpose[ permutation=(1, 0) ] ti
+      tk = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                             shape=(3, 3, 3) ] tj
+      tl = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                             shape=(3, 3, 3, 3) ] tk
+      tm = mul qv tl
+      tn = broadcast[ sizes=(3,) ] et
+      to = transpose[ permutation=(1, 0) ] tn
+      tp = mul qq to
+      tq = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                             shape=(3, 3, 3) ] tp
+      tr = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                             shape=(3, 3, 3, 3) ] tq
+      ts = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                        precision=None ] qy fb
+      tt = transpose[ permutation=(1, 0) ] ts
+      tu = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                        precision=None ] fb qy
+      tv = add_any tt tu
+      tw = mul db tv
+      tx = neg tw
+      ty = mul tx 0.3333333333333333
+      tz = neg tw
+      ua = safe_mul tz rh
+      ub = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] rf
+      uc = pow dr 0.0
+      ud = mul 1.0 uc
+      ue = safe_mul fi ud
+      uf = mul 2.0 ue
+      ug = broadcast[ sizes=(3,) ] uf
+      uh = transpose[ permutation=(1, 0) ] ug
+      ui = safe_mul ub uh
+      uj = add_any ua ui
+      uk = mul uj 0.1
+      ul = add_any ty uk
+      um = neg tw
+      un = safe_mul um rn
+      uo = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] rl
+      up = pow dv 1.0
+      uq = mul 2.0 up
+      ur = safe_mul fo uq
+      us = mul 3.0 ur
+      ut = broadcast[ sizes=(3,) ] us
+      uu = transpose[ permutation=(1, 0) ] ut
+      uv = safe_mul uo uu
+      uw = add_any un uv
+      ux = mul uw 0.023809523809523808
+      uy = add_any ul ux
+      uz = neg tw
+      va = safe_mul uz rt
+      vb = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] rr
+      vc = pow dz 2.0
+      vd = mul 3.0 vc
+      ve = safe_mul fu vd
+      vf = mul 4.0 ve
+      vg = broadcast[ sizes=(3,) ] vf
+      vh = transpose[ permutation=(1, 0) ] vg
+      vi = safe_mul vb vh
+      vj = add_any va vi
+      vk = mul vj 0.004629629629629629
+      vl = add_any uy vk
+      vm = neg tw
+      vn = safe_mul vm rz
+      vo = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] rx
+      vp = pow ed 3.0
+      vq = mul 4.0 vp
+      vr = safe_mul ga vq
+      vs = mul 5.0 vr
+      vt = broadcast[ sizes=(3,) ] vs
+      vu = transpose[ permutation=(1, 0) ] vt
+      vv = safe_mul vo vu
+      vw = add_any vn vv
+      vx = mul vw 0.0007575757575757576
+      vy = add_any vl vx
+      vz = neg tw
+      wa = safe_mul vz sf
+      wb = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] sd
+      wc = pow eh 4.0
+      wd = mul 5.0 wc
+      we = safe_mul gg wd
+      wf = mul 6.0 we
+      wg = broadcast[ sizes=(3,) ] wf
+      wh = transpose[ permutation=(1, 0) ] wg
+      wi = safe_mul wb wh
+      wj = add_any wa wi
+      wk = mul wj 0.0001068376068376068
+      wl = add_any vy wk
+      wm = tie_in wl 0
+      wn = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] wm
+      wo = broadcast[ sizes=(3,) ] wn
+      wp = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] wo
+      wq = select dn wl wp
+      wr = tie_in wl 0
+      ws = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] wr
+      wt = broadcast[ sizes=() ] ws
+      wu = broadcast_in_dim[ broadcast_dimensions=()
+                             shape=(3,) ] wt
+      wv = tie_in wu 0
+      ww = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] wv
+      wx = broadcast[ sizes=(3,) ] ww
+      wy = select dn wx wu
+      wz = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] wy
+      xa = add_any wq wz
+      xb = safe_mul tw sp
+      xc = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] rc
+      xd = pow dm -2.5
+      xe = mul -1.5 xd
+      xf = safe_mul ff xe
+      xg = mul -0.5 xf
+      xh = broadcast[ sizes=(3,) ] xg
+      xi = transpose[ permutation=(1, 0) ] xh
+      xj = safe_mul xc xi
+      xk = add_any xb xj
+      xl = mul 0.8862269254527579 xk
+      xm = mul xl eo
+      xn = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] sr
+      xo = broadcast[ sizes=(3,) ] hc
+      xp = transpose[ permutation=(1, 0) ] xo
+      xq = mul xn xp
+      xr = add_any xm xq
+      xs = broadcast[ sizes=(3,) ] gu
+      xt = transpose[ permutation=(1, 0) ] xs
+      xu = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] sz
+      xv = mul xt xu
+      xw = safe_mul tw st
+      xx = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] rc
+      xy = neg gx
+      xz = mul xy 0.5
+      ya = mul en en
+      yb = div xz ya
+      yc = broadcast[ sizes=(3,) ] yb
+      yd = transpose[ permutation=(1, 0) ] yc
+      ye = safe_mul xx yd
+      yf = add_any xw ye
+      yg = mul yf sx
+      yh = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] su
+      yi = mul gx en
+      yj = mul en gx
+      yk = add_any yi yj
+      yl = neg yk
+      ym = safe_mul yl sx
+      yn = broadcast[ sizes=(3,) ] ym
+      yo = transpose[ permutation=(1, 0) ] yn
+      yp = mul yh yo
+      yq = add_any yg yp
+      yr = mul 1.1283791670955126 yq
+      ys = mul em yr
+      yt = add_any xv ys
+      yu = add_any xr yt
+      yv = tie_in yu 0
+      yw = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] yv
+      yx = broadcast[ sizes=() ] yw
+      yy = broadcast_in_dim[ broadcast_dimensions=()
+                             shape=(3,) ] yx
+      yz = tie_in yy 0
+      za = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] yz
+      zb = broadcast[ sizes=(3,) ] za
+      zc = select dn yy zb
+      zd = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] zc
+      ze = tie_in yu 0
+      zf = convert_element_type[ new_dtype=float64
+                                 old_dtype=int64 ] ze
+      zg = broadcast[ sizes=(3,) ] zf
+      zh = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] zg
+      zi = select dn zh yu
+      zj = add_any zd zi
+      zk = add_any xa zj
+      zl = broadcast[ sizes=(3,) ] zk
+      zm = transpose[ permutation=(1, 2, 0) ] zl
+      zn = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                             shape=(3, 3, 3, 3) ] zm
+      zo = mul tr zn
+      zp = add_any tm zo
+      zq = broadcast_in_dim[ broadcast_dimensions=(1,)
+                             shape=(3, 3) ] qp
+      zr = broadcast[ sizes=(3,) ] hq
+      zs = transpose[ permutation=(1, 0) ] zr
+      zt = mul zq zs
+      zu = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                             shape=(3, 3, 3) ] zt
+      zv = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                             shape=(3, 3, 3, 3) ] zu
+      zw = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                        precision=None ] qy hx
+      zx = transpose[ permutation=(1, 0) ] zw
+      zy = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                        precision=None ] hx qy
+      zz = add_any zx zy
+      baa = mul db zz
+      bab = neg baa
+      bac = mul bab 0.3333333333333333
+      bad = neg baa
+      bae = safe_mul bad rh
+      baf = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rf
+      bag = pow dr 0.0
+      bah = mul 1.0 bag
+      bai = safe_mul ie bah
+      baj = mul 2.0 bai
+      bak = broadcast[ sizes=(3,) ] baj
+      bal = transpose[ permutation=(1, 0) ] bak
+      bam = safe_mul baf bal
+      ban = add_any bae bam
+      bao = mul ban 0.1
+      bap = add_any bac bao
+      baq = neg baa
+      bar = safe_mul baq rn
+      bas = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rl
+      bat = pow dv 1.0
+      bau = mul 2.0 bat
+      bav = safe_mul ik bau
+      baw = mul 3.0 bav
+      bax = broadcast[ sizes=(3,) ] baw
+      bay = transpose[ permutation=(1, 0) ] bax
+      baz = safe_mul bas bay
+      bba = add_any bar baz
+      bbb = mul bba 0.023809523809523808
+      bbc = add_any bap bbb
+      bbd = neg baa
+      bbe = safe_mul bbd rt
+      bbf = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rr
+      bbg = pow dz 2.0
+      bbh = mul 3.0 bbg
+      bbi = safe_mul iq bbh
+      bbj = mul 4.0 bbi
+      bbk = broadcast[ sizes=(3,) ] bbj
+      bbl = transpose[ permutation=(1, 0) ] bbk
+      bbm = safe_mul bbf bbl
+      bbn = add_any bbe bbm
+      bbo = mul bbn 0.004629629629629629
+      bbp = add_any bbc bbo
+      bbq = neg baa
+      bbr = safe_mul bbq rz
+      bbs = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rx
+      bbt = pow ed 3.0
+      bbu = mul 4.0 bbt
+      bbv = safe_mul iw bbu
+      bbw = mul 5.0 bbv
+      bbx = broadcast[ sizes=(3,) ] bbw
+      bby = transpose[ permutation=(1, 0) ] bbx
+      bbz = safe_mul bbs bby
+      bca = add_any bbr bbz
+      bcb = mul bca 0.0007575757575757576
+      bcc = add_any bbp bcb
+      bcd = neg baa
+      bce = safe_mul bcd sf
+      bcf = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] sd
+      bcg = pow eh 4.0
+      bch = mul 5.0 bcg
+      bci = safe_mul jc bch
+      bcj = mul 6.0 bci
+      bck = broadcast[ sizes=(3,) ] bcj
+      bcl = transpose[ permutation=(1, 0) ] bck
+      bcm = safe_mul bcf bcl
+      bcn = add_any bce bcm
+      bco = mul bcn 0.0001068376068376068
+      bcp = add_any bcc bco
+      bcq = tie_in bcp 0
+      bcr = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bcq
+      bcs = broadcast[ sizes=(3,) ] bcr
+      bct = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bcs
+      bcu = select dn bcp bct
+      bcv = tie_in bcp 0
+      bcw = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bcv
+      bcx = broadcast[ sizes=() ] bcw
+      bcy = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] bcx
+      bcz = tie_in bcy 0
+      bda = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bcz
+      bdb = broadcast[ sizes=(3,) ] bda
+      bdc = select dn bdb bcy
+      bdd = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bdc
+      bde = add_any bcu bdd
+      bdf = safe_mul baa sp
+      bdg = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rc
+      bdh = pow dm -2.5
+      bdi = mul -1.5 bdh
+      bdj = safe_mul ib bdi
+      bdk = mul -0.5 bdj
+      bdl = broadcast[ sizes=(3,) ] bdk
+      bdm = transpose[ permutation=(1, 0) ] bdl
+      bdn = safe_mul bdg bdm
+      bdo = add_any bdf bdn
+      bdp = mul 0.8862269254527579 bdo
+      bdq = mul bdp eo
+      bdr = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] sr
+      bds = broadcast[ sizes=(3,) ] jy
+      bdt = transpose[ permutation=(1, 0) ] bds
+      bdu = mul bdr bdt
+      bdv = add_any bdq bdu
+      bdw = broadcast[ sizes=(3,) ] jq
+      bdx = transpose[ permutation=(1, 0) ] bdw
+      bdy = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] sz
+      bdz = mul bdx bdy
+      bea = safe_mul baa st
+      beb = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rc
+      bec = neg jt
+      bed = mul bec 0.5
+      bee = mul en en
+      bef = div bed bee
+      beg = broadcast[ sizes=(3,) ] bef
+      beh = transpose[ permutation=(1, 0) ] beg
+      bei = safe_mul beb beh
+      bej = add_any bea bei
+      bek = mul bej sx
+      bel = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] su
+      bem = mul jt en
+      ben = mul en jt
+      beo = add_any bem ben
+      bep = neg beo
+      beq = safe_mul bep sx
+      ber = broadcast[ sizes=(3,) ] beq
+      bes = transpose[ permutation=(1, 0) ] ber
+      bet = mul bel bes
+      beu = add_any bek bet
+      bev = mul 1.1283791670955126 beu
+      bew = mul em bev
+      bex = add_any bdz bew
+      bey = add_any bdv bex
+      bez = tie_in bey 0
+      bfa = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bez
+      bfb = broadcast[ sizes=() ] bfa
+      bfc = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] bfb
+      bfd = tie_in bfc 0
+      bfe = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bfd
+      bff = broadcast[ sizes=(3,) ] bfe
+      bfg = select dn bfc bff
+      bfh = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bfg
+      bfi = tie_in bey 0
+      bfj = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bfi
+      bfk = broadcast[ sizes=(3,) ] bfj
+      bfl = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bfk
+      bfm = select dn bfl bey
+      bfn = add_any bfh bfm
+      bfo = add_any bde bfn
+      bfp = broadcast[ sizes=(3,) ] bfo
+      bfq = transpose[ permutation=(1, 2, 0) ] bfp
+      bfr = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] bfq
+      bfs = mul zv bfr
+      bft = mul qp kl
+      bfu = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bft
+      bfv = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bfu
+      bfw = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] bfv
+      bfx = zeros_like bac
+      bfy = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bfx
+      bfz = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bad
+      bga = broadcast[ sizes=(3, 3) ] uf
+      bgb = transpose[ permutation=(2, 0, 1) ] bga
+      bgc = safe_mul bfz bgb
+      bgd = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] tz
+      bge = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bal
+      bgf = safe_mul bgd bge
+      bgg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] baf
+      bgh = safe_mul kw bah
+      bgi = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] ie
+      bgj = pow dr 1.0
+      bgk = mul 0.0 bgj
+      bgl = safe_mul fi bgk
+      bgm = mul 1.0 bgl
+      bgn = broadcast[ sizes=(3,) ] bgm
+      bgo = transpose[ permutation=(1, 0) ] bgn
+      bgp = safe_mul bgi bgo
+      bgq = add_any bgh bgp
+      bgr = mul 2.0 bgq
+      bgs = broadcast[ sizes=(3,) ] bgr
+      bgt = transpose[ permutation=(1, 2, 0) ] bgs
+      bgu = safe_mul bgg bgt
+      bgv = add_any bgf bgu
+      bgw = add_any bgc bgv
+      bgx = mul bgw 0.1
+      bgy = add_any bfy bgx
+      bgz = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] baq
+      bha = broadcast[ sizes=(3, 3) ] us
+      bhb = transpose[ permutation=(2, 0, 1) ] bha
+      bhc = safe_mul bgz bhb
+      bhd = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] um
+      bhe = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bay
+      bhf = safe_mul bhd bhe
+      bhg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bas
+      bhh = safe_mul lj bau
+      bhi = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] ik
+      bhj = pow dv 0.0
+      bhk = mul 1.0 bhj
+      bhl = safe_mul fo bhk
+      bhm = mul 2.0 bhl
+      bhn = broadcast[ sizes=(3,) ] bhm
+      bho = transpose[ permutation=(1, 0) ] bhn
+      bhp = safe_mul bhi bho
+      bhq = add_any bhh bhp
+      bhr = mul 3.0 bhq
+      bhs = broadcast[ sizes=(3,) ] bhr
+      bht = transpose[ permutation=(1, 2, 0) ] bhs
+      bhu = safe_mul bhg bht
+      bhv = add_any bhf bhu
+      bhw = add_any bhc bhv
+      bhx = mul bhw 0.023809523809523808
+      bhy = add_any bgy bhx
+      bhz = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bbd
+      bia = broadcast[ sizes=(3, 3) ] vf
+      bib = transpose[ permutation=(2, 0, 1) ] bia
+      bic = safe_mul bhz bib
+      bid = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] uz
+      bie = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bbl
+      bif = safe_mul bid bie
+      big = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bbf
+      bih = safe_mul lw bbh
+      bii = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] iq
+      bij = pow dz 1.0
+      bik = mul 2.0 bij
+      bil = safe_mul fu bik
+      bim = mul 3.0 bil
+      bin = broadcast[ sizes=(3,) ] bim
+      bio = transpose[ permutation=(1, 0) ] bin
+      bip = safe_mul bii bio
+      biq = add_any bih bip
+      bir = mul 4.0 biq
+      bis = broadcast[ sizes=(3,) ] bir
+      bit = transpose[ permutation=(1, 2, 0) ] bis
+      biu = safe_mul big bit
+      biv = add_any bif biu
+      biw = add_any bic biv
+      bix = mul biw 0.004629629629629629
+      biy = add_any bhy bix
+      biz = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bbq
+      bja = broadcast[ sizes=(3, 3) ] vs
+      bjb = transpose[ permutation=(2, 0, 1) ] bja
+      bjc = safe_mul biz bjb
+      bjd = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] vm
+      bje = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bby
+      bjf = safe_mul bjd bje
+      bjg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bbs
+      bjh = safe_mul mj bbu
+      bji = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] iw
+      bjj = pow ed 2.0
+      bjk = mul 3.0 bjj
+      bjl = safe_mul ga bjk
+      bjm = mul 4.0 bjl
+      bjn = broadcast[ sizes=(3,) ] bjm
+      bjo = transpose[ permutation=(1, 0) ] bjn
+      bjp = safe_mul bji bjo
+      bjq = add_any bjh bjp
+      bjr = mul 5.0 bjq
+      bjs = broadcast[ sizes=(3,) ] bjr
+      bjt = transpose[ permutation=(1, 2, 0) ] bjs
+      bju = safe_mul bjg bjt
+      bjv = add_any bjf bju
+      bjw = add_any bjc bjv
+      bjx = mul bjw 0.0007575757575757576
+      bjy = add_any biy bjx
+      bjz = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bcd
+      bka = broadcast[ sizes=(3, 3) ] wf
+      bkb = transpose[ permutation=(2, 0, 1) ] bka
+      bkc = safe_mul bjz bkb
+      bkd = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] vz
+      bke = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bcl
+      bkf = safe_mul bkd bke
+      bkg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bcf
+      bkh = safe_mul mw bch
+      bki = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] jc
+      bkj = pow eh 3.0
+      bkk = mul 4.0 bkj
+      bkl = safe_mul gg bkk
+      bkm = mul 5.0 bkl
+      bkn = broadcast[ sizes=(3,) ] bkm
+      bko = transpose[ permutation=(1, 0) ] bkn
+      bkp = safe_mul bki bko
+      bkq = add_any bkh bkp
+      bkr = mul 6.0 bkq
+      bks = broadcast[ sizes=(3,) ] bkr
+      bkt = transpose[ permutation=(1, 2, 0) ] bks
+      bku = safe_mul bkg bkt
+      bkv = add_any bkf bku
+      bkw = add_any bkc bkv
+      bkx = mul bkw 0.0001068376068376068
+      bky = add_any bjy bkx
+      bkz = tie_in bky 0
+      bla = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bkz
+      blb = broadcast[ sizes=(3, 3) ] bla
+      blc = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] blb
+      bld = select dn bky blc
+      ble = tie_in bky 0
+      blf = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ble
+      blg = broadcast[ sizes=(3,) ] blf
+      blh = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] blg
+      bli = tie_in blh 0
+      blj = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bli
+      blk = broadcast[ sizes=(3, 3) ] blj
+      bll = select dn blk blh
+      blm = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bll
+      bln = add_any bld blm
+      blo = tie_in bky 0
+      blp = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] blo
+      blq = broadcast[ sizes=() ] blp
+      blr = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] blq
+      bls = tie_in blr 0
+      blt = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bls
+      blu = broadcast[ sizes=(3,) ] blt
+      blv = tie_in blu 0
+      blw = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] blv
+      blx = broadcast[ sizes=(3,) ] blw
+      bly = select dn blu blx
+      blz = tie_in blr 0
+      bma = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] blz
+      bmb = broadcast[ sizes=(3,) ] bma
+      bmc = select dn bmb blr
+      bmd = add_any bly bmc
+      bme = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bmd
+      bmf = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bme
+      bmg = add_any bln bmf
+      bmh = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] baa
+      bmi = broadcast[ sizes=(3, 3) ] xg
+      bmj = transpose[ permutation=(2, 0, 1) ] bmi
+      bmk = safe_mul bmh bmj
+      bml = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] tw
+      bmm = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bdm
+      bmn = safe_mul bml bmm
+      bmo = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bdg
+      bmp = safe_mul kt bdi
+      bmq = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] ib
+      bmr = pow dm -3.5
+      bms = mul -2.5 bmr
+      bmt = safe_mul ff bms
+      bmu = mul -1.5 bmt
+      bmv = broadcast[ sizes=(3,) ] bmu
+      bmw = transpose[ permutation=(1, 0) ] bmv
+      bmx = safe_mul bmq bmw
+      bmy = add_any bmp bmx
+      bmz = mul -0.5 bmy
+      bna = broadcast[ sizes=(3,) ] bmz
+      bnb = transpose[ permutation=(1, 2, 0) ] bna
+      bnc = safe_mul bmo bnb
+      bnd = add_any bmn bnc
+      bne = add_any bmk bnd
+      bnf = mul 0.8862269254527579 bne
+      bng = mul bnf eo
+      bnh = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bdp
+      bni = broadcast[ sizes=(3, 3) ] hc
+      bnj = transpose[ permutation=(2, 0, 1) ] bni
+      bnk = mul bnh bnj
+      bnl = add_any bng bnk
+      bnm = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] xl
+      bnn = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bdt
+      bno = mul bnm bnn
+      bnp = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bdr
+      bnq = broadcast[ sizes=(3,) ] po
+      bnr = transpose[ permutation=(1, 2, 0) ] bnq
+      bns = mul bnp bnr
+      bnt = add_any bno bns
+      bnu = add_any bnl bnt
+      bnv = broadcast[ sizes=(3,) ] oi
+      bnw = transpose[ permutation=(1, 2, 0) ] bnv
+      bnx = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bdy
+      bny = mul bnw bnx
+      bnz = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bdx
+      boa = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] yr
+      bob = mul bnz boa
+      boc = add_any bny bob
+      bod = broadcast[ sizes=(3, 3) ] gu
+      boe = transpose[ permutation=(2, 0, 1) ] bod
+      bof = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bev
+      bog = mul boe bof
+      boh = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] baa
+      boi = broadcast[ sizes=(3, 3) ] yb
+      boj = transpose[ permutation=(2, 0, 1) ] boi
+      bok = safe_mul boh boj
+      bol = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] tw
+      bom = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] beh
+      bon = safe_mul bol bom
+      boo = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] beb
+      bop = neg pc
+      boq = mul bop 0.5
+      bor = div boq bee
+      bos = mul gx en
+      bot = mul en gx
+      bou = add_any bos bot
+      bov = broadcast[ sizes=(3,) ] bou
+      bow = neg bov
+      box = transpose[ permutation=(1, 0) ] bow
+      boy = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bed
+      boz = mul box boy
+      bpa = mul bee bee
+      bpb = div boz bpa
+      bpc = add_any bor bpb
+      bpd = broadcast[ sizes=(3,) ] bpc
+      bpe = transpose[ permutation=(1, 2, 0) ] bpd
+      bpf = safe_mul boo bpe
+      bpg = add_any bon bpf
+      bph = add_any bok bpg
+      bpi = mul bph sx
+      bpj = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bej
+      bpk = broadcast[ sizes=(3, 3) ] ym
+      bpl = transpose[ permutation=(2, 0, 1) ] bpk
+      bpm = mul bpj bpl
+      bpn = add_any bpi bpm
+      bpo = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] yf
+      bpp = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bes
+      bpq = mul bpo bpp
+      bpr = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bel
+      bps = mul pc en
+      bpt = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] jt
+      bpu = broadcast[ sizes=(3,) ] gx
+      bpv = transpose[ permutation=(1, 0) ] bpu
+      bpw = mul bpt bpv
+      bpx = add_any bps bpw
+      bpy = broadcast[ sizes=(3,) ] gx
+      bpz = transpose[ permutation=(1, 0) ] bpy
+      bqa = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] jt
+      bqb = mul bpz bqa
+      bqc = mul en pc
+      bqd = add_any bqb bqc
+      bqe = add_any bpx bqd
+      bqf = neg bqe
+      bqg = safe_mul bqf sx
+      bqh = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bep
+      bqi = broadcast[ sizes=(3,) ] ym
+      bqj = transpose[ permutation=(1, 0) ] bqi
+      bqk = safe_mul bqh bqj
+      bql = add_any bqg bqk
+      bqm = broadcast[ sizes=(3,) ] bql
+      bqn = transpose[ permutation=(1, 2, 0) ] bqm
+      bqo = mul bpr bqn
+      bqp = add_any bpq bqo
+      bqq = add_any bpn bqp
+      bqr = mul 1.1283791670955126 bqq
+      bqs = mul em bqr
+      bqt = add_any bog bqs
+      bqu = add_any boc bqt
+      bqv = add_any bnu bqu
+      bqw = tie_in bqv 0
+      bqx = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bqw
+      bqy = broadcast[ sizes=() ] bqx
+      bqz = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] bqy
+      bra = tie_in bqz 0
+      brb = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bra
+      brc = broadcast[ sizes=(3,) ] brb
+      brd = select dn bqz brc
+      bre = tie_in bqz 0
+      brf = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bre
+      brg = broadcast[ sizes=(3,) ] brf
+      brh = tie_in brg 0
+      bri = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] brh
+      brj = broadcast[ sizes=(3,) ] bri
+      brk = select dn brj brg
+      brl = add_any brd brk
+      brm = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] brl
+      brn = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] brm
+      bro = tie_in bqv 0
+      brp = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bro
+      brq = broadcast[ sizes=(3,) ] brp
+      brr = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] brq
+      brs = tie_in brr 0
+      brt = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] brs
+      bru = broadcast[ sizes=(3, 3) ] brt
+      brv = select dn brr bru
+      brw = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] brv
+      brx = tie_in bqv 0
+      bry = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] brx
+      brz = broadcast[ sizes=(3, 3) ] bry
+      bsa = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] brz
+      bsb = select dn bsa bqv
+      bsc = add_any brw bsb
+      bsd = add_any brn bsc
+      bse = add_any bmg bsd
+      bsf = broadcast[ sizes=(3,) ] bse
+      bsg = transpose[ permutation=(1, 2, 3, 0) ] bsf
+      bsh = mul bfw bsg
+      bsi = add_any bfs bsh
+      bsj = add_any zp bsi
+      bsk = add_any qm bsj
+      bsl = mul r bl
+      bsm = mul o bsl
+      bsn = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bsm
+      bso = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bsn
+      bsp = broadcast[ sizes=(3,) ] cv
+      bsq = transpose[ permutation=(1, 2, 0) ] bsp
+      bsr = mul bso bsq
+      bss = broadcast[ sizes=(3,) ] bsr
+      bst = transpose[ permutation=(1, 2, 3, 0) ] bss
+      bsu = mul e ba
+      bsv = mul bsu r
+      bsw = dot_general[ dimension_numbers=(((1,), (0,)), ((), ()))
+                         precision=None ] bsv dk
+      bsx = dot_general[ dimension_numbers=(((0,), (1,)), ((), ()))
+                         precision=None ] dk bsv
+      bsy = add_any bsw bsx
+      bsz = mul db bsy
+      bta = neg bsz
+      btb = mul bta 0.3333333333333333
+      btc = neg bsz
+      btd = pow dr 1.0
+      bte = mul 2.0 btd
+      btf = safe_mul btc bte
+      btg = mul btf 0.1
+      bth = add_any btb btg
+      bti = neg bsz
+      btj = pow dv 2.0
+      btk = mul 3.0 btj
+      btl = safe_mul bti btk
+      btm = mul btl 0.023809523809523808
+      btn = add_any bth btm
+      bto = neg bsz
+      btp = pow dz 3.0
+      btq = mul 4.0 btp
+      btr = safe_mul bto btq
+      bts = mul btr 0.004629629629629629
+      btt = add_any btn bts
+      btu = neg bsz
+      btv = pow ed 4.0
+      btw = mul 5.0 btv
+      btx = safe_mul btu btw
+      bty = mul btx 0.0007575757575757576
+      btz = add_any btt bty
+      bua = neg bsz
+      bub = pow eh 5.0
+      buc = mul 6.0 bub
+      bud = safe_mul bua buc
+      bue = mul bud 0.0001068376068376068
+      buf = add_any btz bue
+      bug = tie_in buf 0
+      buh = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bug
+      bui = broadcast[ sizes=() ] buh
+      buj = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] bui
+      buk = select dn buf buj
+      bul = pow dm -1.5
+      bum = mul -0.5 bul
+      bun = safe_mul bsz bum
+      buo = mul 0.8862269254527579 bun
+      bup = mul buo eo
+      buq = div 0.5 en
+      bur = safe_mul bsz buq
+      bus = mul en en
+      but = neg bus
+      buu = exp but
+      buv = mul bur buu
+      buw = mul 1.1283791670955126 buv
+      bux = mul em buw
+      buy = add_any bup bux
+      buz = tie_in buy 0
+      bva = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] buz
+      bvb = broadcast[ sizes=() ] bva
+      bvc = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] bvb
+      bvd = select dn bvc buy
+      bve = add_any buk bvd
+      bvf = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bve
+      bvg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bvf
+      bvh = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] bvg
+      bvi = mul bst bvh
+      bvj = broadcast[ sizes=(3,) ] et
+      bvk = transpose[ permutation=(1, 0) ] bvj
+      bvl = mul bsn bvk
+      bvm = broadcast[ sizes=(3,) ] bvl
+      bvn = transpose[ permutation=(1, 2, 0) ] bvm
+      bvo = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] bvn
+      bvp = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                         precision=None ] bsv fb
+      bvq = transpose[ permutation=(1, 0) ] bvp
+      bvr = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                         precision=None ] fb bsv
+      bvs = add_any bvq bvr
+      bvt = mul db bvs
+      bvu = neg bvt
+      bvv = mul bvu 0.3333333333333333
+      bvw = neg bvt
+      bvx = safe_mul bvw bte
+      bvy = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] btc
+      bvz = pow dr 0.0
+      bwa = mul 1.0 bvz
+      bwb = safe_mul fi bwa
+      bwc = mul 2.0 bwb
+      bwd = broadcast[ sizes=(3,) ] bwc
+      bwe = transpose[ permutation=(1, 0) ] bwd
+      bwf = safe_mul bvy bwe
+      bwg = add_any bvx bwf
+      bwh = mul bwg 0.1
+      bwi = add_any bvv bwh
+      bwj = neg bvt
+      bwk = safe_mul bwj btk
+      bwl = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bti
+      bwm = pow dv 1.0
+      bwn = mul 2.0 bwm
+      bwo = safe_mul fo bwn
+      bwp = mul 3.0 bwo
+      bwq = broadcast[ sizes=(3,) ] bwp
+      bwr = transpose[ permutation=(1, 0) ] bwq
+      bws = safe_mul bwl bwr
+      bwt = add_any bwk bws
+      bwu = mul bwt 0.023809523809523808
+      bwv = add_any bwi bwu
+      bww = neg bvt
+      bwx = safe_mul bww btq
+      bwy = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bto
+      bwz = pow dz 2.0
+      bxa = mul 3.0 bwz
+      bxb = safe_mul fu bxa
+      bxc = mul 4.0 bxb
+      bxd = broadcast[ sizes=(3,) ] bxc
+      bxe = transpose[ permutation=(1, 0) ] bxd
+      bxf = safe_mul bwy bxe
+      bxg = add_any bwx bxf
+      bxh = mul bxg 0.004629629629629629
+      bxi = add_any bwv bxh
+      bxj = neg bvt
+      bxk = safe_mul bxj btw
+      bxl = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] btu
+      bxm = pow ed 3.0
+      bxn = mul 4.0 bxm
+      bxo = safe_mul ga bxn
+      bxp = mul 5.0 bxo
+      bxq = broadcast[ sizes=(3,) ] bxp
+      bxr = transpose[ permutation=(1, 0) ] bxq
+      bxs = safe_mul bxl bxr
+      bxt = add_any bxk bxs
+      bxu = mul bxt 0.0007575757575757576
+      bxv = add_any bxi bxu
+      bxw = neg bvt
+      bxx = safe_mul bxw buc
+      bxy = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bua
+      bxz = pow eh 4.0
+      bya = mul 5.0 bxz
+      byb = safe_mul gg bya
+      byc = mul 6.0 byb
+      byd = broadcast[ sizes=(3,) ] byc
+      bye = transpose[ permutation=(1, 0) ] byd
+      byf = safe_mul bxy bye
+      byg = add_any bxx byf
+      byh = mul byg 0.0001068376068376068
+      byi = add_any bxv byh
+      byj = tie_in byi 0
+      byk = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] byj
+      byl = broadcast[ sizes=(3,) ] byk
+      bym = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] byl
+      byn = select dn byi bym
+      byo = tie_in byi 0
+      byp = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] byo
+      byq = broadcast[ sizes=() ] byp
+      byr = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] byq
+      bys = tie_in byr 0
+      byt = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] bys
+      byu = broadcast[ sizes=(3,) ] byt
+      byv = select dn byu byr
+      byw = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] byv
+      byx = add_any byn byw
+      byy = safe_mul bvt bum
+      byz = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bsz
+      bza = pow dm -2.5
+      bzb = mul -1.5 bza
+      bzc = safe_mul ff bzb
+      bzd = mul -0.5 bzc
+      bze = broadcast[ sizes=(3,) ] bzd
+      bzf = transpose[ permutation=(1, 0) ] bze
+      bzg = safe_mul byz bzf
+      bzh = add_any byy bzg
+      bzi = mul 0.8862269254527579 bzh
+      bzj = mul bzi eo
+      bzk = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] buo
+      bzl = broadcast[ sizes=(3,) ] hc
+      bzm = transpose[ permutation=(1, 0) ] bzl
+      bzn = mul bzk bzm
+      bzo = add_any bzj bzn
+      bzp = broadcast[ sizes=(3,) ] gu
+      bzq = transpose[ permutation=(1, 0) ] bzp
+      bzr = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] buw
+      bzs = mul bzq bzr
+      bzt = safe_mul bvt buq
+      bzu = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bsz
+      bzv = neg gx
+      bzw = mul bzv 0.5
+      bzx = mul en en
+      bzy = div bzw bzx
+      bzz = broadcast[ sizes=(3,) ] bzy
+      caa = transpose[ permutation=(1, 0) ] bzz
+      cab = safe_mul bzu caa
+      cac = add_any bzt cab
+      cad = mul cac buu
+      cae = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bur
+      caf = mul gx en
+      cag = mul en gx
+      cah = add_any caf cag
+      cai = neg cah
+      caj = safe_mul cai buu
+      cak = broadcast[ sizes=(3,) ] caj
+      cal = transpose[ permutation=(1, 0) ] cak
+      cam = mul cae cal
+      can = add_any cad cam
+      cao = mul 1.1283791670955126 can
+      cap = mul em cao
+      caq = add_any bzs cap
+      car = add_any bzo caq
+      cas = tie_in car 0
+      cat = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cas
+      cau = broadcast[ sizes=() ] cat
+      cav = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] cau
+      caw = tie_in cav 0
+      cax = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] caw
+      cay = broadcast[ sizes=(3,) ] cax
+      caz = select dn cav cay
+      cba = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] caz
+      cbb = tie_in car 0
+      cbc = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cbb
+      cbd = broadcast[ sizes=(3,) ] cbc
+      cbe = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cbd
+      cbf = select dn cbe car
+      cbg = add_any cba cbf
+      cbh = add_any byx cbg
+      cbi = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cbh
+      cbj = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] cbi
+      cbk = mul bvo cbj
+      cbl = add_any bvi cbk
+      cbm = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bsm
+      cbn = broadcast[ sizes=(3,) ] hq
+      cbo = transpose[ permutation=(1, 0) ] cbn
+      cbp = mul cbm cbo
+      cbq = broadcast[ sizes=(3,) ] cbp
+      cbr = transpose[ permutation=(1, 2, 0) ] cbq
+      cbs = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] cbr
+      cbt = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                         precision=None ] bsv hx
+      cbu = transpose[ permutation=(1, 0) ] cbt
+      cbv = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                         precision=None ] hx bsv
+      cbw = add_any cbu cbv
+      cbx = mul db cbw
+      cby = neg cbx
+      cbz = mul cby 0.3333333333333333
+      cca = neg cbx
+      ccb = safe_mul cca bte
+      ccc = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] btc
+      ccd = pow dr 0.0
+      cce = mul 1.0 ccd
+      ccf = safe_mul ie cce
+      ccg = mul 2.0 ccf
+      cch = broadcast[ sizes=(3,) ] ccg
+      cci = transpose[ permutation=(1, 0) ] cch
+      ccj = safe_mul ccc cci
+      cck = add_any ccb ccj
+      ccl = mul cck 0.1
+      ccm = add_any cbz ccl
+      ccn = neg cbx
+      cco = safe_mul ccn btk
+      ccp = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bti
+      ccq = pow dv 1.0
+      ccr = mul 2.0 ccq
+      ccs = safe_mul ik ccr
+      cct = mul 3.0 ccs
+      ccu = broadcast[ sizes=(3,) ] cct
+      ccv = transpose[ permutation=(1, 0) ] ccu
+      ccw = safe_mul ccp ccv
+      ccx = add_any cco ccw
+      ccy = mul ccx 0.023809523809523808
+      ccz = add_any ccm ccy
+      cda = neg cbx
+      cdb = safe_mul cda btq
+      cdc = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bto
+      cdd = pow dz 2.0
+      cde = mul 3.0 cdd
+      cdf = safe_mul iq cde
+      cdg = mul 4.0 cdf
+      cdh = broadcast[ sizes=(3,) ] cdg
+      cdi = transpose[ permutation=(1, 0) ] cdh
+      cdj = safe_mul cdc cdi
+      cdk = add_any cdb cdj
+      cdl = mul cdk 0.004629629629629629
+      cdm = add_any ccz cdl
+      cdn = neg cbx
+      cdo = safe_mul cdn btw
+      cdp = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] btu
+      cdq = pow ed 3.0
+      cdr = mul 4.0 cdq
+      cds = safe_mul iw cdr
+      cdt = mul 5.0 cds
+      cdu = broadcast[ sizes=(3,) ] cdt
+      cdv = transpose[ permutation=(1, 0) ] cdu
+      cdw = safe_mul cdp cdv
+      cdx = add_any cdo cdw
+      cdy = mul cdx 0.0007575757575757576
+      cdz = add_any cdm cdy
+      cea = neg cbx
+      ceb = safe_mul cea buc
+      cec = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bua
+      ced = pow eh 4.0
+      cee = mul 5.0 ced
+      cef = safe_mul jc cee
+      ceg = mul 6.0 cef
+      ceh = broadcast[ sizes=(3,) ] ceg
+      cei = transpose[ permutation=(1, 0) ] ceh
+      cej = safe_mul cec cei
+      cek = add_any ceb cej
+      cel = mul cek 0.0001068376068376068
+      cem = add_any cdz cel
+      cen = tie_in cem 0
+      ceo = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cen
+      cep = broadcast[ sizes=(3,) ] ceo
+      ceq = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cep
+      cer = select dn cem ceq
+      ces = tie_in cem 0
+      cet = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ces
+      ceu = broadcast[ sizes=() ] cet
+      cev = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] ceu
+      cew = tie_in cev 0
+      cex = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cew
+      cey = broadcast[ sizes=(3,) ] cex
+      cez = select dn cey cev
+      cfa = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cez
+      cfb = add_any cer cfa
+      cfc = safe_mul cbx bum
+      cfd = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bsz
+      cfe = pow dm -2.5
+      cff = mul -1.5 cfe
+      cfg = safe_mul ib cff
+      cfh = mul -0.5 cfg
+      cfi = broadcast[ sizes=(3,) ] cfh
+      cfj = transpose[ permutation=(1, 0) ] cfi
+      cfk = safe_mul cfd cfj
+      cfl = add_any cfc cfk
+      cfm = mul 0.8862269254527579 cfl
+      cfn = mul cfm eo
+      cfo = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] buo
+      cfp = broadcast[ sizes=(3,) ] jy
+      cfq = transpose[ permutation=(1, 0) ] cfp
+      cfr = mul cfo cfq
+      cfs = add_any cfn cfr
+      cft = broadcast[ sizes=(3,) ] jq
+      cfu = transpose[ permutation=(1, 0) ] cft
+      cfv = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] buw
+      cfw = mul cfu cfv
+      cfx = safe_mul cbx buq
+      cfy = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bsz
+      cfz = neg jt
+      cga = mul cfz 0.5
+      cgb = mul en en
+      cgc = div cga cgb
+      cgd = broadcast[ sizes=(3,) ] cgc
+      cge = transpose[ permutation=(1, 0) ] cgd
+      cgf = safe_mul cfy cge
+      cgg = add_any cfx cgf
+      cgh = mul cgg buu
+      cgi = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bur
+      cgj = mul jt en
+      cgk = mul en jt
+      cgl = add_any cgj cgk
+      cgm = neg cgl
+      cgn = safe_mul cgm buu
+      cgo = broadcast[ sizes=(3,) ] cgn
+      cgp = transpose[ permutation=(1, 0) ] cgo
+      cgq = mul cgi cgp
+      cgr = add_any cgh cgq
+      cgs = mul 1.1283791670955126 cgr
+      cgt = mul em cgs
+      cgu = add_any cfw cgt
+      cgv = add_any cfs cgu
+      cgw = tie_in cgv 0
+      cgx = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cgw
+      cgy = broadcast[ sizes=() ] cgx
+      cgz = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] cgy
+      cha = tie_in cgz 0
+      chb = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cha
+      chc = broadcast[ sizes=(3,) ] chb
+      chd = select dn cgz chc
+      che = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] chd
+      chf = tie_in cgv 0
+      chg = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] chf
+      chh = broadcast[ sizes=(3,) ] chg
+      chi = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] chh
+      chj = select dn chi cgv
+      chk = add_any che chj
+      chl = add_any cfb chk
+      chm = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] chl
+      chn = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] chm
+      cho = mul cbs chn
+      chp = mul bsm kl
+      chq = broadcast[ sizes=(3,) ] chp
+      chr = transpose[ permutation=(1, 0) ] chq
+      chs = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] chr
+      cht = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] chs
+      chu = zeros_like cbz
+      chv = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] chu
+      chw = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cca
+      chx = broadcast[ sizes=(3, 3) ] bwc
+      chy = transpose[ permutation=(2, 0, 1) ] chx
+      chz = safe_mul chw chy
+      cia = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bvw
+      cib = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cci
+      cic = safe_mul cia cib
+      cid = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] ccc
+      cie = safe_mul kw cce
+      cif = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] ie
+      cig = pow dr 1.0
+      cih = mul 0.0 cig
+      cii = safe_mul fi cih
+      cij = mul 1.0 cii
+      cik = broadcast[ sizes=(3,) ] cij
+      cil = transpose[ permutation=(1, 0) ] cik
+      cim = safe_mul cif cil
+      cin = add_any cie cim
+      cio = mul 2.0 cin
+      cip = broadcast[ sizes=(3,) ] cio
+      ciq = transpose[ permutation=(1, 2, 0) ] cip
+      cir = safe_mul cid ciq
+      cis = add_any cic cir
+      cit = add_any chz cis
+      ciu = mul cit 0.1
+      civ = add_any chv ciu
+      ciw = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] ccn
+      cix = broadcast[ sizes=(3, 3) ] bwp
+      ciy = transpose[ permutation=(2, 0, 1) ] cix
+      ciz = safe_mul ciw ciy
+      cja = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bwj
+      cjb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] ccv
+      cjc = safe_mul cja cjb
+      cjd = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] ccp
+      cje = safe_mul lj ccr
+      cjf = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] ik
+      cjg = pow dv 0.0
+      cjh = mul 1.0 cjg
+      cji = safe_mul fo cjh
+      cjj = mul 2.0 cji
+      cjk = broadcast[ sizes=(3,) ] cjj
+      cjl = transpose[ permutation=(1, 0) ] cjk
+      cjm = safe_mul cjf cjl
+      cjn = add_any cje cjm
+      cjo = mul 3.0 cjn
+      cjp = broadcast[ sizes=(3,) ] cjo
+      cjq = transpose[ permutation=(1, 2, 0) ] cjp
+      cjr = safe_mul cjd cjq
+      cjs = add_any cjc cjr
+      cjt = add_any ciz cjs
+      cju = mul cjt 0.023809523809523808
+      cjv = add_any civ cju
+      cjw = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cda
+      cjx = broadcast[ sizes=(3, 3) ] bxc
+      cjy = transpose[ permutation=(2, 0, 1) ] cjx
+      cjz = safe_mul cjw cjy
+      cka = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bww
+      ckb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cdi
+      ckc = safe_mul cka ckb
+      ckd = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cdc
+      cke = safe_mul lw cde
+      ckf = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] iq
+      ckg = pow dz 1.0
+      ckh = mul 2.0 ckg
+      cki = safe_mul fu ckh
+      ckj = mul 3.0 cki
+      ckk = broadcast[ sizes=(3,) ] ckj
+      ckl = transpose[ permutation=(1, 0) ] ckk
+      ckm = safe_mul ckf ckl
+      ckn = add_any cke ckm
+      cko = mul 4.0 ckn
+      ckp = broadcast[ sizes=(3,) ] cko
+      ckq = transpose[ permutation=(1, 2, 0) ] ckp
+      ckr = safe_mul ckd ckq
+      cks = add_any ckc ckr
+      ckt = add_any cjz cks
+      cku = mul ckt 0.004629629629629629
+      ckv = add_any cjv cku
+      ckw = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cdn
+      ckx = broadcast[ sizes=(3, 3) ] bxp
+      cky = transpose[ permutation=(2, 0, 1) ] ckx
+      ckz = safe_mul ckw cky
+      cla = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bxj
+      clb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cdv
+      clc = safe_mul cla clb
+      cld = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cdp
+      cle = safe_mul mj cdr
+      clf = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] iw
+      clg = pow ed 2.0
+      clh = mul 3.0 clg
+      cli = safe_mul ga clh
+      clj = mul 4.0 cli
+      clk = broadcast[ sizes=(3,) ] clj
+      cll = transpose[ permutation=(1, 0) ] clk
+      clm = safe_mul clf cll
+      cln = add_any cle clm
+      clo = mul 5.0 cln
+      clp = broadcast[ sizes=(3,) ] clo
+      clq = transpose[ permutation=(1, 2, 0) ] clp
+      clr = safe_mul cld clq
+      cls = add_any clc clr
+      clt = add_any ckz cls
+      clu = mul clt 0.0007575757575757576
+      clv = add_any ckv clu
+      clw = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cea
+      clx = broadcast[ sizes=(3, 3) ] byc
+      cly = transpose[ permutation=(2, 0, 1) ] clx
+      clz = safe_mul clw cly
+      cma = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bxw
+      cmb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cei
+      cmc = safe_mul cma cmb
+      cmd = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cec
+      cme = safe_mul mw cee
+      cmf = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] jc
+      cmg = pow eh 3.0
+      cmh = mul 4.0 cmg
+      cmi = safe_mul gg cmh
+      cmj = mul 5.0 cmi
+      cmk = broadcast[ sizes=(3,) ] cmj
+      cml = transpose[ permutation=(1, 0) ] cmk
+      cmm = safe_mul cmf cml
+      cmn = add_any cme cmm
+      cmo = mul 6.0 cmn
+      cmp = broadcast[ sizes=(3,) ] cmo
+      cmq = transpose[ permutation=(1, 2, 0) ] cmp
+      cmr = safe_mul cmd cmq
+      cms = add_any cmc cmr
+      cmt = add_any clz cms
+      cmu = mul cmt 0.0001068376068376068
+      cmv = add_any clv cmu
+      cmw = tie_in cmv 0
+      cmx = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cmw
+      cmy = broadcast[ sizes=(3, 3) ] cmx
+      cmz = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cmy
+      cna = select dn cmv cmz
+      cnb = tie_in cmv 0
+      cnc = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cnb
+      cnd = broadcast[ sizes=(3,) ] cnc
+      cne = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cnd
+      cnf = tie_in cne 0
+      cng = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cnf
+      cnh = broadcast[ sizes=(3, 3) ] cng
+      cni = select dn cnh cne
+      cnj = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cni
+      cnk = add_any cna cnj
+      cnl = tie_in cmv 0
+      cnm = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cnl
+      cnn = broadcast[ sizes=() ] cnm
+      cno = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] cnn
+      cnp = tie_in cno 0
+      cnq = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cnp
+      cnr = broadcast[ sizes=(3,) ] cnq
+      cns = tie_in cnr 0
+      cnt = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cns
+      cnu = broadcast[ sizes=(3,) ] cnt
+      cnv = select dn cnr cnu
+      cnw = tie_in cno 0
+      cnx = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cnw
+      cny = broadcast[ sizes=(3,) ] cnx
+      cnz = select dn cny cno
+      coa = add_any cnv cnz
+      cob = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] coa
+      coc = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cob
+      cod = add_any cnk coc
+      coe = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cbx
+      cof = broadcast[ sizes=(3, 3) ] bzd
+      cog = transpose[ permutation=(2, 0, 1) ] cof
+      coh = safe_mul coe cog
+      coi = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bvt
+      coj = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cfj
+      cok = safe_mul coi coj
+      col = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cfd
+      com = safe_mul kt cff
+      con = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] ib
+      coo = pow dm -3.5
+      cop = mul -2.5 coo
+      coq = safe_mul ff cop
+      cor = mul -1.5 coq
+      cos = broadcast[ sizes=(3,) ] cor
+      cot = transpose[ permutation=(1, 0) ] cos
+      cou = safe_mul con cot
+      cov = add_any com cou
+      cow = mul -0.5 cov
+      cox = broadcast[ sizes=(3,) ] cow
+      coy = transpose[ permutation=(1, 2, 0) ] cox
+      coz = safe_mul col coy
+      cpa = add_any cok coz
+      cpb = add_any coh cpa
+      cpc = mul 0.8862269254527579 cpb
+      cpd = mul cpc eo
+      cpe = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cfm
+      cpf = broadcast[ sizes=(3, 3) ] hc
+      cpg = transpose[ permutation=(2, 0, 1) ] cpf
+      cph = mul cpe cpg
+      cpi = add_any cpd cph
+      cpj = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bzi
+      cpk = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cfq
+      cpl = mul cpj cpk
+      cpm = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cfo
+      cpn = broadcast[ sizes=(3,) ] po
+      cpo = transpose[ permutation=(1, 2, 0) ] cpn
+      cpp = mul cpm cpo
+      cpq = add_any cpl cpp
+      cpr = add_any cpi cpq
+      cps = broadcast[ sizes=(3,) ] oi
+      cpt = transpose[ permutation=(1, 2, 0) ] cps
+      cpu = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cfv
+      cpv = mul cpt cpu
+      cpw = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cfu
+      cpx = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cao
+      cpy = mul cpw cpx
+      cpz = add_any cpv cpy
+      cqa = broadcast[ sizes=(3, 3) ] gu
+      cqb = transpose[ permutation=(2, 0, 1) ] cqa
+      cqc = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cgs
+      cqd = mul cqb cqc
+      cqe = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cbx
+      cqf = broadcast[ sizes=(3, 3) ] bzy
+      cqg = transpose[ permutation=(2, 0, 1) ] cqf
+      cqh = safe_mul cqe cqg
+      cqi = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bvt
+      cqj = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cge
+      cqk = safe_mul cqi cqj
+      cql = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cfy
+      cqm = neg pc
+      cqn = mul cqm 0.5
+      cqo = div cqn cgb
+      cqp = mul gx en
+      cqq = mul en gx
+      cqr = add_any cqp cqq
+      cqs = broadcast[ sizes=(3,) ] cqr
+      cqt = neg cqs
+      cqu = transpose[ permutation=(1, 0) ] cqt
+      cqv = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cga
+      cqw = mul cqu cqv
+      cqx = mul cgb cgb
+      cqy = div cqw cqx
+      cqz = add_any cqo cqy
+      cra = broadcast[ sizes=(3,) ] cqz
+      crb = transpose[ permutation=(1, 2, 0) ] cra
+      crc = safe_mul cql crb
+      crd = add_any cqk crc
+      cre = add_any cqh crd
+      crf = mul cre buu
+      crg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cgg
+      crh = broadcast[ sizes=(3, 3) ] caj
+      cri = transpose[ permutation=(2, 0, 1) ] crh
+      crj = mul crg cri
+      crk = add_any crf crj
+      crl = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cac
+      crm = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cgp
+      crn = mul crl crm
+      cro = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cgi
+      crp = mul pc en
+      crq = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] jt
+      crr = broadcast[ sizes=(3,) ] gx
+      crs = transpose[ permutation=(1, 0) ] crr
+      crt = mul crq crs
+      cru = add_any crp crt
+      crv = broadcast[ sizes=(3,) ] gx
+      crw = transpose[ permutation=(1, 0) ] crv
+      crx = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] jt
+      cry = mul crw crx
+      crz = mul en pc
+      csa = add_any cry crz
+      csb = add_any cru csa
+      csc = neg csb
+      csd = safe_mul csc buu
+      cse = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cgm
+      csf = broadcast[ sizes=(3,) ] caj
+      csg = transpose[ permutation=(1, 0) ] csf
+      csh = safe_mul cse csg
+      csi = add_any csd csh
+      csj = broadcast[ sizes=(3,) ] csi
+      csk = transpose[ permutation=(1, 2, 0) ] csj
+      csl = mul cro csk
+      csm = add_any crn csl
+      csn = add_any crk csm
+      cso = mul 1.1283791670955126 csn
+      csp = mul em cso
+      csq = add_any cqd csp
+      csr = add_any cpz csq
+      css = add_any cpr csr
+      cst = tie_in css 0
+      csu = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cst
+      csv = broadcast[ sizes=() ] csu
+      csw = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] csv
+      csx = tie_in csw 0
+      csy = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] csx
+      csz = broadcast[ sizes=(3,) ] csy
+      cta = select dn csw csz
+      ctb = tie_in csw 0
+      ctc = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ctb
+      ctd = broadcast[ sizes=(3,) ] ctc
+      cte = tie_in ctd 0
+      ctf = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cte
+      ctg = broadcast[ sizes=(3,) ] ctf
+      cth = select dn ctg ctd
+      cti = add_any cta cth
+      ctj = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cti
+      ctk = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] ctj
+      ctl = tie_in css 0
+      ctm = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ctl
+      ctn = broadcast[ sizes=(3,) ] ctm
+      cto = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] ctn
+      ctp = tie_in cto 0
+      ctq = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ctp
+      ctr = broadcast[ sizes=(3, 3) ] ctq
+      cts = select dn cto ctr
+      ctt = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cts
+      ctu = tie_in css 0
+      ctv = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ctu
+      ctw = broadcast[ sizes=(3, 3) ] ctv
+      ctx = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] ctw
+      cty = select dn ctx css
+      ctz = add_any ctt cty
+      cua = add_any ctk ctz
+      cub = add_any cod cua
+      cuc = broadcast_in_dim[ broadcast_dimensions=(0, 1, 3)
+                              shape=(3, 3, 3, 3) ] cub
+      cud = mul cht cuc
+      cue = add_any cho cud
+      cuf = add_any cbl cue
+      cug = mul r y
+      cuh = mul o cug
+      cui = mul cuh cv
+      cuj = broadcast[ sizes=(3, 3) ] cui
+      cuk = transpose[ permutation=(2, 3, 0, 1) ] cuj
+      cul = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                         precision=None ] bsv qy
+      cum = transpose[ permutation=(1, 0) ] cul
+      cun = dot_general[ dimension_numbers=(((1,), (1,)), ((), ()))
+                         precision=None ] qy bsv
+      cuo = add_any cum cun
+      cup = mul db cuo
+      cuq = neg cup
+      cur = mul cuq 0.3333333333333333
+      cus = neg cup
+      cut = safe_mul cus bte
+      cuu = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] btc
+      cuv = pow dr 0.0
+      cuw = mul 1.0 cuv
+      cux = safe_mul rf cuw
+      cuy = mul 2.0 cux
+      cuz = broadcast[ sizes=(3,) ] cuy
+      cva = transpose[ permutation=(1, 0) ] cuz
+      cvb = safe_mul cuu cva
+      cvc = add_any cut cvb
+      cvd = mul cvc 0.1
+      cve = add_any cur cvd
+      cvf = neg cup
+      cvg = safe_mul cvf btk
+      cvh = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bti
+      cvi = pow dv 1.0
+      cvj = mul 2.0 cvi
+      cvk = safe_mul rl cvj
+      cvl = mul 3.0 cvk
+      cvm = broadcast[ sizes=(3,) ] cvl
+      cvn = transpose[ permutation=(1, 0) ] cvm
+      cvo = safe_mul cvh cvn
+      cvp = add_any cvg cvo
+      cvq = mul cvp 0.023809523809523808
+      cvr = add_any cve cvq
+      cvs = neg cup
+      cvt = safe_mul cvs btq
+      cvu = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bto
+      cvv = pow dz 2.0
+      cvw = mul 3.0 cvv
+      cvx = safe_mul rr cvw
+      cvy = mul 4.0 cvx
+      cvz = broadcast[ sizes=(3,) ] cvy
+      cwa = transpose[ permutation=(1, 0) ] cvz
+      cwb = safe_mul cvu cwa
+      cwc = add_any cvt cwb
+      cwd = mul cwc 0.004629629629629629
+      cwe = add_any cvr cwd
+      cwf = neg cup
+      cwg = safe_mul cwf btw
+      cwh = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] btu
+      cwi = pow ed 3.0
+      cwj = mul 4.0 cwi
+      cwk = safe_mul rx cwj
+      cwl = mul 5.0 cwk
+      cwm = broadcast[ sizes=(3,) ] cwl
+      cwn = transpose[ permutation=(1, 0) ] cwm
+      cwo = safe_mul cwh cwn
+      cwp = add_any cwg cwo
+      cwq = mul cwp 0.0007575757575757576
+      cwr = add_any cwe cwq
+      cws = neg cup
+      cwt = safe_mul cws buc
+      cwu = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bua
+      cwv = pow eh 4.0
+      cww = mul 5.0 cwv
+      cwx = safe_mul sd cww
+      cwy = mul 6.0 cwx
+      cwz = broadcast[ sizes=(3,) ] cwy
+      cxa = transpose[ permutation=(1, 0) ] cwz
+      cxb = safe_mul cwu cxa
+      cxc = add_any cwt cxb
+      cxd = mul cxc 0.0001068376068376068
+      cxe = add_any cwr cxd
+      cxf = tie_in cxe 0
+      cxg = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cxf
+      cxh = broadcast[ sizes=(3,) ] cxg
+      cxi = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cxh
+      cxj = select dn cxe cxi
+      cxk = tie_in cxe 0
+      cxl = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cxk
+      cxm = broadcast[ sizes=() ] cxl
+      cxn = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] cxm
+      cxo = tie_in cxn 0
+      cxp = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] cxo
+      cxq = broadcast[ sizes=(3,) ] cxp
+      cxr = select dn cxq cxn
+      cxs = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cxr
+      cxt = add_any cxj cxs
+      cxu = safe_mul cup bum
+      cxv = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bsz
+      cxw = pow dm -2.5
+      cxx = mul -1.5 cxw
+      cxy = safe_mul rc cxx
+      cxz = mul -0.5 cxy
+      cya = broadcast[ sizes=(3,) ] cxz
+      cyb = transpose[ permutation=(1, 0) ] cya
+      cyc = safe_mul cxv cyb
+      cyd = add_any cxu cyc
+      cye = mul 0.8862269254527579 cyd
+      cyf = mul cye eo
+      cyg = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] buo
+      cyh = broadcast[ sizes=(3,) ] sz
+      cyi = transpose[ permutation=(1, 0) ] cyh
+      cyj = mul cyg cyi
+      cyk = add_any cyf cyj
+      cyl = broadcast[ sizes=(3,) ] sr
+      cym = transpose[ permutation=(1, 0) ] cyl
+      cyn = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] buw
+      cyo = mul cym cyn
+      cyp = safe_mul cup buq
+      cyq = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bsz
+      cyr = neg su
+      cys = mul cyr 0.5
+      cyt = mul en en
+      cyu = div cys cyt
+      cyv = broadcast[ sizes=(3,) ] cyu
+      cyw = transpose[ permutation=(1, 0) ] cyv
+      cyx = safe_mul cyq cyw
+      cyy = add_any cyp cyx
+      cyz = mul cyy buu
+      cza = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] bur
+      czb = mul su en
+      czc = mul en su
+      czd = add_any czb czc
+      cze = neg czd
+      czf = safe_mul cze buu
+      czg = broadcast[ sizes=(3,) ] czf
+      czh = transpose[ permutation=(1, 0) ] czg
+      czi = mul cza czh
+      czj = add_any cyz czi
+      czk = mul 1.1283791670955126 czj
+      czl = mul em czk
+      czm = add_any cyo czl
+      czn = add_any cyk czm
+      czo = tie_in czn 0
+      czp = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] czo
+      czq = broadcast[ sizes=() ] czp
+      czr = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] czq
+      czs = tie_in czr 0
+      czt = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] czs
+      czu = broadcast[ sizes=(3,) ] czt
+      czv = select dn czr czu
+      czw = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] czv
+      czx = tie_in czn 0
+      czy = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] czx
+      czz = broadcast[ sizes=(3,) ] czy
+      daa = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] czz
+      dab = select dn daa czn
+      dac = add_any czw dab
+      dad = add_any cxt dac
+      dae = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dad
+      daf = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dae
+      dag = mul cuk daf
+      dah = mul cuh et
+      dai = broadcast[ sizes=(3, 3) ] dah
+      daj = transpose[ permutation=(2, 0, 1) ] dai
+      dak = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] daj
+      dal = zeros_like cur
+      dam = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dal
+      dan = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cus
+      dao = broadcast[ sizes=(3, 3) ] bwc
+      dap = transpose[ permutation=(2, 0, 1) ] dao
+      daq = safe_mul dan dap
+      dar = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bvw
+      das = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cva
+      dat = safe_mul dar das
+      dau = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cuu
+      dav = safe_mul tz cuw
+      daw = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rf
+      dax = pow dr 1.0
+      day = mul 0.0 dax
+      daz = safe_mul fi day
+      dba = mul 1.0 daz
+      dbb = broadcast[ sizes=(3,) ] dba
+      dbc = transpose[ permutation=(1, 0) ] dbb
+      dbd = safe_mul daw dbc
+      dbe = add_any dav dbd
+      dbf = mul 2.0 dbe
+      dbg = broadcast[ sizes=(3,) ] dbf
+      dbh = transpose[ permutation=(1, 2, 0) ] dbg
+      dbi = safe_mul dau dbh
+      dbj = add_any dat dbi
+      dbk = add_any daq dbj
+      dbl = mul dbk 0.1
+      dbm = add_any dam dbl
+      dbn = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cvf
+      dbo = broadcast[ sizes=(3, 3) ] bwp
+      dbp = transpose[ permutation=(2, 0, 1) ] dbo
+      dbq = safe_mul dbn dbp
+      dbr = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bwj
+      dbs = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cvn
+      dbt = safe_mul dbr dbs
+      dbu = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cvh
+      dbv = safe_mul um cvj
+      dbw = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rl
+      dbx = pow dv 0.0
+      dby = mul 1.0 dbx
+      dbz = safe_mul fo dby
+      dca = mul 2.0 dbz
+      dcb = broadcast[ sizes=(3,) ] dca
+      dcc = transpose[ permutation=(1, 0) ] dcb
+      dcd = safe_mul dbw dcc
+      dce = add_any dbv dcd
+      dcf = mul 3.0 dce
+      dcg = broadcast[ sizes=(3,) ] dcf
+      dch = transpose[ permutation=(1, 2, 0) ] dcg
+      dci = safe_mul dbu dch
+      dcj = add_any dbt dci
+      dck = add_any dbq dcj
+      dcl = mul dck 0.023809523809523808
+      dcm = add_any dbm dcl
+      dcn = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cvs
+      dco = broadcast[ sizes=(3, 3) ] bxc
+      dcp = transpose[ permutation=(2, 0, 1) ] dco
+      dcq = safe_mul dcn dcp
+      dcr = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bww
+      dcs = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cwa
+      dct = safe_mul dcr dcs
+      dcu = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cvu
+      dcv = safe_mul uz cvw
+      dcw = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rr
+      dcx = pow dz 1.0
+      dcy = mul 2.0 dcx
+      dcz = safe_mul fu dcy
+      dda = mul 3.0 dcz
+      ddb = broadcast[ sizes=(3,) ] dda
+      ddc = transpose[ permutation=(1, 0) ] ddb
+      ddd = safe_mul dcw ddc
+      dde = add_any dcv ddd
+      ddf = mul 4.0 dde
+      ddg = broadcast[ sizes=(3,) ] ddf
+      ddh = transpose[ permutation=(1, 2, 0) ] ddg
+      ddi = safe_mul dcu ddh
+      ddj = add_any dct ddi
+      ddk = add_any dcq ddj
+      ddl = mul ddk 0.004629629629629629
+      ddm = add_any dcm ddl
+      ddn = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cwf
+      ddo = broadcast[ sizes=(3, 3) ] bxp
+      ddp = transpose[ permutation=(2, 0, 1) ] ddo
+      ddq = safe_mul ddn ddp
+      ddr = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bxj
+      dds = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cwn
+      ddt = safe_mul ddr dds
+      ddu = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cwh
+      ddv = safe_mul vm cwj
+      ddw = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rx
+      ddx = pow ed 2.0
+      ddy = mul 3.0 ddx
+      ddz = safe_mul ga ddy
+      dea = mul 4.0 ddz
+      deb = broadcast[ sizes=(3,) ] dea
+      dec = transpose[ permutation=(1, 0) ] deb
+      ded = safe_mul ddw dec
+      dee = add_any ddv ded
+      def = mul 5.0 dee
+      deg = broadcast[ sizes=(3,) ] def
+      deh = transpose[ permutation=(1, 2, 0) ] deg
+      dei = safe_mul ddu deh
+      dej = add_any ddt dei
+      dek = add_any ddq dej
+      del = mul dek 0.0007575757575757576
+      dem = add_any ddm del
+      den = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cws
+      deo = broadcast[ sizes=(3, 3) ] byc
+      dep = transpose[ permutation=(2, 0, 1) ] deo
+      deq = safe_mul den dep
+      der = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bxw
+      des = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cxa
+      det = safe_mul der des
+      deu = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cwu
+      dev = safe_mul vz cww
+      dew = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] sd
+      dex = pow eh 3.0
+      dey = mul 4.0 dex
+      dez = safe_mul gg dey
+      dfa = mul 5.0 dez
+      dfb = broadcast[ sizes=(3,) ] dfa
+      dfc = transpose[ permutation=(1, 0) ] dfb
+      dfd = safe_mul dew dfc
+      dfe = add_any dev dfd
+      dff = mul 6.0 dfe
+      dfg = broadcast[ sizes=(3,) ] dff
+      dfh = transpose[ permutation=(1, 2, 0) ] dfg
+      dfi = safe_mul deu dfh
+      dfj = add_any det dfi
+      dfk = add_any deq dfj
+      dfl = mul dfk 0.0001068376068376068
+      dfm = add_any dem dfl
+      dfn = tie_in dfm 0
+      dfo = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dfn
+      dfp = broadcast[ sizes=(3, 3) ] dfo
+      dfq = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dfp
+      dfr = select dn dfm dfq
+      dfs = tie_in dfm 0
+      dft = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dfs
+      dfu = broadcast[ sizes=(3,) ] dft
+      dfv = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] dfu
+      dfw = tie_in dfv 0
+      dfx = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dfw
+      dfy = broadcast[ sizes=(3, 3) ] dfx
+      dfz = select dn dfy dfv
+      dga = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dfz
+      dgb = add_any dfr dga
+      dgc = tie_in dfm 0
+      dgd = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dgc
+      dge = broadcast[ sizes=() ] dgd
+      dgf = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] dge
+      dgg = tie_in dgf 0
+      dgh = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dgg
+      dgi = broadcast[ sizes=(3,) ] dgh
+      dgj = tie_in dgi 0
+      dgk = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dgj
+      dgl = broadcast[ sizes=(3,) ] dgk
+      dgm = select dn dgi dgl
+      dgn = tie_in dgf 0
+      dgo = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dgn
+      dgp = broadcast[ sizes=(3,) ] dgo
+      dgq = select dn dgp dgf
+      dgr = add_any dgm dgq
+      dgs = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] dgr
+      dgt = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dgs
+      dgu = add_any dgb dgt
+      dgv = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cup
+      dgw = broadcast[ sizes=(3, 3) ] bzd
+      dgx = transpose[ permutation=(2, 0, 1) ] dgw
+      dgy = safe_mul dgv dgx
+      dgz = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bvt
+      dha = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyb
+      dhb = safe_mul dgz dha
+      dhc = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cxv
+      dhd = safe_mul tw cxx
+      dhe = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rc
+      dhf = pow dm -3.5
+      dhg = mul -2.5 dhf
+      dhh = safe_mul ff dhg
+      dhi = mul -1.5 dhh
+      dhj = broadcast[ sizes=(3,) ] dhi
+      dhk = transpose[ permutation=(1, 0) ] dhj
+      dhl = safe_mul dhe dhk
+      dhm = add_any dhd dhl
+      dhn = mul -0.5 dhm
+      dho = broadcast[ sizes=(3,) ] dhn
+      dhp = transpose[ permutation=(1, 2, 0) ] dho
+      dhq = safe_mul dhc dhp
+      dhr = add_any dhb dhq
+      dhs = add_any dgy dhr
+      dht = mul 0.8862269254527579 dhs
+      dhu = mul dht eo
+      dhv = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cye
+      dhw = broadcast[ sizes=(3, 3) ] hc
+      dhx = transpose[ permutation=(2, 0, 1) ] dhw
+      dhy = mul dhv dhx
+      dhz = add_any dhu dhy
+      dia = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bzi
+      dib = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyi
+      dic = mul dia dib
+      did = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyg
+      die = broadcast[ sizes=(3,) ] yr
+      dif = transpose[ permutation=(1, 2, 0) ] die
+      dig = mul did dif
+      dih = add_any dic dig
+      dii = add_any dhz dih
+      dij = broadcast[ sizes=(3,) ] xl
+      dik = transpose[ permutation=(1, 2, 0) ] dij
+      dil = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyn
+      dim = mul dik dil
+      din = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cym
+      dio = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cao
+      dip = mul din dio
+      diq = add_any dim dip
+      dir = broadcast[ sizes=(3, 3) ] gu
+      dis = transpose[ permutation=(2, 0, 1) ] dir
+      dit = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] czk
+      diu = mul dis dit
+      div = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cup
+      diw = broadcast[ sizes=(3, 3) ] bzy
+      dix = transpose[ permutation=(2, 0, 1) ] diw
+      diy = safe_mul div dix
+      diz = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] bvt
+      dja = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyw
+      djb = safe_mul diz dja
+      djc = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyq
+      djd = neg yf
+      dje = mul djd 0.5
+      djf = div dje cyt
+      djg = mul gx en
+      djh = mul en gx
+      dji = add_any djg djh
+      djj = broadcast[ sizes=(3,) ] dji
+      djk = neg djj
+      djl = transpose[ permutation=(1, 0) ] djk
+      djm = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cys
+      djn = mul djl djm
+      djo = mul cyt cyt
+      djp = div djn djo
+      djq = add_any djf djp
+      djr = broadcast[ sizes=(3,) ] djq
+      djs = transpose[ permutation=(1, 2, 0) ] djr
+      djt = safe_mul djc djs
+      dju = add_any djb djt
+      djv = add_any diy dju
+      djw = mul djv buu
+      djx = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyy
+      djy = broadcast[ sizes=(3, 3) ] caj
+      djz = transpose[ permutation=(2, 0, 1) ] djy
+      dka = mul djx djz
+      dkb = add_any djw dka
+      dkc = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cac
+      dkd = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] czh
+      dke = mul dkc dkd
+      dkf = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cza
+      dkg = mul yf en
+      dkh = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] su
+      dki = broadcast[ sizes=(3,) ] gx
+      dkj = transpose[ permutation=(1, 0) ] dki
+      dkk = mul dkh dkj
+      dkl = add_any dkg dkk
+      dkm = broadcast[ sizes=(3,) ] gx
+      dkn = transpose[ permutation=(1, 0) ] dkm
+      dko = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] su
+      dkp = mul dkn dko
+      dkq = mul en yf
+      dkr = add_any dkp dkq
+      dks = add_any dkl dkr
+      dkt = neg dks
+      dku = safe_mul dkt buu
+      dkv = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cze
+      dkw = broadcast[ sizes=(3,) ] caj
+      dkx = transpose[ permutation=(1, 0) ] dkw
+      dky = safe_mul dkv dkx
+      dkz = add_any dku dky
+      dla = broadcast[ sizes=(3,) ] dkz
+      dlb = transpose[ permutation=(1, 2, 0) ] dla
+      dlc = mul dkf dlb
+      dld = add_any dke dlc
+      dle = add_any dkb dld
+      dlf = mul 1.1283791670955126 dle
+      dlg = mul em dlf
+      dlh = add_any diu dlg
+      dli = add_any diq dlh
+      dlj = add_any dii dli
+      dlk = tie_in dlj 0
+      dll = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dlk
+      dlm = broadcast[ sizes=() ] dll
+      dln = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] dlm
+      dlo = tie_in dln 0
+      dlp = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dlo
+      dlq = broadcast[ sizes=(3,) ] dlp
+      dlr = select dn dln dlq
+      dls = tie_in dln 0
+      dlt = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dls
+      dlu = broadcast[ sizes=(3,) ] dlt
+      dlv = tie_in dlu 0
+      dlw = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dlv
+      dlx = broadcast[ sizes=(3,) ] dlw
+      dly = select dn dlx dlu
+      dlz = add_any dlr dly
+      dma = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] dlz
+      dmb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dma
+      dmc = tie_in dlj 0
+      dmd = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dmc
+      dme = broadcast[ sizes=(3,) ] dmd
+      dmf = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] dme
+      dmg = tie_in dmf 0
+      dmh = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dmg
+      dmi = broadcast[ sizes=(3, 3) ] dmh
+      dmj = select dn dmf dmi
+      dmk = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dmj
+      dml = tie_in dlj 0
+      dmm = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dml
+      dmn = broadcast[ sizes=(3, 3) ] dmm
+      dmo = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dmn
+      dmp = select dn dmo dlj
+      dmq = add_any dmk dmp
+      dmr = add_any dmb dmq
+      dms = add_any dgu dmr
+      dmt = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dms
+      dmu = mul dak dmt
+      dmv = add_any dag dmu
+      dmw = mul cuh hq
+      dmx = broadcast[ sizes=(3, 3, 3) ] dmw
+      dmy = transpose[ permutation=(3, 0, 1, 2) ] dmx
+      dmz = zeros_like cur
+      dna = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dmz
+      dnb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cus
+      dnc = broadcast[ sizes=(3, 3) ] ccg
+      dnd = transpose[ permutation=(2, 0, 1) ] dnc
+      dne = safe_mul dnb dnd
+      dnf = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cca
+      dng = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cva
+      dnh = safe_mul dnf dng
+      dni = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cuu
+      dnj = safe_mul bad cuw
+      dnk = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rf
+      dnl = pow dr 1.0
+      dnm = mul 0.0 dnl
+      dnn = safe_mul ie dnm
+      dno = mul 1.0 dnn
+      dnp = broadcast[ sizes=(3,) ] dno
+      dnq = transpose[ permutation=(1, 0) ] dnp
+      dnr = safe_mul dnk dnq
+      dns = add_any dnj dnr
+      dnt = mul 2.0 dns
+      dnu = broadcast[ sizes=(3,) ] dnt
+      dnv = transpose[ permutation=(1, 2, 0) ] dnu
+      dnw = safe_mul dni dnv
+      dnx = add_any dnh dnw
+      dny = add_any dne dnx
+      dnz = mul dny 0.1
+      doa = add_any dna dnz
+      dob = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cvf
+      doc = broadcast[ sizes=(3, 3) ] cct
+      dod = transpose[ permutation=(2, 0, 1) ] doc
+      doe = safe_mul dob dod
+      dof = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] ccn
+      dog = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cvn
+      doh = safe_mul dof dog
+      doi = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cvh
+      doj = safe_mul baq cvj
+      dok = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rl
+      dol = pow dv 0.0
+      dom = mul 1.0 dol
+      don = safe_mul ik dom
+      doo = mul 2.0 don
+      dop = broadcast[ sizes=(3,) ] doo
+      doq = transpose[ permutation=(1, 0) ] dop
+      dor = safe_mul dok doq
+      dos = add_any doj dor
+      dot = mul 3.0 dos
+      dou = broadcast[ sizes=(3,) ] dot
+      dov = transpose[ permutation=(1, 2, 0) ] dou
+      dow = safe_mul doi dov
+      dox = add_any doh dow
+      doy = add_any doe dox
+      doz = mul doy 0.023809523809523808
+      dpa = add_any doa doz
+      dpb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cvs
+      dpc = broadcast[ sizes=(3, 3) ] cdg
+      dpd = transpose[ permutation=(2, 0, 1) ] dpc
+      dpe = safe_mul dpb dpd
+      dpf = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cda
+      dpg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cwa
+      dph = safe_mul dpf dpg
+      dpi = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cvu
+      dpj = safe_mul bbd cvw
+      dpk = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rr
+      dpl = pow dz 1.0
+      dpm = mul 2.0 dpl
+      dpn = safe_mul iq dpm
+      dpo = mul 3.0 dpn
+      dpp = broadcast[ sizes=(3,) ] dpo
+      dpq = transpose[ permutation=(1, 0) ] dpp
+      dpr = safe_mul dpk dpq
+      dps = add_any dpj dpr
+      dpt = mul 4.0 dps
+      dpu = broadcast[ sizes=(3,) ] dpt
+      dpv = transpose[ permutation=(1, 2, 0) ] dpu
+      dpw = safe_mul dpi dpv
+      dpx = add_any dph dpw
+      dpy = add_any dpe dpx
+      dpz = mul dpy 0.004629629629629629
+      dqa = add_any dpa dpz
+      dqb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cwf
+      dqc = broadcast[ sizes=(3, 3) ] cdt
+      dqd = transpose[ permutation=(2, 0, 1) ] dqc
+      dqe = safe_mul dqb dqd
+      dqf = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cdn
+      dqg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cwn
+      dqh = safe_mul dqf dqg
+      dqi = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cwh
+      dqj = safe_mul bbq cwj
+      dqk = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rx
+      dql = pow ed 2.0
+      dqm = mul 3.0 dql
+      dqn = safe_mul iw dqm
+      dqo = mul 4.0 dqn
+      dqp = broadcast[ sizes=(3,) ] dqo
+      dqq = transpose[ permutation=(1, 0) ] dqp
+      dqr = safe_mul dqk dqq
+      dqs = add_any dqj dqr
+      dqt = mul 5.0 dqs
+      dqu = broadcast[ sizes=(3,) ] dqt
+      dqv = transpose[ permutation=(1, 2, 0) ] dqu
+      dqw = safe_mul dqi dqv
+      dqx = add_any dqh dqw
+      dqy = add_any dqe dqx
+      dqz = mul dqy 0.0007575757575757576
+      dra = add_any dqa dqz
+      drb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cws
+      drc = broadcast[ sizes=(3, 3) ] ceg
+      drd = transpose[ permutation=(2, 0, 1) ] drc
+      dre = safe_mul drb drd
+      drf = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cea
+      drg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cxa
+      drh = safe_mul drf drg
+      dri = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cwu
+      drj = safe_mul bcd cww
+      drk = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] sd
+      drl = pow eh 3.0
+      drm = mul 4.0 drl
+      drn = safe_mul jc drm
+      dro = mul 5.0 drn
+      drp = broadcast[ sizes=(3,) ] dro
+      drq = transpose[ permutation=(1, 0) ] drp
+      drr = safe_mul drk drq
+      drs = add_any drj drr
+      drt = mul 6.0 drs
+      dru = broadcast[ sizes=(3,) ] drt
+      drv = transpose[ permutation=(1, 2, 0) ] dru
+      drw = safe_mul dri drv
+      drx = add_any drh drw
+      dry = add_any dre drx
+      drz = mul dry 0.0001068376068376068
+      dsa = add_any dra drz
+      dsb = tie_in dsa 0
+      dsc = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dsb
+      dsd = broadcast[ sizes=(3, 3) ] dsc
+      dse = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dsd
+      dsf = select dn dsa dse
+      dsg = tie_in dsa 0
+      dsh = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dsg
+      dsi = broadcast[ sizes=(3,) ] dsh
+      dsj = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] dsi
+      dsk = tie_in dsj 0
+      dsl = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dsk
+      dsm = broadcast[ sizes=(3, 3) ] dsl
+      dsn = select dn dsm dsj
+      dso = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dsn
+      dsp = add_any dsf dso
+      dsq = tie_in dsa 0
+      dsr = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dsq
+      dss = broadcast[ sizes=() ] dsr
+      dst = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] dss
+      dsu = tie_in dst 0
+      dsv = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dsu
+      dsw = broadcast[ sizes=(3,) ] dsv
+      dsx = tie_in dsw 0
+      dsy = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dsx
+      dsz = broadcast[ sizes=(3,) ] dsy
+      dta = select dn dsw dsz
+      dtb = tie_in dst 0
+      dtc = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dtb
+      dtd = broadcast[ sizes=(3,) ] dtc
+      dte = select dn dtd dst
+      dtf = add_any dta dte
+      dtg = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] dtf
+      dth = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dtg
+      dti = add_any dsp dth
+      dtj = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cup
+      dtk = broadcast[ sizes=(3, 3) ] cfh
+      dtl = transpose[ permutation=(2, 0, 1) ] dtk
+      dtm = safe_mul dtj dtl
+      dtn = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cbx
+      dto = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyb
+      dtp = safe_mul dtn dto
+      dtq = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cxv
+      dtr = safe_mul baa cxx
+      dts = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] rc
+      dtt = pow dm -3.5
+      dtu = mul -2.5 dtt
+      dtv = safe_mul ib dtu
+      dtw = mul -1.5 dtv
+      dtx = broadcast[ sizes=(3,) ] dtw
+      dty = transpose[ permutation=(1, 0) ] dtx
+      dtz = safe_mul dts dty
+      dua = add_any dtr dtz
+      dub = mul -0.5 dua
+      duc = broadcast[ sizes=(3,) ] dub
+      dud = transpose[ permutation=(1, 2, 0) ] duc
+      due = safe_mul dtq dud
+      duf = add_any dtp due
+      dug = add_any dtm duf
+      duh = mul 0.8862269254527579 dug
+      dui = mul duh eo
+      duj = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cye
+      duk = broadcast[ sizes=(3, 3) ] jy
+      dul = transpose[ permutation=(2, 0, 1) ] duk
+      dum = mul duj dul
+      dun = add_any dui dum
+      duo = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cfm
+      dup = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyi
+      duq = mul duo dup
+      dur = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyg
+      dus = broadcast[ sizes=(3,) ] bev
+      dut = transpose[ permutation=(1, 2, 0) ] dus
+      duu = mul dur dut
+      duv = add_any duq duu
+      duw = add_any dun duv
+      dux = broadcast[ sizes=(3,) ] bdp
+      duy = transpose[ permutation=(1, 2, 0) ] dux
+      duz = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyn
+      dva = mul duy duz
+      dvb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cym
+      dvc = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cgs
+      dvd = mul dvb dvc
+      dve = add_any dva dvd
+      dvf = broadcast[ sizes=(3, 3) ] jq
+      dvg = transpose[ permutation=(2, 0, 1) ] dvf
+      dvh = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] czk
+      dvi = mul dvg dvh
+      dvj = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cup
+      dvk = broadcast[ sizes=(3, 3) ] cgc
+      dvl = transpose[ permutation=(2, 0, 1) ] dvk
+      dvm = safe_mul dvj dvl
+      dvn = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cbx
+      dvo = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyw
+      dvp = safe_mul dvn dvo
+      dvq = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyq
+      dvr = neg bej
+      dvs = mul dvr 0.5
+      dvt = div dvs cyt
+      dvu = mul jt en
+      dvv = mul en jt
+      dvw = add_any dvu dvv
+      dvx = broadcast[ sizes=(3,) ] dvw
+      dvy = neg dvx
+      dvz = transpose[ permutation=(1, 0) ] dvy
+      dwa = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cys
+      dwb = mul dvz dwa
+      dwc = mul cyt cyt
+      dwd = div dwb dwc
+      dwe = add_any dvt dwd
+      dwf = broadcast[ sizes=(3,) ] dwe
+      dwg = transpose[ permutation=(1, 2, 0) ] dwf
+      dwh = safe_mul dvq dwg
+      dwi = add_any dvp dwh
+      dwj = add_any dvm dwi
+      dwk = mul dwj buu
+      dwl = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cyy
+      dwm = broadcast[ sizes=(3, 3) ] cgn
+      dwn = transpose[ permutation=(2, 0, 1) ] dwm
+      dwo = mul dwl dwn
+      dwp = add_any dwk dwo
+      dwq = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] cgg
+      dwr = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] czh
+      dws = mul dwq dwr
+      dwt = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] cza
+      dwu = mul bej en
+      dwv = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] su
+      dww = broadcast[ sizes=(3,) ] jt
+      dwx = transpose[ permutation=(1, 0) ] dww
+      dwy = mul dwv dwx
+      dwz = add_any dwu dwy
+      dxa = broadcast[ sizes=(3,) ] jt
+      dxb = transpose[ permutation=(1, 0) ] dxa
+      dxc = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] su
+      dxd = mul dxb dxc
+      dxe = mul en bej
+      dxf = add_any dxd dxe
+      dxg = add_any dwz dxf
+      dxh = neg dxg
+      dxi = safe_mul dxh buu
+      dxj = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] cze
+      dxk = broadcast[ sizes=(3,) ] cgn
+      dxl = transpose[ permutation=(1, 0) ] dxk
+      dxm = safe_mul dxj dxl
+      dxn = add_any dxi dxm
+      dxo = broadcast[ sizes=(3,) ] dxn
+      dxp = transpose[ permutation=(1, 2, 0) ] dxo
+      dxq = mul dwt dxp
+      dxr = add_any dws dxq
+      dxs = add_any dwp dxr
+      dxt = mul 1.1283791670955126 dxs
+      dxu = mul em dxt
+      dxv = add_any dvi dxu
+      dxw = add_any dve dxv
+      dxx = add_any duw dxw
+      dxy = tie_in dxx 0
+      dxz = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dxy
+      dya = broadcast[ sizes=() ] dxz
+      dyb = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] dya
+      dyc = tie_in dyb 0
+      dyd = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dyc
+      dye = broadcast[ sizes=(3,) ] dyd
+      dyf = select dn dyb dye
+      dyg = tie_in dyb 0
+      dyh = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dyg
+      dyi = broadcast[ sizes=(3,) ] dyh
+      dyj = tie_in dyi 0
+      dyk = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dyj
+      dyl = broadcast[ sizes=(3,) ] dyk
+      dym = select dn dyl dyi
+      dyn = add_any dyf dym
+      dyo = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] dyn
+      dyp = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dyo
+      dyq = tie_in dxx 0
+      dyr = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dyq
+      dys = broadcast[ sizes=(3,) ] dyr
+      dyt = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] dys
+      dyu = tie_in dyt 0
+      dyv = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dyu
+      dyw = broadcast[ sizes=(3, 3) ] dyv
+      dyx = select dn dyt dyw
+      dyy = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dyx
+      dyz = tie_in dxx 0
+      dza = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] dyz
+      dzb = broadcast[ sizes=(3, 3) ] dza
+      dzc = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dzb
+      dzd = select dn dzc dxx
+      dze = add_any dyy dzd
+      dzf = add_any dyp dze
+      dzg = add_any dti dzf
+      dzh = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dzg
+      dzi = mul dmy dzh
+      dzj = mul cuh kl
+      dzk = zeros_like dna
+      dzl = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dzk
+      dzm = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dnb
+      dzn = broadcast[ sizes=(3, 3) ] cio
+      dzo = transpose[ permutation=(2, 3, 0, 1) ] dzn
+      dzp = safe_mul dzm dzo
+      dzq = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dnf
+      dzr = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dbh
+      dzs = safe_mul dzq dzr
+      dzt = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dar
+      dzu = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dnv
+      dzv = safe_mul dzt dzu
+      dzw = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dni
+      dzx = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bad
+      dzy = broadcast[ sizes=(3, 3) ] dba
+      dzz = transpose[ permutation=(2, 0, 1) ] dzy
+      eaa = safe_mul dzx dzz
+      eab = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] tz
+      eac = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dnq
+      ead = safe_mul eab eac
+      eae = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dnk
+      eaf = safe_mul kw dnm
+      eag = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] ie
+      eah = pow dr 0.0
+      eai = mul 1.0 eah
+      eaj = safe_mul fi eai
+      eak = mul 0.0 eaj
+      eal = broadcast[ sizes=(3,) ] eak
+      eam = transpose[ permutation=(1, 0) ] eal
+      ean = safe_mul eag eam
+      eao = add_any eaf ean
+      eap = mul 1.0 eao
+      eaq = broadcast[ sizes=(3,) ] eap
+      ear = transpose[ permutation=(1, 2, 0) ] eaq
+      eas = safe_mul eae ear
+      eat = add_any ead eas
+      eau = add_any eaa eat
+      eav = mul 2.0 eau
+      eaw = broadcast[ sizes=(3,) ] eav
+      eax = transpose[ permutation=(1, 2, 3, 0) ] eaw
+      eay = safe_mul dzw eax
+      eaz = add_any dzv eay
+      eba = add_any dzs eaz
+      ebb = add_any dzp eba
+      ebc = mul ebb 0.1
+      ebd = add_any dzl ebc
+      ebe = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dob
+      ebf = broadcast[ sizes=(3, 3) ] cjo
+      ebg = transpose[ permutation=(2, 3, 0, 1) ] ebf
+      ebh = safe_mul ebe ebg
+      ebi = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dof
+      ebj = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dch
+      ebk = safe_mul ebi ebj
+      ebl = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dbr
+      ebm = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dov
+      ebn = safe_mul ebl ebm
+      ebo = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] doi
+      ebp = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] baq
+      ebq = broadcast[ sizes=(3, 3) ] dca
+      ebr = transpose[ permutation=(2, 0, 1) ] ebq
+      ebs = safe_mul ebp ebr
+      ebt = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] um
+      ebu = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] doq
+      ebv = safe_mul ebt ebu
+      ebw = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dok
+      ebx = safe_mul lj dom
+      eby = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] ik
+      ebz = pow dv 1.0
+      eca = mul 0.0 ebz
+      ecb = safe_mul fo eca
+      ecc = mul 1.0 ecb
+      ecd = broadcast[ sizes=(3,) ] ecc
+      ece = transpose[ permutation=(1, 0) ] ecd
+      ecf = safe_mul eby ece
+      ecg = add_any ebx ecf
+      ech = mul 2.0 ecg
+      eci = broadcast[ sizes=(3,) ] ech
+      ecj = transpose[ permutation=(1, 2, 0) ] eci
+      eck = safe_mul ebw ecj
+      ecl = add_any ebv eck
+      ecm = add_any ebs ecl
+      ecn = mul 3.0 ecm
+      eco = broadcast[ sizes=(3,) ] ecn
+      ecp = transpose[ permutation=(1, 2, 3, 0) ] eco
+      ecq = safe_mul ebo ecp
+      ecr = add_any ebn ecq
+      ecs = add_any ebk ecr
+      ect = add_any ebh ecs
+      ecu = mul ect 0.023809523809523808
+      ecv = add_any ebd ecu
+      ecw = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dpb
+      ecx = broadcast[ sizes=(3, 3) ] cko
+      ecy = transpose[ permutation=(2, 3, 0, 1) ] ecx
+      ecz = safe_mul ecw ecy
+      eda = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dpf
+      edb = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] ddh
+      edc = safe_mul eda edb
+      edd = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dcr
+      ede = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dpv
+      edf = safe_mul edd ede
+      edg = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dpi
+      edh = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bbd
+      edi = broadcast[ sizes=(3, 3) ] dda
+      edj = transpose[ permutation=(2, 0, 1) ] edi
+      edk = safe_mul edh edj
+      edl = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] uz
+      edm = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dpq
+      edn = safe_mul edl edm
+      edo = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dpk
+      edp = safe_mul lw dpm
+      edq = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] iq
+      edr = pow dz 0.0
+      eds = mul 1.0 edr
+      edt = safe_mul fu eds
+      edu = mul 2.0 edt
+      edv = broadcast[ sizes=(3,) ] edu
+      edw = transpose[ permutation=(1, 0) ] edv
+      edx = safe_mul edq edw
+      edy = add_any edp edx
+      edz = mul 3.0 edy
+      eea = broadcast[ sizes=(3,) ] edz
+      eeb = transpose[ permutation=(1, 2, 0) ] eea
+      eec = safe_mul edo eeb
+      eed = add_any edn eec
+      eee = add_any edk eed
+      eef = mul 4.0 eee
+      eeg = broadcast[ sizes=(3,) ] eef
+      eeh = transpose[ permutation=(1, 2, 3, 0) ] eeg
+      eei = safe_mul edg eeh
+      eej = add_any edf eei
+      eek = add_any edc eej
+      eel = add_any ecz eek
+      eem = mul eel 0.004629629629629629
+      een = add_any ecv eem
+      eeo = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dqb
+      eep = broadcast[ sizes=(3, 3) ] clo
+      eeq = transpose[ permutation=(2, 3, 0, 1) ] eep
+      eer = safe_mul eeo eeq
+      ees = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dqf
+      eet = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] deh
+      eeu = safe_mul ees eet
+      eev = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] ddr
+      eew = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dqv
+      eex = safe_mul eev eew
+      eey = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dqi
+      eez = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bbq
+      efa = broadcast[ sizes=(3, 3) ] dea
+      efb = transpose[ permutation=(2, 0, 1) ] efa
+      efc = safe_mul eez efb
+      efd = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] vm
+      efe = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dqq
+      eff = safe_mul efd efe
+      efg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dqk
+      efh = safe_mul mj dqm
+      efi = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] iw
+      efj = pow ed 1.0
+      efk = mul 2.0 efj
+      efl = safe_mul ga efk
+      efm = mul 3.0 efl
+      efn = broadcast[ sizes=(3,) ] efm
+      efo = transpose[ permutation=(1, 0) ] efn
+      efp = safe_mul efi efo
+      efq = add_any efh efp
+      efr = mul 4.0 efq
+      efs = broadcast[ sizes=(3,) ] efr
+      eft = transpose[ permutation=(1, 2, 0) ] efs
+      efu = safe_mul efg eft
+      efv = add_any eff efu
+      efw = add_any efc efv
+      efx = mul 5.0 efw
+      efy = broadcast[ sizes=(3,) ] efx
+      efz = transpose[ permutation=(1, 2, 3, 0) ] efy
+      ega = safe_mul eey efz
+      egb = add_any eex ega
+      egc = add_any eeu egb
+      egd = add_any eer egc
+      ege = mul egd 0.0007575757575757576
+      egf = add_any een ege
+      egg = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] drb
+      egh = broadcast[ sizes=(3, 3) ] cmo
+      egi = transpose[ permutation=(2, 3, 0, 1) ] egh
+      egj = safe_mul egg egi
+      egk = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] drf
+      egl = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dfh
+      egm = safe_mul egk egl
+      egn = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] der
+      ego = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] drv
+      egp = safe_mul egn ego
+      egq = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dri
+      egr = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bcd
+      egs = broadcast[ sizes=(3, 3) ] dfa
+      egt = transpose[ permutation=(2, 0, 1) ] egs
+      egu = safe_mul egr egt
+      egv = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] vz
+      egw = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] drq
+      egx = safe_mul egv egw
+      egy = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] drk
+      egz = safe_mul mw drm
+      eha = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] jc
+      ehb = pow eh 2.0
+      ehc = mul 3.0 ehb
+      ehd = safe_mul gg ehc
+      ehe = mul 4.0 ehd
+      ehf = broadcast[ sizes=(3,) ] ehe
+      ehg = transpose[ permutation=(1, 0) ] ehf
+      ehh = safe_mul eha ehg
+      ehi = add_any egz ehh
+      ehj = mul 5.0 ehi
+      ehk = broadcast[ sizes=(3,) ] ehj
+      ehl = transpose[ permutation=(1, 2, 0) ] ehk
+      ehm = safe_mul egy ehl
+      ehn = add_any egx ehm
+      eho = add_any egu ehn
+      ehp = mul 6.0 eho
+      ehq = broadcast[ sizes=(3,) ] ehp
+      ehr = transpose[ permutation=(1, 2, 3, 0) ] ehq
+      ehs = safe_mul egq ehr
+      eht = add_any egp ehs
+      ehu = add_any egm eht
+      ehv = add_any egj ehu
+      ehw = mul ehv 0.0001068376068376068
+      ehx = add_any egf ehw
+      ehy = tie_in ehx 0
+      ehz = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ehy
+      eia = broadcast[ sizes=(3, 3, 3) ] ehz
+      eib = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] eia
+      eic = select dn ehx eib
+      eid = tie_in ehx 0
+      eie = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] eid
+      eif = broadcast[ sizes=(3, 3) ] eie
+      eig = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] eif
+      eih = tie_in eig 0
+      eii = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] eih
+      eij = broadcast[ sizes=(3, 3, 3) ] eii
+      eik = select dn eij eig
+      eil = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] eik
+      eim = add_any eic eil
+      ein = tie_in ehx 0
+      eio = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ein
+      eip = broadcast[ sizes=(3,) ] eio
+      eiq = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] eip
+      eir = tie_in eiq 0
+      eis = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] eir
+      eit = broadcast[ sizes=(3, 3) ] eis
+      eiu = tie_in eit 0
+      eiv = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] eiu
+      eiw = broadcast[ sizes=(3, 3) ] eiv
+      eix = select dn eit eiw
+      eiy = tie_in eiq 0
+      eiz = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] eiy
+      eja = broadcast[ sizes=(3, 3) ] eiz
+      ejb = select dn eja eiq
+      ejc = add_any eix ejb
+      ejd = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] ejc
+      eje = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] ejd
+      ejf = add_any eim eje
+      ejg = tie_in ehx 0
+      ejh = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ejg
+      eji = broadcast[ sizes=() ] ejh
+      ejj = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] eji
+      ejk = tie_in ejj 0
+      ejl = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ejk
+      ejm = broadcast[ sizes=(3,) ] ejl
+      ejn = tie_in ejm 0
+      ejo = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ejn
+      ejp = broadcast[ sizes=(3,) ] ejo
+      ejq = select dn ejm ejp
+      ejr = tie_in ejm 0
+      ejs = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ejr
+      ejt = broadcast[ sizes=(3,) ] ejs
+      eju = tie_in ejt 0
+      ejv = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] eju
+      ejw = broadcast[ sizes=(3,) ] ejv
+      ejx = select dn ejw ejt
+      ejy = add_any ejq ejx
+      ejz = tie_in ejj 0
+      eka = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ejz
+      ekb = broadcast[ sizes=(3,) ] eka
+      ekc = tie_in ekb 0
+      ekd = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ekc
+      eke = broadcast[ sizes=(3,) ] ekd
+      ekf = select dn ekb eke
+      ekg = tie_in ejj 0
+      ekh = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ekg
+      eki = broadcast[ sizes=(3,) ] ekh
+      ekj = select dn eki ejj
+      ekk = add_any ekf ekj
+      ekl = add_any ejy ekk
+      ekm = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] ekl
+      ekn = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] ekm
+      eko = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] ekn
+      ekp = add_any ejf eko
+      ekq = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dtj
+      ekr = broadcast[ sizes=(3, 3) ] cow
+      eks = transpose[ permutation=(2, 3, 0, 1) ] ekr
+      ekt = safe_mul ekq eks
+      eku = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dtn
+      ekv = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dhp
+      ekw = safe_mul eku ekv
+      ekx = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dgz
+      eky = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dud
+      ekz = safe_mul ekx eky
+      ela = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dtq
+      elb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] baa
+      elc = broadcast[ sizes=(3, 3) ] dhi
+      eld = transpose[ permutation=(2, 0, 1) ] elc
+      ele = safe_mul elb eld
+      elf = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] tw
+      elg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dty
+      elh = safe_mul elf elg
+      eli = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dts
+      elj = safe_mul kt dtu
+      elk = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] ib
+      ell = pow dm -4.5
+      elm = mul -3.5 ell
+      eln = safe_mul ff elm
+      elo = mul -2.5 eln
+      elp = broadcast[ sizes=(3,) ] elo
+      elq = transpose[ permutation=(1, 0) ] elp
+      elr = safe_mul elk elq
+      els = add_any elj elr
+      elt = mul -1.5 els
+      elu = broadcast[ sizes=(3,) ] elt
+      elv = transpose[ permutation=(1, 2, 0) ] elu
+      elw = safe_mul eli elv
+      elx = add_any elh elw
+      ely = add_any ele elx
+      elz = mul -0.5 ely
+      ema = broadcast[ sizes=(3,) ] elz
+      emb = transpose[ permutation=(1, 2, 3, 0) ] ema
+      emc = safe_mul ela emb
+      emd = add_any ekz emc
+      eme = add_any ekw emd
+      emf = add_any ekt eme
+      emg = mul 0.8862269254527579 emf
+      emh = mul emg eo
+      emi = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] duh
+      emj = broadcast[ sizes=(3, 3, 3) ] hc
+      emk = transpose[ permutation=(3, 0, 1, 2) ] emj
+      eml = mul emi emk
+      emm = add_any emh eml
+      emn = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dht
+      emo = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dul
+      emp = mul emn emo
+      emq = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] duj
+      emr = broadcast[ sizes=(3, 3) ] po
+      ems = transpose[ permutation=(2, 3, 0, 1) ] emr
+      emt = mul emq ems
+      emu = add_any emp emt
+      emv = add_any emm emu
+      emw = broadcast_in_dim[ broadcast_dimensions=(0, 1, 3)
+                              shape=(3, 3, 3, 3) ] cpc
+      emx = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dup
+      emy = mul emw emx
+      emz = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] duo
+      ena = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dif
+      enb = mul emz ena
+      enc = add_any emy enb
+      end = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dia
+      ene = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dut
+      enf = mul end ene
+      eng = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dur
+      enh = broadcast[ sizes=(3,) ] bqr
+      eni = transpose[ permutation=(1, 2, 3, 0) ] enh
+      enj = mul eng eni
+      enk = add_any enf enj
+      enl = add_any enc enk
+      enm = add_any emv enl
+      enn = broadcast[ sizes=(3,) ] bnf
+      eno = transpose[ permutation=(1, 2, 3, 0) ] enn
+      enp = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] duz
+      enq = mul eno enp
+      enr = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] duy
+      ens = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dio
+      ent = mul enr ens
+      enu = add_any enq ent
+      env = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dik
+      enw = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dvc
+      enx = mul env enw
+      eny = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dvb
+      enz = broadcast_in_dim[ broadcast_dimensions=(0, 1, 3)
+                              shape=(3, 3, 3, 3) ] cso
+      eoa = mul eny enz
+      eob = add_any enx eoa
+      eoc = add_any enu eob
+      eod = broadcast[ sizes=(3, 3) ] oi
+      eoe = transpose[ permutation=(2, 3, 0, 1) ] eod
+      eof = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dvh
+      eog = mul eoe eof
+      eoh = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dvg
+      eoi = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dlf
+      eoj = mul eoh eoi
+      eok = add_any eog eoj
+      eol = broadcast[ sizes=(3, 3, 3) ] gu
+      eom = transpose[ permutation=(3, 0, 1, 2) ] eol
+      eon = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dxt
+      eoo = mul eom eon
+      eop = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dvj
+      eoq = broadcast[ sizes=(3, 3) ] cqz
+      eor = transpose[ permutation=(2, 3, 0, 1) ] eoq
+      eos = safe_mul eop eor
+      eot = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dvn
+      eou = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] djs
+      eov = safe_mul eot eou
+      eow = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] diz
+      eox = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dwg
+      eoy = safe_mul eow eox
+      eoz = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dvq
+      epa = neg bph
+      epb = mul epa 0.5
+      epc = div epb cyt
+      epd = broadcast[ sizes=(3, 3) ] dji
+      epe = neg epd
+      epf = transpose[ permutation=(2, 0, 1) ] epe
+      epg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dvs
+      eph = mul epf epg
+      epi = mul cyt cyt
+      epj = div eph epi
+      epk = add_any epc epj
+      epl = mul pc en
+      epm = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] jt
+      epn = broadcast[ sizes=(3,) ] gx
+      epo = transpose[ permutation=(1, 0) ] epn
+      epp = mul epm epo
+      epq = add_any epl epp
+      epr = broadcast[ sizes=(3,) ] gx
+      eps = transpose[ permutation=(1, 0) ] epr
+      ept = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] jt
+      epu = mul eps ept
+      epv = mul en pc
+      epw = add_any epu epv
+      epx = add_any epq epw
+      epy = broadcast[ sizes=(3,) ] epx
+      epz = neg epy
+      eqa = transpose[ permutation=(1, 2, 0) ] epz
+      eqb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dwa
+      eqc = mul eqa eqb
+      eqd = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dvz
+      eqe = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] dje
+      eqf = mul eqd eqe
+      eqg = add_any eqc eqf
+      eqh = div eqg dwc
+      eqi = mul dji cyt
+      eqj = mul cyt dji
+      eqk = add_any eqi eqj
+      eql = broadcast[ sizes=(3, 3) ] eqk
+      eqm = neg eql
+      eqn = transpose[ permutation=(2, 0, 1) ] eqm
+      eqo = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dwb
+      eqp = mul eqn eqo
+      eqq = mul dwc dwc
+      eqr = div eqp eqq
+      eqs = add_any eqh eqr
+      eqt = add_any epk eqs
+      equ = broadcast[ sizes=(3,) ] eqt
+      eqv = transpose[ permutation=(1, 2, 3, 0) ] equ
+      eqw = safe_mul eoz eqv
+      eqx = add_any eoy eqw
+      eqy = add_any eov eqx
+      eqz = add_any eos eqy
+      era = mul eqz buu
+      erb = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dwj
+      erc = broadcast[ sizes=(3, 3, 3) ] caj
+      erd = transpose[ permutation=(3, 0, 1, 2) ] erc
+      ere = mul erb erd
+      erf = add_any era ere
+      erg = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] djv
+      erh = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dwn
+      eri = mul erg erh
+      erj = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dwl
+      erk = broadcast[ sizes=(3, 3) ] csi
+      erl = transpose[ permutation=(2, 3, 0, 1) ] erk
+      erm = mul erj erl
+      ern = add_any eri erm
+      ero = add_any erf ern
+      erp = broadcast_in_dim[ broadcast_dimensions=(0, 1, 3)
+                              shape=(3, 3, 3, 3) ] cre
+      erq = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dwr
+      err = mul erp erq
+      ers = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dwq
+      ert = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dlb
+      eru = mul ers ert
+      erv = add_any err eru
+      erw = broadcast_in_dim[ broadcast_dimensions=(0, 2, 3)
+                              shape=(3, 3, 3, 3) ] dkc
+      erx = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dxp
+      ery = mul erw erx
+      erz = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] dwt
+      esa = mul bph en
+      esb = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bej
+      esc = broadcast[ sizes=(3, 3) ] gx
+      esd = transpose[ permutation=(2, 0, 1) ] esc
+      ese = mul esb esd
+      esf = add_any esa ese
+      esg = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] yf
+      esh = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dwx
+      esi = mul esg esh
+      esj = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dwv
+      esk = broadcast[ sizes=(3,) ] pc
+      esl = transpose[ permutation=(1, 2, 0) ] esk
+      esm = mul esj esl
+      esn = add_any esi esm
+      eso = add_any esf esn
+      esp = broadcast[ sizes=(3,) ] pc
+      esq = transpose[ permutation=(1, 2, 0) ] esp
+      esr = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dxc
+      ess = mul esq esr
+      est = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dxb
+      esu = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] yf
+      esv = mul est esu
+      esw = add_any ess esv
+      esx = broadcast[ sizes=(3, 3) ] gx
+      esy = transpose[ permutation=(2, 0, 1) ] esx
+      esz = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] bej
+      eta = mul esy esz
+      etb = mul en bph
+      etc = add_any eta etb
+      etd = add_any esw etc
+      ete = add_any eso etd
+      etf = neg ete
+      etg = safe_mul etf buu
+      eth = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dxh
+      eti = broadcast[ sizes=(3, 3) ] caj
+      etj = transpose[ permutation=(2, 0, 1) ] eti
+      etk = safe_mul eth etj
+      etl = add_any etg etk
+      etm = broadcast_in_dim[ broadcast_dimensions=(0, 2)
+                              shape=(3, 3, 3) ] dkt
+      etn = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dxl
+      eto = safe_mul etm etn
+      etp = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] dxj
+      etq = broadcast[ sizes=(3,) ] csi
+      etr = transpose[ permutation=(1, 2, 0) ] etq
+      ets = safe_mul etp etr
+      ett = add_any eto ets
+      etu = add_any etl ett
+      etv = broadcast[ sizes=(3,) ] etu
+      etw = transpose[ permutation=(1, 2, 3, 0) ] etv
+      etx = mul erz etw
+      ety = add_any ery etx
+      etz = add_any erv ety
+      eua = add_any ero etz
+      eub = mul 1.1283791670955126 eua
+      euc = mul em eub
+      eud = add_any eoo euc
+      eue = add_any eok eud
+      euf = add_any eoc eue
+      eug = add_any enm euf
+      euh = tie_in eug 0
+      eui = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] euh
+      euj = broadcast[ sizes=() ] eui
+      euk = broadcast_in_dim[ broadcast_dimensions=()
+                              shape=(3,) ] euj
+      eul = tie_in euk 0
+      eum = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] eul
+      eun = broadcast[ sizes=(3,) ] eum
+      euo = select dn euk eun
+      eup = tie_in euk 0
+      euq = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] eup
+      eur = broadcast[ sizes=(3,) ] euq
+      eus = tie_in eur 0
+      eut = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] eus
+      euu = broadcast[ sizes=(3,) ] eut
+      euv = select dn euu eur
+      euw = add_any euo euv
+      eux = tie_in euk 0
+      euy = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] eux
+      euz = broadcast[ sizes=(3,) ] euy
+      eva = tie_in euz 0
+      evb = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] eva
+      evc = broadcast[ sizes=(3,) ] evb
+      evd = tie_in evc 0
+      eve = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] evd
+      evf = broadcast[ sizes=(3,) ] eve
+      evg = select dn evc evf
+      evh = tie_in euz 0
+      evi = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] evh
+      evj = broadcast[ sizes=(3,) ] evi
+      evk = select dn evj euz
+      evl = add_any evg evk
+      evm = add_any euw evl
+      evn = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] evm
+      evo = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] evn
+      evp = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] evo
+      evq = tie_in eug 0
+      evr = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] evq
+      evs = broadcast[ sizes=(3,) ] evr
+      evt = broadcast_in_dim[ broadcast_dimensions=(1,)
+                              shape=(3, 3) ] evs
+      evu = tie_in evt 0
+      evv = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] evu
+      evw = broadcast[ sizes=(3, 3) ] evv
+      evx = select dn evt evw
+      evy = tie_in evt 0
+      evz = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] evy
+      ewa = broadcast[ sizes=(3, 3) ] evz
+      ewb = tie_in ewa 0
+      ewc = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ewb
+      ewd = broadcast[ sizes=(3, 3) ] ewc
+      ewe = select dn ewd ewa
+      ewf = add_any evx ewe
+      ewg = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] ewf
+      ewh = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] ewg
+      ewi = tie_in eug 0
+      ewj = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ewi
+      ewk = broadcast[ sizes=(3, 3) ] ewj
+      ewl = broadcast_in_dim[ broadcast_dimensions=(1, 2)
+                              shape=(3, 3, 3) ] ewk
+      ewm = tie_in ewl 0
+      ewn = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ewm
+      ewo = broadcast[ sizes=(3, 3, 3) ] ewn
+      ewp = select dn ewl ewo
+      ewq = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] ewp
+      ewr = tie_in eug 0
+      ews = convert_element_type[ new_dtype=float64
+                                  old_dtype=int64 ] ewr
+      ewt = broadcast[ sizes=(3, 3, 3) ] ews
+      ewu = broadcast_in_dim[ broadcast_dimensions=(1, 2, 3)
+                              shape=(3, 3, 3, 3) ] ewt
+      ewv = select dn ewu eug
+      eww = add_any ewq ewv
+      ewx = add_any ewh eww
+      ewy = add_any evp ewx
+      ewz = add_any ekp ewy
+      exa = mul dzj ewz
+      exb = add_any dzi exa
+      exc = add_any dmv exb
+      exd = add_any cuf exc
+      exe = add_any bsk exd
+      exf = transpose[ permutation=(0, 1, 3, 2) ] exe
+      exg = transpose[ permutation=(0, 2, 3, 1) ] exf
+      exh = transpose[ permutation=(1, 2, 3, 0) ] exg
+  in [exh] }
+

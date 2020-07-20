@@ -1,0 +1,9 @@
+import jax.numpy as np
+
+import jax
+import jax.numpy as np
+
+seed = jax.random.PRNGKey(0)
+tmp = jax.random.uniform(seed, (5,))
+
+
