@@ -5,8 +5,8 @@ from functools import partial
 from jax.config import config; config.update("jax_enable_x64", True)
 from jax.experimental import loops
 
-def boys(m,x):
-    return 0.5 * (x + 1e-10)**(-(m + 0.5)) * jax.lax.igamma(m + 0.5, x + 1e-10) \
+def boys(m,x,eps=1e-12):
+    return 0.5 * (x + eps)**(-(m + 0.5)) * jax.lax.igamma(m + 0.5, x + eps) \
            * np.exp(jax.lax.lgamma(m + 0.5))
 
 #def boys(n,x):
