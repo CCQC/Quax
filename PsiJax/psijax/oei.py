@@ -135,7 +135,6 @@ def potential(aa, La, A, bb, Lb, B, geom, charges):
       val += charges[i] * -2 * np.pi / gamma * np.exp(-aa * bb * rab2 / gamma) * S.total
     return val
 
-
 def oei_arrays(geom, basis, charges):
     '''
     Build one electron integral arrays (overlap, kinetic, and potential integrals)
@@ -169,8 +168,6 @@ def oei_arrays(geom, basis, charges):
     dims = np.array(dims)
     nprim = coeffs.shape[0]
     primitive_quartets = cartesian_product(np.arange(nprim), np.arange(nprim))
-
-    #charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
 
     # Save various AM distributions for indexing
     # Obtain all possible primitive quartet index combinations 

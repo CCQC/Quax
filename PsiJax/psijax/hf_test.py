@@ -3,6 +3,7 @@ import jax.numpy as np
 import psi4
 import numpy as onp
 from jax.config import config; config.update("jax_enable_x64", True)
+#config.update("jax_debug_nans", True)
 
 from tei import tei_array 
 from oei import oei_arrays
@@ -40,23 +41,33 @@ def hartree_fock(geom, basis, nuclear_charges, charge):
     H = T + V
     Enuc = nuclear_repulsion(geom,nuclear_charges)
     D = np.zeros_like(H)
+
+    @jax.jit
+    def hf_iter(D,H,G, A, Enuc):
+        J = np.einsum('pqrs,rs->pq', G, D)
+        K = np.einsum('prqs,rs->pq', G, D)
+        F = H + J * 2 - K
+        E_scf = np.einsum('pq,pq->', F + H, D) + Enuc
+        Fp = np.linalg.multi_dot((A.T, F, A))
+        # Slightly shift eigenspectrum of Fp for degenerate eigenvalues 
+        # (JAX cannot differentiate degenerate eigenvalue eigh) 
+        # TODO are there consequences to doing this for correlated methods?
+        seed = jax.random.PRNGKey(0)
+        fudge = jax.random.uniform(seed, (Fp.shape[0],)) / 1e10
+        Fp = Fp + fudge
+        eps, C2 = np.linalg.eigh(Fp)
+        C = np.dot(A,C2)
+        Cocc = C[:, :ndocc]
+        D = np.einsum('pi,qi->pq', Cocc, Cocc)
+        return D, E_scf  
     
     SCF_MAX_ITER = 15
     iteration = 0
     E_scf = 1.0
     E_old = 0.0
     while abs(E_scf - E_old) > 1e-9:
-        E_old = E_scf
-        J = np.einsum('pqrs,rs->pq', G, D)
-        K = np.einsum('prqs,rs->pq', G, D)
-        F = H + J * 2 - K
-        E_scf = np.einsum('pq,pq->', F + H, D) + Enuc
-        print(E_scf)
-        Fp = np.linalg.multi_dot((A.T, F, A))
-        eps, C2 = np.linalg.eigh(Fp)
-        C = A.dot(C2)
-        Cocc = C[:, :ndocc]
-        D = np.einsum('pi,qi->pq', Cocc, Cocc)
+        E_old = E_scf * 1
+        D, E_scf = hf_iter(D, H, G, A, Enuc)
         iteration += 1
         if iteration == SCF_MAX_ITER:
             break
@@ -68,8 +79,8 @@ print(E_scf)
 #grad = jax.jacfwd(hartree_fock, 0)(geom,basis_dict, nuclear_charges, charge)
 #print(grad)
 
-#hess = jax.jacfwd(jax.jacfwd(hartree_fock, 0))(geom,basis_dict, nuclear_charges, charge)
-#print(hess)
+hess = jax.jacfwd(jax.jacfwd(hartree_fock, 0))(geom,basis_dict, nuclear_charges, charge)
+print(hess)
 
 #cube = jax.jacfwd(jax.jacfwd(jax.jacfwd(hartree_fock, 0)))(geom,basis_dict, nuclear_charges, charge)
 #print(cube)
@@ -78,7 +89,7 @@ print(E_scf)
 #print(quar)
 
 psi4.set_options({'basis': basis_name, 'scf_type': 'pk', 'e_convergence': 1e-8, 'diis': False, 'puream': 0})
-#print('PSI4 results')
+print('PSI4 results')
 print(psi4.energy('scf/'+basis_name))
 #print(onp.asarray(psi4.gradient('scf/'+basis_name)))
 print(onp.asarray(psi4.hessian('scf/'+basis_name)))

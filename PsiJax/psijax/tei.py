@@ -160,8 +160,8 @@ def tei_array(geom, basis):
         am1,am2,am3,am4 = ams[p1], ams[p2], ams[p3], ams[p4]
         ld1, ld2, ld3, ld4 = am_leading_indices[am1],am_leading_indices[am2],am_leading_indices[am3],am_leading_indices[am4]
 
-        # compute common intermediates before looping over AM distributions.
-        # Avoids recomputations for all classes other than (ss|ss).
+        # Compute common intermediates before looping over AM distributions.
+        # Avoids redundant recomputations/reassignment for all classes other than (ss|ss).
         xa,ya,za = A 
         xb,yb,zb = B 
         xc,yc,zc = C 
