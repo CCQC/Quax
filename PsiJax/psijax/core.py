@@ -176,19 +176,22 @@ def partial_derivative(molecule, basis_name, method, order, address):
             charge = kwargs['charge']
             E_scf = restricted_hartree_fock(geom, basis_dict, nuclear_charges, charge, return_mo_data=False)
             return E_scf
-        #partial_grad = jacfwd(restricted_hartree_fock, 0)(geom, basis_dict, nuclear_charges, charge, return_mo_data=False)
 
         if order == 1:
-            partial_grad = jacfwd(scf_partial_wrapper, address)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            i = address[0]
+            partial_grad = jacfwd(scf_partial_wrapper, i)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
             return partial_grad
         if order == 2:
-            partial_hess = jacfwd(jacfwd(scf_partial_wrapper, address))(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            i,j = address[0], address[1]
+            partial_hess = jacfwd(jacfwd(scf_partial_wrapper, i), j)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
             return partial_hess
         if order == 3:
-            partial_cubic = jacfwd(jacfwd(jacfwd(scf_partial_wrapper, address)))(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            i,j,k = address[0], address[1], address[2]
+            partial_cubic = jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
             return partial_cubic
         if order == 4:
-            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, address))))(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            i,j,k,l = address[0], address[1], address[2], address[3]
+            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
             return partial_quartic
 
     if method =='mp2':
@@ -210,6 +213,9 @@ molecule = psi4.geometry("""
 
 partial_quar = partial_derivative(molecule, 'cc-pvtz', 'scf', 4, (5,5,5,5)) 
 print(partial_quar)
+
+#partial_hess = partial_derivative(molecule, 'sto-3g', 'scf', 2, (5,5))
+#print(partial_hess)
 
 
 #basis_name = 'sto-3g'
