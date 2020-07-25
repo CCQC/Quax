@@ -166,8 +166,6 @@ def partial_derivative(molecule, basis_name, method, order, address):
     basis_dict = build_basis_set(molecule, basis_name)
 
     if method == 'scf' or method == 'hf' or method == 'rhf':
-        return_mo_data = False
-        kwarg_dict = {'basis_dict': basis_dict, 'nuclear_charges': nuclear_charges, 'charge': charge, 'return_mo_data': return_mo_data}
         # Unpack the geometry as a list of single coordinates so we can differentiate w.r.t. single coords
         def scf_partial_wrapper(*args, **kwargs):
             geom = np.asarray(args).reshape(-1,3)
@@ -193,6 +191,16 @@ def partial_derivative(molecule, basis_name, method, order, address):
             i,j,k,l = address[0], address[1], address[2], address[3]
             partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
             return partial_quartic
+        if order == 5:
+            i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
+            partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_quartic
+        if order == 6:
+            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+            partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m), n)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_quartic
+        else:
+            return 0
 
     if method =='mp2':
         pass
@@ -201,37 +209,37 @@ def partial_derivative(molecule, basis_name, method, order, address):
 
     return 0 
 
-molecule = psi4.geometry("""
-                         0 1
-                         H 0.0 0.0 -0.80000000000
-                         H 0.0 0.0  0.80000000000
-                         units bohr
-                         """)
 
-#partial = partial_derivative(molecule, 'sto-3g', 'scf', 1, (2,))
-#print(partial)
-
-partial_quar = partial_derivative(molecule, 'cc-pvtz', 'scf', 4, (5,5,5,5)) 
-print(partial_quar)
-
-#partial_hess = partial_derivative(molecule, 'sto-3g', 'scf', 2, (5,5))
-#print(partial_hess)
-
+# Examples: Compute an energy, full derivative, or partial derivative
+#molecule = psi4.geometry("""
+#                         0 1
+#                         H 0.0 0.0 -0.80000000000
+#                         H 0.0 0.0  0.80000000000
+#                         units bohr
+#                         """)
 
 #basis_name = 'sto-3g'
-#E_scf = energy(molecule, 'sto-3g', 'scf')
-#print(E_scf)
-#grad = derivative(molecule, 'sto-3g', 'scf', order=1)
-#print(grad)
-#hess = derivative(molecule, 'sto-3g',  'scf', order=2)
-#print(hess)
-#cube = derivative(molecule, 'sto-3g',  'scf', order=3)
-#print(cube)
-#quar = derivative(molecule, 'sto-3g',  'scf', order=4)
-#print(quar)
+#E_scf = energy(molecule, basis_name, 'scf')
+
+#grad = derivative(molecule, basis_name, 'scf', order=1)
+
+#hess = derivative(molecule, basis_name,  'scf', order=2)
+
+#cube = derivative(molecule, basis_name,  'scf', order=3)
+
+#quar = derivative(molecule, basis_name,  'scf', order=4)
+
+#partial_grad = partial_derivative(molecule, basis_name, 'scf', order=1, address=(2,)) 
+#
+#partial_hess = partial_derivative(molecule, basis_name, 'scf', order=2, address=(0,1)) 
+#
+#partial_cube = partial_derivative(molecule, basis_name, 'scf', order=3, address=(1,0,2)) 
+#
+#partial_quar = partial_derivative(molecule, basis_name, 'scf', order=4, address=(1,0,2,3)) 
+
 
 #psi4.core.be_quiet()
-#basis_name = 'sto-3g'
+#basis_name = 'cc-pvdz'
 #psi4.set_options({'basis': basis_name, 'scf_type': 'pk', 'e_convergence': 1e-8, 'diis': False, 'puream': 0})
 #print('PSI4 results')
 #print(psi4.energy('scf/'+basis_name))
