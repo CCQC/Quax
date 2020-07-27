@@ -1,6 +1,6 @@
 import jax 
-import jax.numpy as np
 from jax.config import config; config.update("jax_enable_x64", True)
+import jax.numpy as np
 from jax.experimental import loops
 from integrals_utils import gaussian_product, boys, binomial_prefactor, factorial, cartesian_product, am_leading_indices, angular_momentum_combinations
 from functools import partial
@@ -167,7 +167,6 @@ def oei_arrays(geom, basis, charges):
     indices = np.array(indices)
     dims = np.array(dims)
     nprim = coeffs.shape[0]
-    primitive_quartets = cartesian_product(np.arange(nprim), np.arange(nprim))
 
     # Save various AM distributions for indexing
     # Obtain all possible primitive quartet index combinations 
