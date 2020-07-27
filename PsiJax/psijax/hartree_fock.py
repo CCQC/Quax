@@ -1,14 +1,14 @@
 import jax 
+from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as np
 import psi4
 import numpy as onp
 from tei import tei_array 
 from oei import oei_arrays
 from energy_utils import nuclear_repulsion, cholesky_orthogonalization
-from jax.config import config; config.update("jax_enable_x64", True)
 
-def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=15, return_mo_data=True):
-    nelectrons = int(np.sum(nuclear_charges)) + charge
+def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=30, return_mo_data=True):
+    nelectrons = int(np.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
 
     S, T, V = oei_arrays(geom,basis,nuclear_charges)
@@ -23,7 +23,7 @@ def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=1
     iteration = 0
     E_scf = 1.0
     E_old = 0.0
-    while abs(E_scf - E_old) > 1e-9:
+    while abs(E_scf - E_old) > 1e-12:
         E_old = E_scf * 1
         J = np.einsum('pqrs,rs->pq', G, D)
         K = np.einsum('prqs,rs->pq', G, D)
@@ -34,8 +34,10 @@ def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=1
         # (JAX cannot differentiate degenerate eigenvalue eigh) 
         # TODO are there consequences to doing this for correlated methods?
         seed = jax.random.PRNGKey(0)
-        fudge = jax.random.uniform(seed, (Fp.shape[0],)) / 1e10
-        Fp = Fp + fudge
+        eps = 1e-12
+        fudge = jax.random.uniform(seed, (Fp.shape[0],)) * eps
+        Fp = Fp + np.diag(fudge)
+
         eps, C2 = np.linalg.eigh(Fp)
         C = np.dot(A,C2)
         Cocc = C[:, :ndocc]
@@ -46,7 +48,7 @@ def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=1
     if not return_mo_data:
         return E_scf
     else:
-        return E_scf, C, eps
+        return E_scf, C, eps, G
     
 
     
