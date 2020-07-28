@@ -61,12 +61,11 @@ def rccsd(geom, basis, nuclear_charges, charge):
         Voovv = V[2]
         E_ccsd = 0.
         E_ccsd += 2.0*np.einsum('kc, kc -> ', fock_OV, T1, optimize = 'optimal')
-        B_OVOV = -1.0*np.einsum('lc, kd -> lckd', T1, T1, optimize = 'optimal')
-        B_OVOV += -1.0 * np.transpose(T2,(0,2,1,3))
-        B_OVOV += 2.0 * np.transpose(T2,(1,2,0,3))
-        E_ccsd += np.einsum('lckd, klcd -> ', B_OVOV, Voovv, optimize = 'optimal')
+        E_ccsd += -1.0*np.einsum('lc, kd, klcd -> ', T1, T1, Voovv, optimize = 'optimal')
+        E_ccsd += -1.0*np.einsum('lckd, klcd -> ', np.transpose(T2,(0,2,1,3)), Voovv, optimize = 'optimal')
+        E_ccsd += 2.0*np.einsum('lckd, klcd -> ', np.transpose(T2,(1,2,0,3)), Voovv, optimize = 'optimal')
         E_ccsd += 2.0*np.einsum('lc, kd, lkcd -> ', T1, T1, Voovv, optimize = 'optimal')
-        print(E_ccsd)
+
         iteration += 1
         if iteration == CC_MAX_ITER:
             break
