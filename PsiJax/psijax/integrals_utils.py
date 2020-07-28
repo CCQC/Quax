@@ -1,8 +1,8 @@
 import jax
+from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as np
 import numpy as onp
 from functools import partial
-from jax.config import config; config.update("jax_enable_x64", True)
 from jax.experimental import loops
 
 def boys(m,x,eps=1e-12):

@@ -9,7 +9,6 @@ from oei import oei_arrays
 from energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation
 from hartree_fock import restricted_hartree_fock
 
-
 def rccsd(geom, basis, nuclear_charges, charge):
     # Do HF
     E_scf, C, eps, V, H = restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=15, return_aux_data=True)
@@ -20,26 +19,16 @@ def rccsd(geom, basis, nuclear_charges, charge):
 
     o = slice(0, ndocc)
     v = slice(ndocc, V.shape[0])
-
-    # Slightly unnecessary regeneration, meh
-    #S, T, P = oei_arrays(geom,basis,nuclear_charges)
-    #H = T + P
     # Transform one-electron hamiltonian to MO basis
     H = np.einsum('up,vq,uv->pq', C, C, H)
-    
     # Transform TEI's to MO basis
     V = tei_transformation(V,C)
-
     # Form MO fock matrix
     F = H + 2 * np.einsum('pqkk->pq', V[:,:,o,o]) - np.einsum('pkqk->pq', V[:,o,:,o])
-
     # Save diagonal terms
     fock_Od = np.diagonal(F)[o]
     fock_Vd = np.diagonal(F)[v]
-    #fd = (fock_Od, fock_Vd)
-
     # Erase diagonal elements from original matrix
-    #np.fill_diagonal(F, 0.0)
     F = F - np.diag(np.diag(F))
 
     # Save useful slices
@@ -50,7 +39,6 @@ def rccsd(geom, basis, nuclear_charges, charge):
 
     # Save slices of two-electron repulsion integral
     V = np.swapaxes(V, 1,2)
-    #V = (Vphys[o,o,o,o], Vphys[o,o,o,v], Vphys[o,o,v,v], Vphys[o,v,o,v], Vphys[o,v,v,v], Vphys[v,v,v,v])
     V = (V[o,o,o,o], V[o,o,o,v], V[o,o,v,v], V[o,v,o,v], V[o,v,v,v], V[v,v,v,v])
 
     # Auxilliary D matrix
@@ -189,13 +177,3 @@ def rccsd_iter(T1, T2, f, V, d, D, ndocc, nvir):
     newT2 *= D
     return newT1, newT2
 
-    # Compute RMS
-    #r1 = np.sqrt(np.sum(np.square(newT1 - T1 )))/(info['ndocc']*info['nvir'])
-    #r2 = np.sqrt(np.sum(np.square(newT2 - T2 )))/(info['ndocc']*info['ndocc']*info['nvir']*info['nvir'])
-    #return newT1, newT2, r1, r2
-
-    
-    
-
-
-     

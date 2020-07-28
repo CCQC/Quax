@@ -178,6 +178,7 @@ def oei_arrays(geom, basis, charges):
       s.a = 0  # center A angular momentum iterator 
       s.b = 0  # center B angular momentum iterator 
 
+      #NOTE this being a scan instead of while loop improves performance
       for prim_duet in s.range(primitive_duets.shape[0]):
         p1,p2 = primitive_duets[prim_duet] 
         c1, c2 = coeffs[p1], coeffs[p2]

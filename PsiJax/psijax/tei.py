@@ -1,6 +1,6 @@
 import jax 
-import jax.numpy as np
 from jax.config import config; config.update("jax_enable_x64", True)
+import jax.numpy as np
 from jax.experimental import loops
 from integrals_utils import gaussian_product, boys, binomial_prefactor, factorial, cartesian_product, am_leading_indices, angular_momentum_combinations
 

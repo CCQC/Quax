@@ -13,7 +13,7 @@ def restricted_mp2(geom, basis, nuclear_charges, charge):
     nelectrons = int(np.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
 
-    E_scf, C, eps, G = restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=15, return_aux_data=True)
+    E_scf, C, eps, G, H = restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=15, return_aux_data=True)
 
     eps_occ, eps_vir = eps[:ndocc], eps[ndocc:]
     e_denom = 1 / (eps_occ.reshape(-1, 1, 1, 1) - eps_vir.reshape(-1, 1, 1) + eps_occ.reshape(-1, 1) - eps_vir)
@@ -28,7 +28,7 @@ def restricted_mp2(geom, basis, nuclear_charges, charge):
 def restricted_mp2_lowmem(geom, basis, nuclear_charges, charge):
     nelectrons = int(np.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
-    E_scf, C, eps, G = restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=20, return_aux_data=True)
+    E_scf, C, eps, G, H = restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=20, return_aux_data=True)
 
     nvirt = G.shape[0] - ndocc
     nbf = G.shape[0]

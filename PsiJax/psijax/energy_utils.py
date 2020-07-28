@@ -1,7 +1,8 @@
 import jax
+from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as np
 import numpy as onp
-from jax.config import config; config.update("jax_enable_x64", True)
+from functools import partial
 
 def nuclear_repulsion(geom, nuclear_charges):
     """
@@ -36,3 +37,21 @@ def cholesky_orthogonalization(S):
     Scharfenberg, Peter; A New Algorithm for the Symmetric (Lowdin) Orthonormalization; Int J. Quant. Chem. 1977
     """
     return np.linalg.inv(np.linalg.cholesky(S)).T
+
+#TODO is donate argnums okay? does it do anything?
+#@partial(jax.jit, donate_argnums=(0,1))
+def tei_transformation(G, C):
+    G_mo = np.einsum('pQRS, pP -> PQRS',
+           np.einsum('pqRS, qQ -> pQRS',
+           np.einsum('pqrS, rR -> pqRS',
+           np.einsum('pqrs, sS -> pqrS', G, C), C), C), C)
+    return G_mo
+
+#@partial(jax.jit, donate_argnums=(0,1,2,3,4))
+def partial_tei_transformation(G, Ci, Cj, Ck, Cl):
+    G_mo = np.einsum('pQRS, pP -> PQRS',
+           np.einsum('pqRS, qQ -> pQRS',
+           np.einsum('pqrS, rR -> pqRS',
+           np.einsum('pqrs, sS -> pqrS', G, Ci), Cj), Ck), Cl)
+    return G_mo
+    

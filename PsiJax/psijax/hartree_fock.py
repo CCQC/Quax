@@ -7,7 +7,7 @@ from tei import tei_array
 from oei import oei_arrays
 from energy_utils import nuclear_repulsion, cholesky_orthogonalization
 
-def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=30, return_mo_data=True):
+def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=30, return_aux_data=True):
     nelectrons = int(np.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
 
@@ -32,7 +32,6 @@ def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=3
         Fp = np.linalg.multi_dot((A.T, F, A))
         # Slightly shift eigenspectrum of Fp for degenerate eigenvalues 
         # (JAX cannot differentiate degenerate eigenvalue eigh) 
-        # TODO are there consequences to doing this for correlated methods?
         seed = jax.random.PRNGKey(0)
         eps = 1e-12
         fudge = jax.random.uniform(seed, (Fp.shape[0],)) * eps
@@ -45,10 +44,10 @@ def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=3
         iteration += 1
         if iteration == SCF_MAX_ITER:
             break
-    if not return_mo_data:
+    if not return_aux_data:
         return E_scf
     else:
-        return E_scf, C, eps, G
+        return E_scf, C, eps, G, H
     
 
     

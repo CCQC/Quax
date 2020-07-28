@@ -1,9 +1,5 @@
-import pprint 
 import psi4 
-import jax.numpy as np 
 import numpy as onp
-from jax.config import config 
-config.update("jax_enable_x64", True)
 
 def build_basis_set(molecule, basis):
     # Avoids printing from psi4
@@ -34,22 +30,9 @@ def build_basis_set(molecule, basis):
             basis_dict[i]['coef'].append(basis_set.shell(i).coef(j))
     return basis_dict
 
-# Example use
-#molecule = psi4.geometry("""
-#                         0 1
-#                         H 0.0 0.0 -0.849220457955
-#                         H 0.0 0.0  0.849220457955
-#                         units bohr
-#                         """)
-#
-## Get geometry as JAX array
-#geom = np.asarray(onp.asarray(molecule.geometry()))
-#
-##basis = 'sto-3g'
-##basis = '6-31g'
-#basis = 'cc-pvtz'
-#
-#basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis, puream=0)
+def get_nbf(basis):
+    nbf = 0
+    for i in range(nshells):
+        nbf += basis[i]['idx_stride']
+    return nbf
 
-#basis_dict = build_basis_set(molecule,basis)
-#pprint.pprint(basis_dict)

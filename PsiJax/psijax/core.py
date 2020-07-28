@@ -76,6 +76,8 @@ def derivative(molecule, basis_name, method, order=1):
     Convenience function for computing the full nuclear derivative tensor at some order
     for a particular energy method, molecule, and basis set.
     May be memory-intensive.
+    For gradients, choose order=1, hessian order=2, cubic derivative tensor order=3, quartic order = 4.
+    Anything higher order derivatives should use the partial derivative utility.
     """
     geom = np.asarray(onp.asarray(molecule.geometry()))
     mult = molecule.multiplicity()
@@ -118,6 +120,12 @@ def derivative(molecule, basis_name, method, order=1):
         if order == 2:
             hess = jacfwd(jacfwd(rccsd, 0))(geom, basis_dict, nuclear_charges, charge)
             return np.round(hess.reshape(dim,dim), 10)
+        if order == 3:
+            cubic = jacfwd(jacfwd(jacfwd(rccsd, 0)))(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
+            return np.round(cubic.reshape(dim,dim,dim), 10)
+        if order == 4:
+            quartic = jacfwd(jacfwd(jacfwd(jacfwd(rccsd, 0))))(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
+            return np.round(quartic.reshape(dim,dim,dim,dim), 10)
     return 0
 
 
@@ -223,11 +231,61 @@ def partial_derivative(molecule, basis_name, method, order, address):
             return 0
 
     if method =='mp2':
-        pass
-    if method =='ccd':
-        pass 
+        # Unpack the geometry as a list of single coordinates so we can differentiate w.r.t. single coords
+        def mp2_partial_wrapper(*args, **kwargs):
+            geom = np.asarray(args).reshape(-1,3)
+            basis_dict = kwargs['basis_dict']
+            nuclear_charges = kwargs['nuclear_charges']
+            charge = kwargs['charge']
+            E_mp2 = restricted_mp2(geom, basis_dict, nuclear_charges, charge)
+            return E_mp2
+        if order == 1:
+            i = address[0]
+            partial_grad = jacfwd(mp2_partial_wrapper, i)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_grad
+        if order == 2:
+            i,j = address[0], address[1]
+            partial_hess = jacfwd(jacfwd(mp2_partial_wrapper, i), j)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_hess
+        if order == 3:
+            i,j,k = address[0], address[1], address[2]
+            partial_cubic = jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_cubic
+        if order == 4:
+            i,j,k,l = address[0], address[1], address[2], address[3]
+            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_quartic
+        else:
+            print("Error: {}'th order derivative tensor is not implemented nor recommended for MP2.".format(order))
 
-    return 0 
+    if method =='ccsd':
+        def ccsd_partial_wrapper(*args, **kwargs):
+            geom = np.asarray(args).reshape(-1,3)
+            basis_dict = kwargs['basis_dict']
+            nuclear_charges = kwargs['nuclear_charges']
+            charge = kwargs['charge']
+            E_ccsd = rccsd(geom, basis_dict, nuclear_charges, charge)
+            return E_ccsd
+        if order == 1:
+            i = address[0]
+            partial_grad = jacfwd(ccsd_partial_wrapper, i)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_grad
+        if order == 2:
+            i,j = address[0], address[1]
+            partial_hess = jacfwd(jacfwd(ccsd_partial_wrapper, i), j)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_hess
+        if order == 3:
+            i,j,k = address[0], address[1], address[2]
+            partial_cubic = jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_cubic
+        if order == 4:
+            i,j,k,l = address[0], address[1], address[2], address[3]
+            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_quartic
+        else:
+            print("Error: {}'th order derivative tensor is not implemented nor recommended for CCSD.".format(order))
+    else:
+        print("Error: Method {} not supported.".format(method))
 
 
 # Examples: Compute an energy, full derivative, or partial derivative
@@ -237,58 +295,29 @@ molecule = psi4.geometry("""
                          H 0.0 0.0  0.80000000000
                          units bohr
                          """)
-basis_name = 'cc-pvtz'
-
+basis_name = 'sto-3g'
 #E_scf = energy(molecule, basis_name, 'scf')
-E_ccsd = energy(molecule, basis_name, 'ccsd')
-#print(E_ccsd)
-
-#ccsd_grad = derivative(molecule, basis_name, 'ccsd', order=1)
-#print(ccsd_grad)
-
-ccsd_hess = derivative(molecule, basis_name, 'ccsd', order=2)
-print(ccsd_hess)
-
-#mp2_grad = derivative(molecule, basis_name, 'mp2', order=1)
-#print(mp2_grad)
-
-#mp2_hess = derivative(molecule, basis_name, 'mp2', order=2)
-#print(mp2_hess)
+#E_mp2 = energy(molecule, basis_name, 'mp2')
+#E_ccsd = energy(molecule, basis_name, 'ccsd')
 
 #grad = derivative(molecule, basis_name, 'scf', order=1)
-
 #hess = derivative(molecule, basis_name,  'scf', order=2)
-
 #cube = derivative(molecule, basis_name,  'scf', order=3)
-
 #quar = derivative(molecule, basis_name,  'scf', order=4)
 
 #partial_grad = partial_derivative(molecule, basis_name, 'scf', order=1, address=(2,)) 
-#
 #partial_hess = partial_derivative(molecule, basis_name, 'scf', order=2, address=(0,1)) 
-#
 #partial_cube = partial_derivative(molecule, basis_name, 'scf', order=3, address=(1,0,2)) 
-#
 #partial_quar = partial_derivative(molecule, basis_name, 'scf', order=4, address=(1,0,2,3)) 
-
 #partial_quintic = partial_derivative(molecule, basis_name, 'scf', order=5, address=(5,5,5,5,5))
-#print(partial_quintic)
-
 #partial_sextic = partial_derivative(molecule, basis_name, 'scf', order=6, address=(5,5,5,5,5,5))
-#print(partial_sextic)
 
-
-#import psi4
-#psi4.core.be_quiet()
+psi4.core.be_quiet()
 psi4.set_options({'basis': basis_name, 'scf_type': 'pk', 'mp2_type':'conv', 'e_convergence': 1e-10, 'diis': False, 'puream': 0})
-#print('PSI4 results')
-#print(psi4.energy('scf/'+basis_name))
-#print(onp.asarray(psi4.gradient('scf/'+basis_name)))
-#print(onp.asarray(psi4.hessian('scf/'+basis_name)))
+print('PSI4 results')
+psi_method = 'scf'
+print(psi4.energy(psi_method + '/' +basis_name))
+print(onp.asarray(psi4.gradient(psi_method+'/'+basis_name)))
+print(onp.asarray(psi4.hessian(psi_method+'/'+basis_name)))
 
-print(psi4.energy('ccsd/'+basis_name))
-print(onp.asarray(psi4.gradient('ccsd/'+basis_name)))
-#print(psi4.gradient('mp2/'+basis_name))
-#print(onp.asarray(psi4.hessian('mp2/'+basis_name, dertype='energy')))
-#psi4.frequency('mp2/cc-pvdz')
 
