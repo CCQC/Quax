@@ -1,8 +1,8 @@
 import jax 
+from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as np
 import psi4
 import numpy as onp
-from jax.config import config; config.update("jax_enable_x64", True)
 from jax import jacfwd
 from tei import tei_array 
 from oei import oei_arrays
@@ -10,6 +10,8 @@ from basis_utils import build_basis_set
 from energy_utils import nuclear_repulsion, symmetric_orthogonalization, cholesky_orthogonalization
 
 from hartree_fock import restricted_hartree_fock
+from mp2 import restricted_mp2, restricted_mp2_lowmem
+from ccsd import rccsd
 
 def energy(molecule, basis_name, method='scf'):
     """
@@ -58,16 +60,16 @@ def energy(molecule, basis_name, method='scf'):
     basis_dict = build_basis_set(molecule, basis_name)
 
     if method == 'scf' or method == 'hf' or method == 'rhf':
-        E_scf, C, orbital_energies = restricted_hartree_fock(geom, basis_dict, nuclear_charges, charge)  
+        E_scf = restricted_hartree_fock(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)  
+        return E_scf
 
-    E_corr = 0.
     if method == 'mp2':
-        pass
+        E_mp2 = restricted_mp2(geom, basis_dict, nuclear_charges, charge)
+        return E_mp2
 
-    if method == 'ccd':
-        pass
-
-    return E_scf + E_corr
+    if method == 'ccsd':
+        E_ccsd = rccsd(geom, basis_dict, nuclear_charges, charge) 
+        return E_ccsd
 
 def derivative(molecule, basis_name, method, order=1):
     """
@@ -83,22 +85,40 @@ def derivative(molecule, basis_name, method, order=1):
     dim = geom.reshape(-1).shape[0]
     if method == 'scf' or method == 'hf' or method == 'rhf':
         if order == 1:
-            grad = jacfwd(restricted_hartree_fock, 0)(geom, basis_dict, nuclear_charges, charge, return_mo_data=False)
+            grad = jacfwd(restricted_hartree_fock, 0)(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
             return np.round(grad, 10)
         if order == 2:
-            hess = jacfwd(jacfwd(restricted_hartree_fock, 0))(geom, basis_dict, nuclear_charges, charge, return_mo_data=False)
+            hess = jacfwd(jacfwd(restricted_hartree_fock, 0))(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
             return np.round(hess.reshape(dim,dim), 10)
         if order == 3:
-            cubic = jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0)))(geom, basis_dict, nuclear_charges, charge, return_mo_data=False)
+            cubic = jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0)))(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
             return np.round(cubic.reshape(dim,dim,dim), 10)
         if order == 4:
-            quartic = jacfwd(jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0))))(geom, basis_dict, nuclear_charges, charge, return_mo_data=False)
+            quartic = jacfwd(jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0))))(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
             return np.round(quartic.reshape(dim,dim,dim,dim), 10)
 
     if method =='mp2':
-        pass
-    if method =='ccd':
-        pass 
+        if order == 1:
+            grad = jacfwd(restricted_mp2, 0)(geom, basis_dict, nuclear_charges, charge)
+            return np.round(grad, 10)
+        if order == 2:
+            hess = jacfwd(jacfwd(restricted_mp2, 0))(geom, basis_dict, nuclear_charges, charge)
+            return np.round(hess.reshape(dim,dim), 10)
+        if order == 3:
+            cubic = jacfwd(jacfwd(jacfwd(restricted_mp2, 0)))(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
+            return np.round(cubic.reshape(dim,dim,dim), 10)
+        if order == 4:
+            quartic = jacfwd(jacfwd(jacfwd(jacfwd(restricted_mp2, 0))))(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
+            return np.round(quartic.reshape(dim,dim,dim,dim), 10)
+
+    if method =='ccsd':
+        if order == 1:
+            grad = jacfwd(rccsd, 0)(geom, basis_dict, nuclear_charges, charge)
+            return np.round(grad, 10)
+        if order == 2:
+            hess = jacfwd(jacfwd(rccsd, 0))(geom, basis_dict, nuclear_charges, charge)
+            return np.round(hess.reshape(dim,dim), 10)
+    return 0
 
 
 def partial_derivative(molecule, basis_name, method, order, address):
@@ -172,7 +192,7 @@ def partial_derivative(molecule, basis_name, method, order, address):
             basis_dict = kwargs['basis_dict']
             nuclear_charges = kwargs['nuclear_charges']
             charge = kwargs['charge']
-            E_scf = restricted_hartree_fock(geom, basis_dict, nuclear_charges, charge, return_mo_data=False)
+            E_scf = restricted_hartree_fock(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
             return E_scf
 
         if order == 1:
@@ -194,11 +214,11 @@ def partial_derivative(molecule, basis_name, method, order, address):
         if order == 5:
             i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
             partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
-            return partial_quartic
+            return partial_quintic
         if order == 6:
             i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
-            partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m), n)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
-            return partial_quartic
+            partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m), n)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_sextic
         else:
             return 0
 
@@ -211,15 +231,29 @@ def partial_derivative(molecule, basis_name, method, order, address):
 
 
 # Examples: Compute an energy, full derivative, or partial derivative
-#molecule = psi4.geometry("""
-#                         0 1
-#                         H 0.0 0.0 -0.80000000000
-#                         H 0.0 0.0  0.80000000000
-#                         units bohr
-#                         """)
+molecule = psi4.geometry("""
+                         0 1
+                         H 0.0 0.0 -0.80000000000
+                         H 0.0 0.0  0.80000000000
+                         units bohr
+                         """)
+basis_name = 'cc-pvtz'
 
-#basis_name = 'sto-3g'
 #E_scf = energy(molecule, basis_name, 'scf')
+E_ccsd = energy(molecule, basis_name, 'ccsd')
+#print(E_ccsd)
+
+#ccsd_grad = derivative(molecule, basis_name, 'ccsd', order=1)
+#print(ccsd_grad)
+
+ccsd_hess = derivative(molecule, basis_name, 'ccsd', order=2)
+print(ccsd_hess)
+
+#mp2_grad = derivative(molecule, basis_name, 'mp2', order=1)
+#print(mp2_grad)
+
+#mp2_hess = derivative(molecule, basis_name, 'mp2', order=2)
+#print(mp2_hess)
 
 #grad = derivative(molecule, basis_name, 'scf', order=1)
 
@@ -237,14 +271,24 @@ def partial_derivative(molecule, basis_name, method, order, address):
 #
 #partial_quar = partial_derivative(molecule, basis_name, 'scf', order=4, address=(1,0,2,3)) 
 
+#partial_quintic = partial_derivative(molecule, basis_name, 'scf', order=5, address=(5,5,5,5,5))
+#print(partial_quintic)
 
+#partial_sextic = partial_derivative(molecule, basis_name, 'scf', order=6, address=(5,5,5,5,5,5))
+#print(partial_sextic)
+
+
+#import psi4
 #psi4.core.be_quiet()
-#basis_name = 'cc-pvdz'
-#psi4.set_options({'basis': basis_name, 'scf_type': 'pk', 'e_convergence': 1e-8, 'diis': False, 'puream': 0})
+psi4.set_options({'basis': basis_name, 'scf_type': 'pk', 'mp2_type':'conv', 'e_convergence': 1e-10, 'diis': False, 'puream': 0})
 #print('PSI4 results')
 #print(psi4.energy('scf/'+basis_name))
 #print(onp.asarray(psi4.gradient('scf/'+basis_name)))
 #print(onp.asarray(psi4.hessian('scf/'+basis_name)))
 
-
+print(psi4.energy('ccsd/'+basis_name))
+print(onp.asarray(psi4.gradient('ccsd/'+basis_name)))
+#print(psi4.gradient('mp2/'+basis_name))
+#print(onp.asarray(psi4.hessian('mp2/'+basis_name, dertype='energy')))
+#psi4.frequency('mp2/cc-pvdz')
 

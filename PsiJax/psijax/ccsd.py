@@ -12,14 +12,12 @@ from hartree_fock import restricted_hartree_fock
 
 def rccsd(geom, basis, nuclear_charges, charge):
     # Do HF
-    E_scf, C, eps, V, H = restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=15, return_mo_data=True)
+    E_scf, C, eps, V, H = restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=15, return_aux_data=True)
 
     nelectrons = int(np.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
     nvir = V.shape[0] - ndocc
 
-    #o = slice(None, ndocc)
-    #v = slice(ndocc, None)
     o = slice(0, ndocc)
     v = slice(ndocc, V.shape[0])
 
