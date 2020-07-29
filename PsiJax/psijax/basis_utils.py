@@ -1,4 +1,5 @@
 import psi4 
+import jax.numpy as np
 import numpy as onp
 
 def build_basis_set(molecule, basis):
@@ -31,8 +32,45 @@ def build_basis_set(molecule, basis):
     return basis_dict
 
 def get_nbf(basis):
+    nshells = len(basis)
     nbf = 0
     for i in range(nshells):
         nbf += basis[i]['idx_stride']
     return nbf
+
+def flatten_basis_data(basis):
+    """
+    Takes in a dictionary of basis set info and flattens 
+    all primitive data into vectors.
+    """
+    nshells = len(basis)
+    coeffs = []
+    exps = []
+    atoms = []
+    ams = []
+    indices = []
+    dims = []
+    # Smush primitive data together into vectors
+    nbf = 0
+    for i in range(nshells):
+        tmp_coeffs = basis[i]['coef']  
+        tmp_exps = basis[i]['exp']  
+        nbf += basis[i]['idx_stride']
+        for j in tmp_coeffs:
+            coeffs.append(j)
+            atoms.append(basis[i]['atom'])
+            ams.append(basis[i]['am'])
+            indices.append(basis[i]['idx'])
+            dims.append(basis[i]['idx_stride'])
+        for j in tmp_exps:
+            exps.append(j)
+    coeffs = np.array(onp.asarray(coeffs))
+    exps = np.array(onp.asarray(exps))
+    atoms = np.array(onp.asarray(atoms))
+    ams = np.array(onp.asarray(ams))
+    indices = np.array(onp.asarray(indices))
+    dims = np.array(onp.asarray(dims))
+    return coeffs, exps, atoms, ams, indices, dims
+
+
 

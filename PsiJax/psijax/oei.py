@@ -4,6 +4,7 @@ import jax.numpy as np
 from jax.experimental import loops
 from integrals_utils import gaussian_product, boys, binomial_prefactor, factorial, cartesian_product, am_leading_indices, angular_momentum_combinations
 from functools import partial
+from basis_utils import flatten_basis_data, get_nbf
 np.set_printoptions(linewidth=400)
 
 def double_factorial(n):
@@ -136,36 +137,11 @@ def potential(aa, La, A, bb, Lb, B, geom, charges):
     return val
 
 def oei_arrays(geom, basis, charges):
-    '''
+    """
     Build one electron integral arrays (overlap, kinetic, and potential integrals)
-    '''
-    nshells = len(basis)
-    coeffs = []
-    exps = []
-    atoms = []
-    ams = []
-    indices = []
-    dims = []
-    # Smush primitive data together into vectors
-    nbf = 0
-    for i in range(nshells):
-        tmp_coeffs = basis[i]['coef']  
-        tmp_exps = basis[i]['exp']  
-        nbf += basis[i]['idx_stride']
-        for j in tmp_coeffs:
-            coeffs.append(j)
-            atoms.append(basis[i]['atom'])
-            ams.append(basis[i]['am'])
-            indices.append(basis[i]['idx'])
-            dims.append(basis[i]['idx_stride'])
-        for j in tmp_exps:
-            exps.append(j)
-    coeffs = np.array(coeffs)
-    exps = np.array(exps) 
-    atoms = np.array(atoms)
-    ams = np.array(ams)
-    indices = np.array(indices)
-    dims = np.array(dims)
+    """
+    coeffs, exps, atoms, ams, indices, dims = flatten_basis_data(basis)
+    nbf = get_nbf(basis)
     nprim = coeffs.shape[0]
 
     # Save various AM distributions for indexing
