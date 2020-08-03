@@ -33,8 +33,9 @@ def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=3
         # Slightly shift eigenspectrum of Fp for degenerate eigenvalues 
         # (JAX cannot differentiate degenerate eigenvalue eigh) 
         seed = jax.random.PRNGKey(0)
-        eps = 1e-12
-        fudge = jax.random.uniform(seed, (Fp.shape[0],)) * eps
+        #epsilon = 1e-10
+        epsilon = 1e-9
+        fudge = jax.random.uniform(seed, (Fp.shape[0],), minval=0.1, maxval=1.0) * epsilon
         Fp = Fp + np.diag(fudge)
 
         eps, C2 = np.linalg.eigh(Fp)
