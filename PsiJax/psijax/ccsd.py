@@ -4,12 +4,10 @@ import jax.numpy as np
 from jax.experimental import loops
 import psi4
 import numpy as onp
-from tei import tei_array 
-from oei import oei_arrays
 from energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation
 from hartree_fock import restricted_hartree_fock
 
-def rccsd(geom, basis, nuclear_charges, charge):
+def rccsd(geom, basis, nuclear_charges, charge, return_aux_data=False):
     # Do HF
     E_scf, C, eps, V, H = restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=15, return_aux_data=True)
 
@@ -70,11 +68,15 @@ def rccsd(geom, basis, nuclear_charges, charge):
         iteration += 1
         if iteration == CC_MAX_ITER:
             break
-    print("Testing (T)")
-    pT = parentheses_T(T1, T2, V, fock_Od, fock_Vd)
-    print(pT)
 
-    return E_scf + E_ccsd
+    if return_aux_data:
+        return E_scf + E_ccsd, T1, T2, V, fock_Od, fock_Vd
+    else:
+        return E_scf + E_ccsd
+    #print("Testing (T)")
+    #pT = parentheses_T(T1, T2, V, fock_Od, fock_Vd)
+    #print(pT)
+
     
 @jax.jit
 def rccsd_iter(T1, T2, f, V, d, D, ndocc, nvir):
