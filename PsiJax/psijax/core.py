@@ -300,7 +300,7 @@ molecule = psi4.geometry("""
                          N 0.0 0.0  0.80000000000
                          units bohr
                          """)
-basis_name = 'sto-3g'
+basis_name = 'cc-pvdz'
 E_ccsd_t = energy(molecule, basis_name, 'ccsd(t)')
 print(E_ccsd_t)
 #E_ccsd_t = energy(molecule, basis_name, 'ccsd')
