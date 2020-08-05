@@ -3,10 +3,7 @@ from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as np
 from jax.experimental import loops
 from basis_utils import flatten_basis_data, get_nbf
-from integrals_utils import gaussian_product, boys, binomial_prefactor, factorial, cartesian_product, am_leading_indices, angular_momentum_combinations
-
-def fact_ratio2(a,b):
-    return factorial(a)/factorial(b)/factorial(a-2*b)
+from integrals_utils import gaussian_product, boys, binomial_prefactor, cartesian_product, am_leading_indices, angular_momentum_combinations, fact_ratio2
 
 def B_array(l1,l2,l3,l4,p,a,b,q,c,d,g1,g2,delta):
     # This originally made arrays with argument-dependent shapes. Need fix size for jit compiling
@@ -43,6 +40,7 @@ def B_array(l1,l2,l3,l4,p,a,b,q,c,d,g1,g2,delta):
           s.r1 -= 1
         s.i1 -= 1
       return s.B
+
            
 def primitive_tei(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4): 
     """
