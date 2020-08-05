@@ -5,23 +5,8 @@ from jax.experimental import loops
 from basis_utils import flatten_basis_data, get_nbf
 from integrals_utils import gaussian_product, boys, binomial_prefactor, factorial, cartesian_product, am_leading_indices, angular_momentum_combinations
 
-def fB(i,l1,l2,P,A,B,r,g): 
-    return binomial_prefactor(i,l1,l2,P-A,P-B) * B0(i,r,g)
-
-def B0(i,r,g): 
-    return fact_ratio2(i,r) * (4*g)**(r-i)
-
 def fact_ratio2(a,b):
     return factorial(a)/factorial(b)/factorial(a-2*b)
-
-
-def B_term(i1,i2,r1,r2,u,l1,l2,l3,l4,Px,Ax,Bx,Qx,Cx,Dx,gamma1,gamma2,delta):
-    val = fB(i1,l1,l2,Px,Ax,Bx,r1,gamma1) \
-           * (-1)**i2 * fB(i2,l3,l4,Qx,Cx,Dx,r2,gamma2) \
-           * (-1)**u * fact_ratio2(i1+i2-2*(r1+r2),u) \
-           * (Qx-Px)**(i1+i2-2*(r1+r2)-2*u) \
-           / delta**(i1+i2-2*(r1+r2)-u)
-    return val
 
 def B_array(l1,l2,l3,l4,p,a,b,q,c,d,g1,g2,delta):
     # This originally made arrays with argument-dependent shapes. Need fix size for jit compiling
@@ -34,24 +19,31 @@ def B_array(l1,l2,l3,l4,p,a,b,q,c,d,g1,g2,delta):
       s.u = 0 
       s.i1 = l1 + l2  
       for _ in s.while_range(lambda: s.i1 > -1):   
+        Bterm = binomial_prefactor(s.i1,l1,l2,p-a,p-b) 
         s.r1 = s.i1 // 2
         for _ in s.while_range(lambda: s.r1 > -1):
+          Bterm *= fact_ratio2(s.i1,s.r1) * (4 * g1)**(s.r1-s.i1)
           s.i2 = l3 + l4 
           for _ in s.while_range(lambda: s.i2 > -1):
+            Bterm *= (-1)**s.i2 * binomial_prefactor(s.i2,l3,l4,q-c,q-d) 
             s.r2 = s.i2 // 2
             for _ in s.while_range(lambda: s.r2 > -1):
+              Bterm *= fact_ratio2(s.i2,s.r2) * (4 * g2)**(s.r2-s.i2)
+              tmp = s.i1 + s.i2 - 2 * (s.r1 + s.r2)
               s.u = (s.i1 + s.i2) // 2 - s.r1 - s.r2 
               for _ in s.while_range(lambda: s.u > -1):
+                Bterm *= (-1)**s.u * fact_ratio2(tmp,s.u)
+                Bterm *= (q-p)**(tmp - 2 * s.u)
+                Bterm *= (1 / delta)**(tmp-s.u)
                 I = s.i1 + s.i2 - 2 * (s.r1 + s.r2) - s.u 
-                term = B_term(s.i1,s.i2,s.r1,s.r2,s.u,l1,l2,l3,l4,p,a,b,q,c,d,g1,g2,delta) 
-                s.B = jax.ops.index_add(s.B, I, term)
+                s.B = jax.ops.index_add(s.B, I, Bterm)
                 s.u -= 1
               s.r2 -= 1
             s.i2 -= 1
           s.r1 -= 1
         s.i1 -= 1
       return s.B
-
+           
 def primitive_tei(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4): 
     """
     Computes a single contracted two electron integral. 
@@ -189,10 +181,14 @@ def tei_array(geom, basis):
                   S.K = 0
                   for _ in S.while_range(lambda: S.I < la + lb + lc + ld + 1):
                     S.J = 0 
+                    tmp = Bx[S.I] #TODO
                     for _ in S.while_range(lambda: S.J < ma + mb + mc + md + 1):
                       S.K = 0 
+                      tmp *= By[S.J] #TODO
                       for _ in S.while_range(lambda: S.K < na + nb + nc + nd + 1):
-                        S.primitive += Bx[S.I] * By[S.J] * Bz[S.K] * boys_eval[S.I + S.J + S.K]
+                        tmp *= Bz[S.K] * boys_eval[S.I + S.J + S.K] #TODO
+                        S.primitive += tmp
+                        #S.primitive += Bx[S.I] * By[S.J] * Bz[S.K] * boys_eval[S.I + S.J + S.K]
                         S.K += 1
                       S.J += 1
                     S.I += 1
