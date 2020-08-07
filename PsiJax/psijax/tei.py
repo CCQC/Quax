@@ -50,14 +50,12 @@ neg_one_pow = np.array([1,-1,1,-1,1,-1,1,-1,1,-1,1,-1])
 def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,delta):
     # This originally made arrays with argument-dependent shapes. Need fix size for jit compiling
     # Hard code only up to f functions (fxxx, fxxx | fxxx, fxxx) => l1 + l2 + l3 + l4 + 1
-    g1 *= 4
-    g2 *= 4
-    # NOTE Can move these out of angular momentum loops as well
-    oodelta = 1 / delta
-    oodelta_pow = np.power(oodelta, np.arange(13))
+
+    oodelta_pow = np.power(1 / delta, np.arange(13))       # l1 + l2 + l3 + l4 + 1
+    g1_pow = np.power(4 * g1, np.array([0,-6,-5,-4,-3,-2,-1])) # -(l1 + l2) -> -(l1 + l2) // 2 
+    g2_pow = np.power(4 * g2, np.array([0,-6,-5,-4,-3,-2,-1])) # -(l3 + l4) -> -(l3 + l4) // 2 
+
     qp_pow = np.power(qp, np.arange(13))
-    g1_pow = np.power(g1, np.array([0,-5,-4,-3,-2,-1])) # -(l1 + l2) -> -(l1 + l2) // 2 
-    g2_pow = np.power(g2, np.array([0,-5,-4,-3,-2,-1])) # -(l3 + l4) -> -(l3 + l4) // 2 
 
     with loops.Scope() as s:
       s.B = np.zeros(13)
@@ -91,50 +89,6 @@ def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,delta):
           s.r1 -= 1
         s.i1 -= 1
       return s.B
-
-#def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,delta):
-#    # This originally made arrays with argument-dependent shapes. Need fix size for jit compiling
-#    # Hard code only up to f functions (fxxx, fxxx | fxxx, fxxx) => l1 + l2 + l3 + l4 + 1
-#    g1 *= 4
-#    g2 *= 4
-#    oodelta = 1 / delta
-#    # In principle, all non-pure-iterable dependent quantities -1^x, g1^x, g2^x, qp^x could be stored in arrays sized for maximum angular momentum
-#
-#    with loops.Scope() as s:
-#      s.B = np.zeros(13)
-#      s.i2 = 0
-#      s.r1 = 0
-#      s.r2 = 0
-#      s.u = 0 
-#      s.i1 = l1 + l2  
-#      for _ in s.while_range(lambda: s.i1 > -1):   
-#        Bterm = binomial_prefactor(s.i1,l1,l2,pa,pb) 
-#        s.i2 = l3 + l4 
-#        for _ in s.while_range(lambda: s.i2 > -1):
-#          Bterm *= (-1)**s.i2 * binomial_prefactor(s.i2,l3,l4,qc,qd) 
-#          tmp = s.i1 + s.i2
-#          s.r1 = s.i1 // 2
-#          for _ in s.while_range(lambda: s.r1 > -1):
-#            Bterm *= fact_ratio2[s.i1,s.r1] * (g1)**(s.r1-s.i1)
-#            s.r2 = s.i2 // 2
-#            for _ in s.while_range(lambda: s.r2 > -1):
-#              Bterm *= fact_ratio2[s.i2,s.r2] * (g2)**(s.r2-s.i2)
-#              tmp -= 2 * (s.r1 + s.r2)
-#              s.u = (s.i1 + s.i2) // 2 - s.r1 - s.r2 
-#              for _ in s.while_range(lambda: s.u > -1):
-#                Bterm *= (-1)**s.u * fact_ratio2[tmp,s.u]
-#                Bterm *= (qp)**(tmp - 2 * s.u)
-#                Bterm *= oodelta**(tmp-s.u)
-#                I = tmp - s.u 
-#                s.B = jax.ops.index_add(s.B, I, Bterm)
-#                s.u -= 1
-#              s.r2 -= 1
-#            s.r1 -= 1
-#          s.i2 -= 1
-#        s.i1 -= 1
-#      return s.B
-
-
 
 
 def primitive_tei(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4): 
