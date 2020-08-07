@@ -56,6 +56,8 @@ def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,delta):
     oodelta = 1 / delta
     oodelta_pow = np.power(oodelta, np.arange(13))
     qp_pow = np.power(qp, np.arange(13))
+    g1_pow = np.power(g1, np.array([0,-5,-4,-3,-2,-1])) # -(l1 + l2) -> -(l1 + l2) // 2 
+    g2_pow = np.power(g2, np.array([0,-5,-4,-3,-2,-1])) # -(l3 + l4) -> -(l3 + l4) // 2 
 
     with loops.Scope() as s:
       s.B = np.zeros(13)
@@ -68,13 +70,13 @@ def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,delta):
         Bterm = binomial_prefactor(s.i1,l1,l2,pa,pb) 
         s.r1 = s.i1 // 2
         for _ in s.while_range(lambda: s.r1 > -1):
-          Bterm *= fact_ratio2[s.i1,s.r1] * (g1)**(s.r1-s.i1)
+          Bterm *= fact_ratio2[s.i1,s.r1] * g1_pow[s.r1-s.i1] 
           s.i2 = l3 + l4 
           for _ in s.while_range(lambda: s.i2 > -1):
             Bterm *= neg_one_pow[s.i2] * binomial_prefactor(s.i2,l3,l4,qc,qd) 
             s.r2 = s.i2 // 2
             for _ in s.while_range(lambda: s.r2 > -1):
-              Bterm *= fact_ratio2[s.i2,s.r2] * (g2)**(s.r2-s.i2)
+              Bterm *= fact_ratio2[s.i2,s.r2] * g2_pow[s.r2-s.i2]
               tmp = s.i1 + s.i2 - 2 * (s.r1 + s.r2)
               s.u = tmp // 2
               for _ in s.while_range(lambda: s.u > -1):
@@ -290,20 +292,20 @@ def tei_array(geom, basis):
       return s.G
 
 # Example evaluation and test against Psi4
-#import psi4
-#import numpy as onp
-#from basis_utils import build_basis_set
-#molecule = psi4.geometry("""
-#                         0 1
-#                         N 0.0 0.0 -0.849220457955
-#                         N 0.0 0.0  0.849220457955
-#                         units bohr
-#                         """)
-#geom = np.asarray(onp.asarray(molecule.geometry()))
-#basis_name = 'cc-pvtz'
-#basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
-#basis_dict = build_basis_set(molecule, basis_name)
-#G = tei_array(geom, basis_dict)
+import psi4
+import numpy as onp
+from basis_utils import build_basis_set
+molecule = psi4.geometry("""
+                         0 1
+                         N 0.0 0.0 -0.849220457955
+                         N 0.0 0.0  0.849220457955
+                         units bohr
+                         """)
+geom = np.asarray(onp.asarray(molecule.geometry()))
+basis_name = 'cc-pvtz'
+basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
+basis_dict = build_basis_set(molecule, basis_name)
+G = tei_array(geom, basis_dict)
 
 #mints = psi4.core.MintsHelper(basis_set)
 #psi_G = np.asarray(onp.asarray(mints.ao_eri()))
