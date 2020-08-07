@@ -5,6 +5,8 @@ from jax.experimental import loops
 from basis_utils import flatten_basis_data, get_nbf
 from integrals_utils import gaussian_product, boys, binomial_prefactor, cartesian_product, am_leading_indices, angular_momentum_combinations, fact_ratio2
 
+from integrals_utils import new_binomial_prefactor
+
 #def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,delta):
 #    # This originally made arrays with argument-dependent shapes. Need fix size for jit compiling
 #    # Hard code only up to f functions (fxxx, fxxx | fxxx, fxxx) => l1 + l2 + l3 + l4 + 1
@@ -47,15 +49,16 @@ from integrals_utils import gaussian_product, boys, binomial_prefactor, cartesia
 
 neg_one_pow = np.array([1,-1,1,-1,1,-1,1,-1,1,-1,1,-1])
 
-def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,delta):
+#def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,delta):
+def B_array(l1,l2,l3,l4,pa_pow,pb_pow,qc_pow,qd_pow,qp_pow,g1_pow,g2_pow,oodelta_pow):
     # This originally made arrays with argument-dependent shapes. Need fix size for jit compiling
     # Hard code only up to f functions (fxxx, fxxx | fxxx, fxxx) => l1 + l2 + l3 + l4 + 1
 
-    oodelta_pow = np.power(1 / delta, np.arange(13))       # l1 + l2 + l3 + l4 + 1
-    g1_pow = np.power(4 * g1, np.array([0,-6,-5,-4,-3,-2,-1])) # -(l1 + l2) -> -(l1 + l2) // 2 
-    g2_pow = np.power(4 * g2, np.array([0,-6,-5,-4,-3,-2,-1])) # -(l3 + l4) -> -(l3 + l4) // 2 
+    #oodelta_pow = np.power(1 / delta, np.arange(13))       # l1 + l2 + l3 + l4 + 1
+    #g1_pow = np.power(4 * g1, np.array([0,-6,-5,-4,-3,-2,-1])) # -(l1 + l2) -> -(l1 + l2) // 2 
+    #g2_pow = np.power(4 * g2, np.array([0,-6,-5,-4,-3,-2,-1])) # -(l3 + l4) -> -(l3 + l4) // 2 
 
-    qp_pow = np.power(qp, np.arange(13))
+    #qp_pow = np.power(qp, np.arange(13))
 
     with loops.Scope() as s:
       s.B = np.zeros(13)
@@ -65,13 +68,15 @@ def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,delta):
       s.u = 0 
       s.i1 = l1 + l2  
       for _ in s.while_range(lambda: s.i1 > -1):   
-        Bterm = binomial_prefactor(s.i1,l1,l2,pa,pb) 
+        #Bterm = binomial_prefactor(s.i1,l1,l2,pa_pow,pb_pow) 
+        Bterm = new_binomial_prefactor(s.i1,l1,l2,pa_pow,pb_pow) 
         s.r1 = s.i1 // 2
         for _ in s.while_range(lambda: s.r1 > -1):
           Bterm *= fact_ratio2[s.i1,s.r1] * g1_pow[s.r1-s.i1] 
           s.i2 = l3 + l4 
           for _ in s.while_range(lambda: s.i2 > -1):
-            Bterm *= neg_one_pow[s.i2] * binomial_prefactor(s.i2,l3,l4,qc,qd) 
+            #Bterm *= neg_one_pow[s.i2] * binomial_prefactor(s.i2,l3,l4,qc_pow,qd_pow) 
+            Bterm *= neg_one_pow[s.i2] * new_binomial_prefactor(s.i2,l3,l4,qc_pow,qd_pow) 
             s.r2 = s.i2 // 2
             for _ in s.while_range(lambda: s.r2 > -1):
               Bterm *= fact_ratio2[s.i2,s.r2] * g2_pow[s.r2-s.i2]
@@ -187,14 +192,28 @@ def tei_array(geom, basis):
         Q = (cc * C + dd * D) / gamma2
         PQ = P - Q
         rpq2 = np.dot(PQ,PQ)
-        PAx, PAy, PAz = P - A
-        PBx, PBy, PBz = P - B
-        QCx, QCy, QCz = Q - C
-        QDx, QDy, QDz = Q - D
-        QPx, QPy, QPz = Q - P
         delta = 0.25*(1/gamma1+1/gamma2)
+
+        # Maximum angular momentum: hard coded
+        max_am = 3 # f function support
+        max_am_idx = max_am * 4 + 1 
+
         boys_arg = 0.25 * rpq2 / delta
-        boys_eval = boys(np.arange(13), boys_arg) # NOTE supports f functions l1+l2+l3+l4+1
+        boys_eval = boys(np.arange(max_am_idx), boys_arg) # f: l1+l2+l3+l4+1
+
+        # Need all powers of Pi-Ai,Pi-Bi,Qi-Ci,Qi-Di (i=x,y,z) up to max_am and Qi-Pi up to max_am_idx
+        # note: this computes unncessary quantities for lower angular momentum, 
+        # but avoids repeated computation of the same quantities in loops for higher angular momentum
+        PA_pow = np.power(np.broadcast_to(P-A, (max_am+1,3)).T, np.arange(max_am+1))
+        PB_pow = np.power(np.broadcast_to(P-B, (max_am+1,3)).T, np.arange(max_am+1))
+        QC_pow = np.power(np.broadcast_to(Q-C, (max_am+1,3)).T, np.arange(max_am+1))
+        QD_pow = np.power(np.broadcast_to(Q-D, (max_am+1,3)).T, np.arange(max_am+1))
+
+        QP_pow = np.power(np.broadcast_to(Q-P, (max_am_idx,3)).T, np.arange(max_am_idx))
+        g1_pow = np.power(4*gamma1, np.array([0,-6,-5,-4,-3,-2,-1])) #-(l1+l2) -> -(l1+l2) // 2 
+        g2_pow = np.power(4*gamma2, np.array([0,-6,-5,-4,-3,-2,-1])) #-(l3+l4) -> -(l3+l4) // 2 
+        oodelta_pow = np.power(1 / delta, np.arange(max_am_idx))     # l1 + l2 + l3 + l4 + 1
+
         prefactor = 34.986836655249726 / (gamma1*gamma2*np.sqrt(gamma1+gamma2)) \
                     * np.exp(-aa*bb*rab2/gamma1 + -cc*dd*rcd2/gamma2) * coef
 
@@ -216,9 +235,10 @@ def tei_array(geom, basis):
                 k = idx3 + s.c
                 l = idx4 + s.d
                 # Compute the primitive quartet tei and add to appropriate index in G
-                Bx = B_array(la,lb,lc,ld,PAx,PBx,QCx,QDx,QPx,gamma1,gamma2,delta)
-                By = B_array(ma,mb,mc,md,PAy,PBy,QCy,QDy,QPy,gamma1,gamma2,delta)
-                Bz = B_array(na,nb,nc,nd,PAz,PBz,QCz,QDz,QPz,gamma1,gamma2,delta)
+                Bx = B_array(la,lb,lc,ld,PA_pow[0],PB_pow[0],QC_pow[0],QD_pow[0],QP_pow[0],g1_pow,g2_pow,oodelta_pow)
+                By = B_array(ma,mb,mc,md,PA_pow[1],PB_pow[1],QC_pow[1],QD_pow[1],QP_pow[1],g1_pow,g2_pow,oodelta_pow)
+                Bz = B_array(na,nb,nc,nd,PA_pow[2],PB_pow[2],QC_pow[2],QD_pow[2],QP_pow[2],g1_pow,g2_pow,oodelta_pow)
+
                 with loops.Scope() as S:
                   S.primitive = 0.
                   S.I = 0
@@ -246,20 +266,20 @@ def tei_array(geom, basis):
       return s.G
 
 # Example evaluation and test against Psi4
-import psi4
-import numpy as onp
-from basis_utils import build_basis_set
-molecule = psi4.geometry("""
-                         0 1
-                         N 0.0 0.0 -0.849220457955
-                         N 0.0 0.0  0.849220457955
-                         units bohr
-                         """)
-geom = np.asarray(onp.asarray(molecule.geometry()))
-basis_name = 'cc-pvtz'
-basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
-basis_dict = build_basis_set(molecule, basis_name)
-G = tei_array(geom, basis_dict)
+#import psi4
+#import numpy as onp
+#from basis_utils import build_basis_set
+#molecule = psi4.geometry("""
+#                         0 1
+#                         N 0.0 0.0 -0.849220457955
+#                         N 0.0 0.0  0.849220457955
+#                         units bohr
+#                         """)
+#geom = np.asarray(onp.asarray(molecule.geometry()))
+#basis_name = 'cc-pvtz'
+#basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
+#basis_dict = build_basis_set(molecule, basis_name)
+#G = tei_array(geom, basis_dict)
 
 #mints = psi4.core.MintsHelper(basis_set)
 #psi_G = np.asarray(onp.asarray(mints.ao_eri()))

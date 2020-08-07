@@ -20,6 +20,19 @@ def binomial_prefactor(s,i,j,PAx,PBx):
           L.t += 1
         return L.total
 
+def new_binomial_prefactor(s,i,j,PAx,PBx):
+    """Eqn 15 Augsberger Dykstra 1989 J Comp Chem 11 105-111"""
+    with loops.Scope() as L:
+        L.total = 0.
+        L.t = 0
+        for _ in L.while_range(lambda: L.t < s + 1):
+          for _ in L.cond_range(((s - i) <= L.t) & (L.t <= j)):
+            L.total += binomials[i,s-L.t] * binomials[j,L.t] * PAx[i-s + L.t] * PBx[j - L.t]
+          L.t += 1
+        return L.total
+
+
+
 def factorial(n):
   '''Note: switch to float for high values (n>20) for stability'''
   with loops.Scope() as s:
