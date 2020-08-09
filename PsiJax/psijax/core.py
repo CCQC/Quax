@@ -1,18 +1,16 @@
 import jax 
+from jax import jacfwd
 from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as np
 import psi4
 import numpy as onp
-from jax import jacfwd
-from tei import tei_array 
-from oei import oei_arrays
-from basis_utils import build_basis_set
-from energy_utils import nuclear_repulsion, symmetric_orthogonalization, cholesky_orthogonalization
 
-from hartree_fock import restricted_hartree_fock
-from mp2 import restricted_mp2, restricted_mp2_lowmem
-from ccsd import rccsd
-from ccsd_t import rccsd_t
+from .integrals.basis_utils import build_basis_set
+from .methods.energy_utils import nuclear_repulsion, cholesky_orthogonalization
+from .methods.hartree_fock import restricted_hartree_fock
+from .methods.mp2 import restricted_mp2, restricted_mp2_lowmem
+from .methods.ccsd import rccsd
+from .methods.ccsd_t import rccsd_t
 
 def energy(molecule, basis_name, method='scf'):
     """
@@ -131,8 +129,21 @@ def derivative(molecule, basis_name, method, order=1):
         if order == 4:
             quartic = jacfwd(jacfwd(jacfwd(jacfwd(rccsd, 0))))(geom, basis_dict, nuclear_charges, charge)
             return np.round(quartic.reshape(dim,dim,dim,dim), 10)
-    return 0
 
+    if method =='ccsd(t)':
+        if order == 1:
+            grad = jacfwd(rccsd_t, 0)(geom, basis_dict, nuclear_charges, charge)
+            return np.round(grad, 10)
+        if order == 2:
+            hess = jacfwd(jacfwd(rccsd_t, 0))(geom, basis_dict, nuclear_charges, charge)
+            return np.round(hess.reshape(dim,dim), 10)
+        if order == 3:
+            cubic = jacfwd(jacfwd(jacfwd(rccsd_t, 0)))(geom, basis_dict, nuclear_charges, charge)
+            return np.round(cubic.reshape(dim,dim,dim), 10)
+        if order == 4:
+            quartic = jacfwd(jacfwd(jacfwd(jacfwd(rccsd_t, 0))))(geom, basis_dict, nuclear_charges, charge)
+            return np.round(quartic.reshape(dim,dim,dim,dim), 10)
+    return 0
 
 def partial_derivative(molecule, basis_name, method, order, address):
     """
@@ -233,6 +244,7 @@ def partial_derivative(molecule, basis_name, method, order, address):
             partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m), n)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
             return partial_sextic
         else:
+            print("Error: Order {} partial derivatives are not implemented nor recommended for Hartree-Fock.".format(order))
             return 0
 
     if method =='mp2':
@@ -261,7 +273,7 @@ def partial_derivative(molecule, basis_name, method, order, address):
             partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
             return partial_quartic
         else:
-            print("Error: {}'th order derivative tensor is not implemented nor recommended for MP2.".format(order))
+            print("Error: Order {} partial derivatives are not implemented nor recommended for MP2.".format(order))
 
     if method =='ccsd':
         def ccsd_partial_wrapper(*args, **kwargs):
@@ -288,38 +300,48 @@ def partial_derivative(molecule, basis_name, method, order, address):
             partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
             return partial_quartic
         else:
-            print("Error: {}'th order derivative tensor is not implemented nor recommended for CCSD.".format(order))
+            print("Error: Order {} partial derivatives are not implemented nor recommended for CCSD.".format(order))
+
+    if method =='ccsd(t)':
+        def ccsd_t_partial_wrapper(*args, **kwargs):
+            geom = np.asarray(args).reshape(-1,3)
+            basis_dict = kwargs['basis_dict']
+            nuclear_charges = kwargs['nuclear_charges']
+            charge = kwargs['charge']
+            E_ccsd_t = rccsd_t(geom, basis_dict, nuclear_charges, charge)
+            return E_ccsd_t
+        if order == 1:
+            i = address[0]
+            partial_grad = jacfwd(ccsd_t_partial_wrapper, i)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_grad
+        if order == 2:
+            i,j = address[0], address[1]
+            partial_hess = jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_hess
+        if order == 3:
+            i,j,k = address[0], address[1], address[2]
+            partial_cubic = jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_cubic
+        if order == 4:
+            i,j,k,l = address[0], address[1], address[2], address[3]
+            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_quartic
+        else:
+            print("Error: Order {} partial derivatives are not implemented nor recommended for CCSD(T).".format(order))
+
     else:
         print("Error: Method {} not supported.".format(method))
 
 
 # Examples: Compute an energy, full derivative, or partial derivative
-molecule = psi4.geometry("""
-                         0 1
-                         N 0.0 0.0 -0.80000000000
-                         N 0.0 0.0  0.80000000000
-                         units bohr
-                         """)
-basis_name = 'cc-pvdz'
-E_ccsd_t = energy(molecule, basis_name, 'ccsd(t)')
-print(E_ccsd_t)
-#E_ccsd_t = energy(molecule, basis_name, 'ccsd')
-
-#print("N2 ccsd/cc-pvTz partial quartic")
-#partial_quar = partial_derivative(molecule, basis_name, 'ccsd', order=4, address=(5,5,5,5)) 
-#print(partial_quar)
-
-#E_ccsd = energy(molecule, basis_name, 'ccsd')
-#print(E_ccsd)
-#cube = derivative(molecule, basis_name,  'ccsd', order=3)
-#print(cube)
-
-#print("N2 ccsd/sto3g single CUBE")
-#partial_cube = partial_derivative(molecule, basis_name, 'ccsd', order=3, address=(5,5,5)) 
-#print(partial_cube)
-
-#partial_quar = partial_derivative(molecule, basis_name, 'ccsd', order=4, address=(5,5,5,5)) 
-#print(partial_quar)
+#molecule = psi4.geometry("""
+#                         0 1
+#                         N 0.0 0.0 -0.80000000000
+#                         N 0.0 0.0  0.80000000000
+#                         symmetry c1
+#                         units bohr
+#                         """)
+#basis_name = 'cc-pvtz'
 
 #E_scf = energy(molecule, basis_name, 'scf')
 #E_mp2 = energy(molecule, basis_name, 'mp2')
@@ -337,12 +359,13 @@ print(E_ccsd_t)
 #partial_quintic = partial_derivative(molecule, basis_name, 'scf', order=5, address=(5,5,5,5,5))
 #partial_sextic = partial_derivative(molecule, basis_name, 'scf', order=6, address=(5,5,5,5,5,5))
 
+# Check against psi4
+#import psi4
 #psi4.core.be_quiet()
-psi4.set_options({'basis': basis_name, 'scf_type': 'pk', 'mp2_type':'conv', 'e_convergence': 1e-10, 'diis': False, 'puream': 0})
+#psi4.set_options({'basis': basis_name, 'scf_type': 'pk', 'mp2_type':'conv', 'e_convergence': 1e-10, 'diis': False, 'puream': 0})
 #print('PSI4 results')
-psi_method = 'ccsd(t)'
-print(psi4.energy(psi_method + '/' +basis_name))
+#psi_method = 'scf'
+#print(psi4.energy(psi_method + '/' +basis_name))
 #print(onp.asarray(psi4.gradient(psi_method+'/'+basis_name)))
 #print(onp.asarray(psi4.hessian(psi_method+'/'+basis_name)))
-
 
