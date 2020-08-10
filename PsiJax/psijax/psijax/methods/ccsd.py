@@ -69,8 +69,8 @@ def rccsd(geom, basis, nuclear_charges, charge, return_aux_data=False):
         if iteration == CC_MAX_ITER:
             break
 
-    print("CCSD Correlation Energy:   ", E_ccsd)
-    print("CCSD Total Energy:         ", E_ccsd + E_scf)
+    #print("CCSD Correlation Energy:   ", E_ccsd)
+    #print("CCSD Total Energy:         ", E_ccsd + E_scf)
     if return_aux_data:
         return E_scf + E_ccsd, T1, T2, V, fock_Od, fock_Vd
     else:

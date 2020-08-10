@@ -24,8 +24,8 @@ def restricted_mp2(geom, basis, nuclear_charges, charge):
                       np.einsum('iajb,iajb,iajb->', G - np.transpose(G, (0,3,2,1)), G, e_denom)
 
     mp2_total_energy = mp2_correlation + E_scf
-    print("MP2 Correlation Energy:    ", mp2_correlation)
-    print("MP2 Total Energy:          ", mp2_correlation)
+    #print("MP2 Correlation Energy:    ", mp2_correlation)
+    #print("MP2 Total Energy:          ", mp2_correlation)
     return E_scf + mp2_correlation
 
 def restricted_mp2_lowmem(geom, basis, nuclear_charges, charge):
