@@ -1,59 +1,17 @@
 import jax 
-from jax.config import config; config.update("jax_enable_x64", True)
+from jax.config import config
+config.update("jax_enable_x64", True)
+config.enable_omnistaging()
 import jax.numpy as np
 from jax.experimental import loops
 
 from .basis_utils import flatten_basis_data, get_nbf
-from .integrals_utils import gaussian_product, boys, new_binomial_prefactor, binomial_prefactor, cartesian_product, am_leading_indices, angular_momentum_combinations, fact_ratio2
+from .integrals_utils import gaussian_product, boys, new_binomial_prefactor, binomial_prefactor, cartesian_product, am_leading_indices, angular_momentum_combinations, fact_ratio2, neg_one_pow
 
-
-#def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,delta):
-#    # This originally made arrays with argument-dependent shapes. Need fix size for jit compiling
-#    # Hard code only up to f functions (fxxx, fxxx | fxxx, fxxx) => l1 + l2 + l3 + l4 + 1
-#    g1 *= 4
-#    g2 *= 4
-#    oodelta = 1 / delta
-#
-#    with loops.Scope() as s:
-#      s.B = np.zeros(13)
-#      s.i2 = 0
-#      s.r1 = 0
-#      s.r2 = 0
-#      s.u = 0 
-#      s.i1 = l1 + l2  
-#      for _ in s.while_range(lambda: s.i1 > -1):   
-#        Bterm = binomial_prefactor(s.i1,l1,l2,pa,pb) 
-#        s.r1 = s.i1 // 2
-#        for _ in s.while_range(lambda: s.r1 > -1):
-#          Bterm *= fact_ratio2[s.i1,s.r1] * (g1)**(s.r1-s.i1)
-#          s.i2 = l3 + l4 
-#          for _ in s.while_range(lambda: s.i2 > -1):
-#            Bterm *= (-1)**s.i2 * binomial_prefactor(s.i2,l3,l4,qc,qd) 
-#            s.r2 = s.i2 // 2
-#            for _ in s.while_range(lambda: s.r2 > -1):
-#              Bterm *= fact_ratio2[s.i2,s.r2] * (g2)**(s.r2-s.i2)
-#              tmp = s.i1 + s.i2 - 2 * (s.r1 + s.r2)
-#              s.u = (s.i1 + s.i2) // 2 - s.r1 - s.r2 
-#              for _ in s.while_range(lambda: s.u > -1):
-#                Bterm *= (-1)**s.u * fact_ratio2[tmp,s.u]
-#                Bterm *= (qp)**(tmp - 2 * s.u)
-#                Bterm *= oodelta**(tmp-s.u)
-#                I = tmp - s.u 
-#                s.B = jax.ops.index_add(s.B, I, Bterm)
-#                s.u -= 1
-#              s.r2 -= 1
-#            s.i2 -= 1
-#          s.r1 -= 1
-#        s.i1 -= 1
-#      return s.B
-
-neg_one_pow = np.array([1,-1,1,-1,1,-1,1,-1,1,-1,1,-1])
-
-#def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,delta):
+@jax.jit
 def B_array(l1,l2,l3,l4,pa_pow,pb_pow,qc_pow,qd_pow,qp_pow,g1_pow,g2_pow,oodelta_pow):
     # This originally made arrays with argument-dependent shapes. Need fix size for jit compiling
     # Hard code only up to f functions (fxxx, fxxx | fxxx, fxxx) => l1 + l2 + l3 + l4 + 1
-
     # Binomial prefactor function still responsible for about 30% of total TEI expense at N2 TZ
     with loops.Scope() as s:
       s.B = np.zeros(13)

@@ -207,4 +207,5 @@ angular_momentum_combinations = np.array([[0,0,0],
                                           [0,0,5]], dtype=int)
 
 am_leading_indices = np.array([0,1,4,10,20,35,56], dtype=int)
+neg_one_pow = np.array([1,-1,1,-1,1,-1,1,-1,1,-1,1,-1])
 
