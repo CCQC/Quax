@@ -1,6 +1,8 @@
 import jax 
 from jax import jacfwd
-from jax.config import config; config.update("jax_enable_x64", True)
+from jax.config import config
+config.update("jax_enable_x64", True)
+config.enable_omnistaging()
 import jax.numpy as np
 import psi4
 import numpy as onp
@@ -332,40 +334,4 @@ def partial_derivative(molecule, basis_name, method, order, address):
     else:
         print("Error: Method {} not supported.".format(method))
 
-
-# Examples: Compute an energy, full derivative, or partial derivative
-#molecule = psi4.geometry("""
-#                         0 1
-#                         N 0.0 0.0 -0.80000000000
-#                         N 0.0 0.0  0.80000000000
-#                         symmetry c1
-#                         units bohr
-#                         """)
-#basis_name = 'cc-pvtz'
-
-#E_scf = energy(molecule, basis_name, 'scf')
-#E_mp2 = energy(molecule, basis_name, 'mp2')
-#E_ccsd = energy(molecule, basis_name, 'ccsd')
-
-#grad = derivative(molecule, basis_name, 'scf', order=1)
-#hess = derivative(molecule, basis_name,  'scf', order=2)
-#cube = derivative(molecule, basis_name,  'scf', order=3)
-#quar = derivative(molecule, basis_name,  'scf', order=4)
-
-#partial_grad = partial_derivative(molecule, basis_name, 'scf', order=1, address=(2,)) 
-#partial_hess = partial_derivative(molecule, basis_name, 'scf', order=2, address=(0,1)) 
-#partial_cube = partial_derivative(molecule, basis_name, 'scf', order=3, address=(1,0,2)) 
-#partial_quar = partial_derivative(molecule, basis_name, 'scf', order=4, address=(1,0,2,3)) 
-#partial_quintic = partial_derivative(molecule, basis_name, 'scf', order=5, address=(5,5,5,5,5))
-#partial_sextic = partial_derivative(molecule, basis_name, 'scf', order=6, address=(5,5,5,5,5,5))
-
-# Check against psi4
-#import psi4
-#psi4.core.be_quiet()
-#psi4.set_options({'basis': basis_name, 'scf_type': 'pk', 'mp2_type':'conv', 'e_convergence': 1e-10, 'diis': False, 'puream': 0})
-#print('PSI4 results')
-#psi_method = 'scf'
-#print(psi4.energy(psi_method + '/' +basis_name))
-#print(onp.asarray(psi4.gradient(psi_method+'/'+basis_name)))
-#print(onp.asarray(psi4.hessian(psi_method+'/'+basis_name)))
 
