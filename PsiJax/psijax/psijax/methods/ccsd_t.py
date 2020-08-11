@@ -1,5 +1,6 @@
 import jax 
 from jax.config import config; config.update("jax_enable_x64", True)
+config.enable_omnistaging()
 import jax.numpy as np
 from jax.experimental import loops
 import numpy as onp
@@ -8,7 +9,6 @@ from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_tra
 from .ccsd import rccsd 
 from ..integrals import integrals_utils
 
-# Jittable Jax-loops version, much faster. 
 def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
     Voooo, Vooov, Voovv, Vovov, Vovvv, Vvvvv = V
     # below equations are in chemists, so transpose 

@@ -36,14 +36,6 @@ def restricted_mp2_lowmem(geom, basis, nuclear_charges, charge):
     nvirt = G.shape[0] - ndocc
     nbf = G.shape[0]
     G = tei_transformation(G, C) # have to do full transform for loop algo for some reason? am i dumb? 
-
-    #mp2_correlation = 0.
-    #for i in range(ndocc):
-    #  for j in range(ndocc):
-    #    for a in range(ndocc, nbf):
-    #      for b in range(ndocc, nbf):
-    #          mp2_correlation += G[i, a, j, b] * (2 * G[i, a, j, b] - G[i, b, j, a]) / (eps[i] + eps[j] - eps[a] - eps[b])
-    #return E_scf + mp2_correlation
     
     with loops.Scope() as s:
       s.mp2_correlation = 0.

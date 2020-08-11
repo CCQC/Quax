@@ -1,5 +1,6 @@
 import jax 
 from jax.config import config; config.update("jax_enable_x64", True)
+config.enable_omnistaging()
 import jax.numpy as np
 import psi4
 import numpy as onp
@@ -17,30 +18,36 @@ def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=3
     # Canonical orthogonalization via cholesky decomposition
     A = cholesky_orthogonalization(S)
 
+    # For slightly shifting eigenspectrum of Fp for degenerate eigenvalues 
+    # (JAX cannot differentiate degenerate eigenvalue eigh) 
+    seed = jax.random.PRNGKey(0)
+    epsilon = 1e-9
+    fudge = jax.random.uniform(seed, (S.shape[0],), minval=0.1, maxval=1.0) * epsilon
+    fudge_factor = np.diag(fudge)
+
     H = T + V
     Enuc = nuclear_repulsion(geom,nuclear_charges)
     D = np.zeros_like(H)
+
+    @jax.jit
+    def rhf_iter(H,A,G,D,Enuc):
+        J = np.einsum('pqrs,rs->pq', G, D)
+        K = np.einsum('prqs,rs->pq', G, D)
+        F = H + J * 2 - K
+        E_scf = np.einsum('pq,pq->', F + H, D) + Enuc
+        Fp = np.linalg.multi_dot((A.T, F, A))
+        Fp = Fp + fudge_factor
+        
+        eps, C2 = np.linalg.eigh(Fp)
+        C = np.dot(A,C2)
+        return E_scf, C, eps 
 
     iteration = 0
     E_scf = 1.0
     E_old = 0.0
     while abs(E_scf - E_old) > 1e-12:
         E_old = E_scf * 1
-        J = np.einsum('pqrs,rs->pq', G, D)
-        K = np.einsum('prqs,rs->pq', G, D)
-        F = H + J * 2 - K
-        E_scf = np.einsum('pq,pq->', F + H, D) + Enuc
-        Fp = np.linalg.multi_dot((A.T, F, A))
-        # Slightly shift eigenspectrum of Fp for degenerate eigenvalues 
-        # (JAX cannot differentiate degenerate eigenvalue eigh) 
-        seed = jax.random.PRNGKey(0)
-        #epsilon = 1e-10
-        epsilon = 1e-9
-        fudge = jax.random.uniform(seed, (Fp.shape[0],), minval=0.1, maxval=1.0) * epsilon
-        Fp = Fp + np.diag(fudge)
-
-        eps, C2 = np.linalg.eigh(Fp)
-        C = np.dot(A,C2)
+        E_scf, C, eps = rhf_iter(H,A,G,D,Enuc)
         Cocc = C[:, :ndocc]
         D = np.einsum('pi,qi->pq', Cocc, Cocc)
         iteration += 1
@@ -51,6 +58,6 @@ def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=3
         return E_scf
     else:
         return E_scf, C, eps, G, H
-    
+
 
     
