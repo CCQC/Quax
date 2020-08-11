@@ -31,8 +31,6 @@ def new_binomial_prefactor(s,i,j,PAx,PBx):
           L.t += 1
         return L.total
 
-
-
 def factorial(n):
   '''Note: switch to float for high values (n>20) for stability'''
   with loops.Scope() as s:
