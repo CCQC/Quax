@@ -1,5 +1,6 @@
 import jax
 from jax.config import config; config.update("jax_enable_x64", True)
+config.enable_omnistaging()
 import jax.numpy as np
 import numpy as onp
 from functools import partial
@@ -38,20 +39,13 @@ def cholesky_orthogonalization(S):
     """
     return np.linalg.inv(np.linalg.cholesky(S)).T
 
-#TODO is donate argnums okay? does it do anything?
-#@partial(jax.jit, donate_argnums=(0,1))
+@jax.jit
 def tei_transformation(G, C):
-    G_mo = np.einsum('pQRS, pP -> PQRS',
-           np.einsum('pqRS, qQ -> pQRS',
-           np.einsum('pqrS, rR -> pqRS',
-           np.einsum('pqrs, sS -> pqrS', G, C), C), C), C)
-    return G_mo
+    G = np.einsum('pqrs, sS, rR, qQ, pP -> PQRS', G, C, C, C, C, optimize='optimal')
+    return G
 
-#@partial(jax.jit, donate_argnums=(0,1,2,3,4))
+@jax.jit
 def partial_tei_transformation(G, Ci, Cj, Ck, Cl):
-    G_mo = np.einsum('pQRS, pP -> PQRS',
-           np.einsum('pqRS, qQ -> pQRS',
-           np.einsum('pqrS, rR -> pqRS',
-           np.einsum('pqrs, sS -> pqrS', G, Ci), Cj), Ck), Cl)
-    return G_mo
+    G = np.einsum('pqrs, sS, rR, qQ, pP -> PQRS', G, Ci, Cj, Ck, Cl, optimize='optimal')
+    return G
     
