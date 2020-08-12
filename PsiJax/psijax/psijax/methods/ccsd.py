@@ -15,38 +15,27 @@ def rccsd(geom, basis, nuclear_charges, charge, return_aux_data=False):
 
     nelectrons = int(np.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
-    nvir = V.shape[0] - ndocc
+    nbf = V.shape[0]
+    nvir = nbf - ndocc
 
     o = slice(0, ndocc)
-    v = slice(ndocc, V.shape[0])
-    # Transform one-electron hamiltonian to MO basis
-    H = np.einsum('up,vq,uv->pq', C, C, H)
+    v = slice(ndocc, nbf)
+
     # Transform TEI's to MO basis
     V = tei_transformation(V,C)
-    # Form MO fock matrix
-    F = H + 2 * np.einsum('pqkk->pq', V[:,:,o,o]) - np.einsum('pkqk->pq', V[:,o,:,o])
-    # Save diagonal terms
-    fock_Od = np.diagonal(F)[o]
-    fock_Vd = np.diagonal(F)[v]
-    # Erase diagonal elements from original matrix
-    F = F - np.diag(np.diag(F))
-
-    # Save useful slices
-    fock_OO = F[o,o]
-    fock_VV = F[v,v]
-    fock_OV = F[o,v]
-    f = (fock_OO, fock_OV, fock_VV)
+    fock_Od = eps[o]
+    fock_Vd = eps[v]
 
     # Save slices of two-electron repulsion integral
     V = np.swapaxes(V, 1,2)
     V = (V[o,o,o,o], V[o,o,o,v], V[o,o,v,v], V[o,v,o,v], V[o,v,v,v], V[v,v,v,v])
 
-    # Auxilliary D matrix
+    # Oribital energy denominators 
     D = 1.0 / (fock_Od.reshape(-1,1,1,1) + fock_Od.reshape(-1,1,1) - fock_Vd.reshape(-1,1) - fock_Vd)
     d = 1.0 / (fock_Od.reshape(-1,1) - fock_Vd)
 
     # Initial Amplitudes
-    T1 = f[1]*d
+    T1 = np.zeros((ndocc,nvir))
     T2 = D*V[2]
 
     # Pre iterations
@@ -56,16 +45,8 @@ def rccsd(geom, basis, nuclear_charges, charge, return_aux_data=False):
     E_old = 0.0
     while abs(E_ccsd - E_old)  > 1e-9:
         E_old = E_ccsd * 1
-
-        T1, T2 = rccsd_iter(T1, T2, f, V, d, D, ndocc, nvir)
-        Voovv = V[2]
-        E_ccsd = 0.
-        E_ccsd += 2.0*np.einsum('kc, kc -> ', fock_OV, T1, optimize = 'optimal')
-        E_ccsd += -1.0*np.einsum('lc, kd, klcd -> ', T1, T1, Voovv, optimize = 'optimal')
-        E_ccsd += -1.0*np.einsum('lckd, klcd -> ', np.transpose(T2,(0,2,1,3)), Voovv, optimize = 'optimal')
-        E_ccsd += 2.0*np.einsum('lckd, klcd -> ', np.transpose(T2,(1,2,0,3)), Voovv, optimize = 'optimal')
-        E_ccsd += 2.0*np.einsum('lc, kd, lkcd -> ', T1, T1, Voovv, optimize = 'optimal')
-
+        T1, T2 = rccsd_iter(T1, T2, V, d, D, ndocc, nvir)
+        E_ccsd = rccsd_energy(T1,T2,V[2])
         iteration += 1
         if iteration == CC_MAX_ITER:
             break
@@ -78,20 +59,23 @@ def rccsd(geom, basis, nuclear_charges, charge, return_aux_data=False):
         return E_scf + E_ccsd
 
 @jax.jit
-def rccsd_iter(T1, T2, f, V, d, D, ndocc, nvir):
+def rccsd_energy(T1, T2, Voovv):
+    E_ccsd = 0.
+    E_ccsd += -1.0*np.einsum('lc, kd, klcd -> ', T1, T1, Voovv, optimize = 'optimal')
+    E_ccsd += -1.0*np.einsum('lckd, klcd -> ', np.transpose(T2,(0,2,1,3)), Voovv, optimize = 'optimal')
+    E_ccsd += 2.0*np.einsum('lckd, klcd -> ', np.transpose(T2,(1,2,0,3)), Voovv, optimize = 'optimal')
+    E_ccsd += 2.0*np.einsum('lc, kd, lkcd -> ', T1, T1, Voovv, optimize = 'optimal')
+    return E_ccsd
+
+@jax.jit
+def rccsd_iter(T1, T2, V, d, D, ndocc, nvir):
     Voooo, Vooov, Voovv, Vovov, Vovvv, Vvvvv = V
-    fock_OO, fock_OV, fock_VV = f
 
     newT1 = np.zeros(T1.shape)
     newT2 = np.zeros(T2.shape)
 
     # T1 equation
-    newT1 += fock_OV
-    newT1 -= np.einsum('ik, ka -> ia', fock_OO, T1, optimize = 'optimal')
-    newT1 += np.einsum('ca, ic -> ia', fock_VV, T1, optimize = 'optimal')
-    newT1 -= np.einsum('kc, ic, ka -> ia', fock_OV, T1, T1, optimize = 'optimal')
-    newT1 += 2.0*np.einsum('kc, ikac -> ia', fock_OV, T2, optimize = 'optimal')
-    newT1 -= np.einsum('kc, kiac -> ia', fock_OV, T2, optimize = 'optimal')
+    #TODO necessarily 0
     newT1 -= np.einsum('kc, icka -> ia', T1, Vovov, optimize = 'optimal')
     newT1 += 2.0*np.einsum('kc, kica -> ia', T1, Voovv, optimize = 'optimal')
     newT1 -= np.einsum('kicd, kadc -> ia', T2, Vovvv, optimize = 'optimal')
@@ -139,12 +123,8 @@ def rccsd_iter(T1, T2, f, V, d, D, ndocc, nvir):
     newT2 += np.einsum('ic, jd, ka, lb, klcd -> ijab', T1, T1, T1, T1, Voovv, optimize = 'optimal')
     newT2 += np.einsum('ic, jd, lkab, lkcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
     newT2 += np.einsum('ka, lb, ijdc, lkcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
-    P_OVVO = -1.0*np.einsum('ik, kjab -> ijab', fock_OO, T2, optimize = 'optimal')
-    P_OVVO += 1.0*np.einsum('ca, ijcb -> ijab', fock_VV, T2, optimize = 'optimal')
-    P_OVVO += -1.0*np.einsum('kb, jika -> ijab', T1, Vooov, optimize = 'optimal')
+    P_OVVO = -1.0*np.einsum('kb, jika -> ijab', T1, Vooov, optimize = 'optimal')
     P_OVVO += 1.0*np.einsum('jc, icab -> ijab', T1, Vovvv, optimize = 'optimal')
-    P_OVVO += -1.0*np.einsum('kc, ic, kjab -> ijab', fock_OV, T1, T2, optimize = 'optimal')
-    P_OVVO += -1.0*np.einsum('kc, ka, ijcb -> ijab', fock_OV, T1, T2, optimize = 'optimal')
     P_OVVO += -1.0*np.einsum('kiac, kjcb -> ijab', T2, Voovv, optimize = 'optimal')
     P_OVVO += -1.0*np.einsum('ic, ka, kjcb -> ijab', T1, T1, Voovv, optimize = 'optimal')
     P_OVVO += -1.0*np.einsum('ic, kb, jcka -> ijab', T1, T1, Vovov, optimize = 'optimal')
