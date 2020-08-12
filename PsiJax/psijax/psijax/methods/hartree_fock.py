@@ -57,7 +57,7 @@ def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=3
     if not return_aux_data:
         return E_scf
     else:
-        return E_scf, C, eps, G, H
+        return E_scf, C, eps, G
 
 
     

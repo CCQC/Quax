@@ -11,7 +11,7 @@ from .hartree_fock import restricted_hartree_fock
 
 def rccsd(geom, basis, nuclear_charges, charge, return_aux_data=False):
     # Do HF
-    E_scf, C, eps, V, H = restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=15, return_aux_data=True)
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=15, return_aux_data=True)
 
     nelectrons = int(np.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
