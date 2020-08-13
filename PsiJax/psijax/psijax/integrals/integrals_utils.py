@@ -95,6 +95,9 @@ factorials = np.array([1.0000000000000000e0, 1.0000000000000000e0, 2.00000000000
                        6.4023737057280000e15,1.2164510040883200e17,2.4329020081766400e18,
                        5.1090942171709440e19,1.1240007277776077e21,2.5852016738884978e22,
                        6.2044840173323941e23,1.5511210043330986e25,4.0329146112660565e26])
+# Double factorials. We need 0!! to (l1+l2+1)!!, but sometimes we index -1, so put a 1 at the end.
+double_factorials = np.array([1,1,2,3,8,15,48,105,384,945,3840,10395,46080,1])
+ 
 
 # All elements for a,b in which satisfy a! / (b! (a-2b)!)
 # factorial(a) / factorial(b) / factorial(a-2*b)

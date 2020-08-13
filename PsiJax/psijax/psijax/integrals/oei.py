@@ -1,21 +1,12 @@
 import jax 
 from jax.config import config; config.update("jax_enable_x64", True)
+config.enable_omnistaging()
 import jax.numpy as np
 from jax.experimental import loops
 from functools import partial
 
-from .integrals_utils import gaussian_product, boys, binomial_prefactor, factorial, cartesian_product, am_leading_indices, angular_momentum_combinations
+from .integrals_utils import gaussian_product, boys, binomial_prefactor, factorials, double_factorials, cartesian_product, am_leading_indices, angular_momentum_combinations
 from .basis_utils import flatten_basis_data, get_nbf
-
-def double_factorial(n):
-    '''Given integer, return double factorial n!! = n * (n-2) * (n-4) * ... '''
-    with loops.Scope() as s:
-      s.k = 1
-      s.n = n
-      for _ in s.while_range(lambda: s.n > 1):
-        s.k *= s.n
-        s.n -= 2
-      return s.k
 
 def overlap(aa,La,A,bb,Lb,B):
     """
@@ -43,7 +34,7 @@ def overlap_component(l1,l2,PAx,PBx,gamma):
       s.total = 0.
       s.i = 0
       for _ in s.while_range(lambda: s.i < K):
-        s.total += binomial_prefactor(2*s.i,l1,l2,PAx,PBx) * double_factorial(2*s.i-1) / (2*gamma)**s.i
+        s.total += binomial_prefactor(2*s.i,l1,l2,PAx,PBx) * double_factorials[2*s.i-1] / (2*gamma)**s.i
         s.i += 1
       return s.total
 
@@ -68,8 +59,8 @@ def A_term(i,r,u,l1,l2,PAx,PBx,CPx,gamma):
     """
     Taketa, Hunzinaga, Oohata 2.18
     """
-    return (-1)**i * binomial_prefactor(i,l1,l2,PAx,PBx) * (-1)**u * factorial(i) * CPx**(i-2*r-2*u) * \
-           (0.25 / gamma)**(r+u) / factorial(r) / factorial(u) / factorial(i-2*r-2*u)
+    return (-1)**i * binomial_prefactor(i,l1,l2,PAx,PBx) * (-1)**u * factorials[i] * CPx**(i-2*r-2*u) * \
+           (0.25 / gamma)**(r+u) / factorials[r] / factorials[u] / factorials[i-2*r-2*u]
 
 
 def A_array(l1,l2,PA,PB,CP,g):
@@ -94,7 +85,6 @@ def A_array(l1,l2,PA,PB,CP,g):
         s.i -= 1
       return s.A
 
-
 def potential(aa, La, A, bb, Lb, B, geom, charges):
     """
     Computes a single electron-nuclear attraction integral
@@ -105,36 +95,38 @@ def potential(aa, La, A, bb, Lb, B, geom, charges):
     P = gaussian_product(aa,A,bb,B)
     rab2 = np.dot(A-B,A-B)
 
-    val = 0
-    for i in range(geom.shape[0]):
-      C = geom[i]
-      rcp2 = np.dot(C-P,C-P)
-      dPA = P-A
-      dPB = P-B
-      dPC = P-C
+    with loops.Scope() as s:
+      s.val = 0.
+      for i in s.range(geom.shape[0]):
+        C = geom[i]
+        rcp2 = np.dot(C-P,C-P)
+        dPA = P-A
+        dPB = P-B
+        dPC = P-C
 
-      Ax = A_array(la,lb,dPA[0],dPB[0],dPC[0],gamma)
-      Ay = A_array(ma,mb,dPA[1],dPB[1],dPC[1],gamma)
-      Az = A_array(na,nb,dPA[2],dPB[2],dPC[2],gamma)
+        Ax = A_array(la,lb,dPA[0],dPB[0],dPC[0],gamma)
+        Ay = A_array(ma,mb,dPA[1],dPB[1],dPC[1],gamma)
+        Az = A_array(na,nb,dPA[2],dPB[2],dPC[2],gamma)
 
-      boys_arg = gamma * rcp2
+        boys_arg = gamma * rcp2
 
-      with loops.Scope() as S:
-        S.total = 0.
-        S.I = 0
-        S.J = 0
-        S.K = 0
-        for _ in S.while_range(lambda: S.I < la + lb + 1):
-          S.J = 0 
-          for _ in S.while_range(lambda: S.J < ma + mb + 1):
-            S.K = 0 
-            for _ in S.while_range(lambda: S.K < na + nb + 1):
-              S.total += Ax[S.I] * Ay[S.J] * Az[S.K] * boys(S.I + S.J + S.K, boys_arg)
-              S.K += 1
-            S.J += 1
-          S.I += 1
-      val += charges[i] * -2 * np.pi / gamma * np.exp(-aa * bb * rab2 / gamma) * S.total
-    return val
+
+        with loops.Scope() as S:
+          S.total = 0.
+          S.I = 0
+          S.J = 0
+          S.K = 0
+          for _ in S.while_range(lambda: S.I < la + lb + 1):
+            S.J = 0 
+            for _ in S.while_range(lambda: S.J < ma + mb + 1):
+              S.K = 0 
+              for _ in S.while_range(lambda: S.K < na + nb + 1):
+                S.total += Ax[S.I] * Ay[S.J] * Az[S.K] * boys(S.I + S.J + S.K, boys_arg)
+                S.K += 1
+              S.J += 1
+            S.I += 1
+        s.val += charges[i] * -2 * np.pi / gamma * np.exp(-aa * bb * rab2 / gamma) * S.total
+      return s.val
 
 def oei_arrays(geom, basis, charges):
     """
@@ -157,7 +149,7 @@ def oei_arrays(geom, basis, charges):
       #NOTE this being a scan instead of while loop improves performance
       for prim_duet in s.range(primitive_duets.shape[0]):
         p1,p2 = primitive_duets[prim_duet] 
-        c1, c2 = coeffs[p1], coeffs[p2]
+        coef = coeffs[p1] * coeffs[p2]
         aa, bb = exps[p1], exps[p2]
         atom1, atom2 = atoms[p1], atoms[p2] 
         A, B = geom[atom1], geom[atom2]
@@ -176,9 +168,9 @@ def oei_arrays(geom, basis, charges):
             i = indices[p1] + s.a
             j = indices[p2] + s.b
             # Compute one electron integrals and add to appropriate index
-            overlap_int = overlap(aa,La,A,bb,Lb,B) * c1 * c2
-            kinetic_int = kinetic(aa,La,A,bb,Lb,B) * c1 * c2
-            potential_int = potential(aa,La,A,bb,Lb,B,geom,charges) * c1 * c2
+            overlap_int = overlap(aa,La,A,bb,Lb,B) * coef
+            kinetic_int = kinetic(aa,La,A,bb,Lb,B) * coef
+            potential_int = potential(aa,La,A,bb,Lb,B,geom,charges) * coef
             s.S = jax.ops.index_add(s.S, jax.ops.index[i,j], overlap_int) 
             s.T = jax.ops.index_add(s.T, jax.ops.index[i,j], kinetic_int) 
             s.V = jax.ops.index_add(s.V, jax.ops.index[i,j], potential_int) 
