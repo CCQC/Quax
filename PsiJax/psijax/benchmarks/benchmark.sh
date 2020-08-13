@@ -1,4 +1,3 @@
-
 /usr/bin/time python -W ignore 0_h2_scf_dz.py
 /usr/bin/time python -W ignore 0_h2_scf_tz.py
 /usr/bin/time python -W ignore 0_h2_mp2_dz.py
@@ -71,4 +70,3 @@
 /usr/bin/time python -W ignore 2_h2o_ccsd_tz.py
 /usr/bin/time python -W ignore 2_h2o_ccsd_t_dz.py
 /usr/bin/time python -W ignore 2_h2o_ccsd_t_tz.py
-
