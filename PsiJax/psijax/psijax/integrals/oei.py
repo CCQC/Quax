@@ -65,7 +65,6 @@ def kinetic(la,ma,na,lb,mb,nb,aa,bb,PA,PB,prefactor):
     term3 = -0.5 * (lb * (lb-1) * wx_minus2 * wy * wz \
                   + mb * (mb-1) * wx * wy_minus2 * wz \
                   + nb * (nb-1) * wx * wy * wz_minus2)
-
     return prefactor * (term1 + term2 + term3)
 
 def A_term(i,r,u,l1,l2,PAx,PBx,CPx,gamma):
@@ -85,19 +84,21 @@ def A_array(l1,l2,PA,PB,CP,g):
 
       s.i = l1 + l2  
       for _ in s.while_range(lambda: s.i > -1):   
+        Aterm = neg_one_pow[s.i] * binomial_prefactor(s.i,l1,l2,PA,PB) * factorials[s.i]
         s.r = s.i // 2
         for _ in s.while_range(lambda: s.r > -1):
           s.u = (s.i - 2 * s.r) // 2 
           for _ in s.while_range(lambda: s.u > -1):
             I = s.i - 2 * s.r - s.u 
-            term = A_term(s.i,s.r,s.u,l1,l2,PA,PB,CP,g)
-            s.A = jax.ops.index_add(s.A, I, term)
+            tmp = I - s.u
+            fact_ratio = 1 / (factorials[s.r] * factorials[s.u] * factorials[tmp])
+            Aterm *= neg_one_pow[s.u]  * CP**(tmp) * (0.25 / g)**(s.r+s.u) * fact_ratio 
+            s.A = jax.ops.index_add(s.A, I, Aterm)
             s.u -= 1
           s.r -= 1
         s.i -= 1
       return s.A
 
-    potential(la,ma,na,lb,mb,nb,aa,bb,PA,PB,P,prefactor,geom,charges) * coef
 def potential(la,ma,na,lb,mb,nb,aa,bb,PA,PB,P,prefactor,geom,charges):
     """
     Computes a single electron-nuclear attraction integral
