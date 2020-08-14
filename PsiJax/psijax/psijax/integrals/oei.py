@@ -5,10 +5,10 @@ import jax.numpy as np
 from jax.experimental import loops
 from functools import partial
 
-from .integrals_utils import gaussian_product, boys, binomial_prefactor, new_binomial_prefactor, factorials, double_factorials, cartesian_product, am_leading_indices, angular_momentum_combinations
+from .integrals_utils import gaussian_product, boys, binomial_prefactor, new_binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
 from .basis_utils import flatten_basis_data, get_nbf
 
-def overlap(aa,La,bb,Lb,PA,PB,prefactor):
+def overlap(la,ma,na,lb,mb,nb,aa,bb,PA,PB,prefactor):
     """
     Computes a single overlap integral. Taketa, Hunzinaga, Oohata 2.12
     P = gaussian product of aa,A; bb,B
@@ -21,8 +21,6 @@ def overlap(aa,La,bb,Lb,PA,PB,prefactor):
          [(Pz-Az)^0, (Pz-Az)^1, ... (Pz-Az)^max_am]]
     prefactor = np.exp(-aa * bb * np.dot(A-B,A-B) / gamma)
     """
-    la,ma,na = La 
-    lb,mb,nb = Lb 
     gamma = aa + bb
     prefactor *= (np.pi / gamma)**1.5
 
@@ -40,42 +38,44 @@ def overlap_component(l1,l2,PAx,PBx,gamma):
       s.total = 0.
       s.i = 0
       for _ in s.while_range(lambda: s.i < K):
-        #s.total += binomial_prefactor(2*s.i,l1,l2,PAx,PBx) * double_factorials[2*s.i-1] / (2*gamma)**s.i
-        #TODO create 2*gamma powers array #worthit
         s.total += new_binomial_prefactor(2*s.i,l1,l2,PAx,PBx) * double_factorials[2*s.i-1] / (2*gamma)**s.i
         s.i += 1
       return s.total
 
-def kinetic(aa,La,bb,Lb,PA,PB,prefactor):
+def kinetic(la,ma,na,lb,mb,nb,aa,bb,PA,PB,prefactor):
     """
     Computes a single kinetic energy integral.
     """
-    la,ma,na = La
-    lb,mb,nb = Lb
-    term1 = bb*(2*(lb+mb+nb)+3) * overlap(aa,La,bb,Lb,PA,PB,prefactor)
+    gamma = aa + bb
+    prefactor *= (np.pi / gamma)**1.5
+    wx = overlap_component(la,lb,PA[0],PB[0],gamma)
+    wy = overlap_component(ma,mb,PA[1],PB[1],gamma)
+    wz = overlap_component(na,nb,PA[2],PB[2],gamma)
+    wx_plus2 = overlap_component(la,lb+2,PA[0],PB[0],gamma)
+    wy_plus2 = overlap_component(ma,mb+2,PA[1],PB[1],gamma)
+    wz_plus2 = overlap_component(na,nb+2,PA[2],PB[2],gamma)
+    wx_minus2 = overlap_component(la,lb-2,PA[0],PB[0],gamma)
+    wy_minus2 = overlap_component(ma,mb-2,PA[1],PB[1],gamma)
+    wz_minus2 = overlap_component(na,nb-2,PA[2],PB[2],gamma)
 
-    #TODO currently kinetic calls overlap_component 21 times, but can intead just call 9 times:
-    # wx,wy,wz, wx_p2, wy_p2, wz_p2, wx_m2, wy_m2, wz_m2
+    term1 = bb*(2*(lb+mb+nb)+3) * wx * wy * wz 
 
-    #TODO these overlap calls repeat work on wx, wy, wz components. Should rewrite this.
-    # 1st call only alters wx. 2nd call only alters wy. 3rd call only alters wz
-    term2 = -2 * bb**2 * (overlap(aa,(la,ma,na), bb,(lb+2,mb,nb),PA,PB,prefactor) \
-                        + overlap(aa,(la,ma,na), bb,(lb,mb+2,nb),PA,PB,prefactor) \
-                        + overlap(aa,(la,ma,na), bb,(lb,mb,nb+2),PA,PB,prefactor))
+    term2 = -2 * bb**2 * (wx_plus2*wy*wz + wx*wy_plus2*wz + wx*wy*wz_plus2)
 
-    # 1st call only alters wx. 2nd call only alters wy. 3rd call only alters wz
-    term3 = -0.5 * (lb * (lb-1) * overlap(aa,(la,ma,na),bb,(lb-2,mb,nb),PA,PB,prefactor) \
-                  + mb * (mb-1) * overlap(aa,(la,ma,na),bb,(lb,mb-2,nb),PA,PB,prefactor) \
-                  + nb * (nb-1) * overlap(aa,(la,ma,na),bb,(lb,mb,nb-2),PA,PB,prefactor))
-    return term1 + term2 + term3
+    term3 = -0.5 * (lb * (lb-1) * wx_minus2 * wy * wz \
+                              + mb * (mb-1) * wx * wy_minus2 * wz \
+                              + nb * (nb-1) * wx * wy * wz_minus2)
+
+    return prefactor * (term1 + term2 + term3)
 
 def A_term(i,r,u,l1,l2,PAx,PBx,CPx,gamma):
     """
     Taketa, Hunzinaga, Oohata 2.18
     """
-    return (-1)**i * binomial_prefactor(i,l1,l2,PAx,PBx) * (-1)**u * factorials[i] * CPx**(i-2*r-2*u) * \
+    #return (-1)**i * binomial_prefactor(i,l1,l2,PAx,PBx) * (-1)**u * factorials[i] * CPx**(i-2*r-2*u) * \
+    #       (0.25 / gamma)**(r+u) / factorials[r] / factorials[u] / factorials[i-2*r-2*u]
+    return neg_one_pow[i] * binomial_prefactor(i,l1,l2,PAx,PBx) * neg_one_pow[i] * factorials[i] * CPx**(i-2*r-2*u) * \
            (0.25 / gamma)**(r+u) / factorials[r] / factorials[u] / factorials[i-2*r-2*u]
-
 
 def A_array(l1,l2,PA,PB,CP,g):
     with loops.Scope() as s:
@@ -99,12 +99,10 @@ def A_array(l1,l2,PA,PB,CP,g):
         s.i -= 1
       return s.A
 
-def potential(aa, La, bb, Lb, PA, PB, P, prefactor, geom, charges):
+def potential(la,ma,na,lb,mb,nb,aa,bb,PA, PB, P, prefactor, geom, charges):
     """
     Computes a single electron-nuclear attraction integral
     """
-    la,ma,na = La
-    lb,mb,nb = Lb
     gamma = aa + bb
     prefactor *= -2 * np.pi / gamma
 
@@ -178,26 +176,25 @@ def oei_arrays(geom, basis, charges):
         PA_pow = np.power(np.broadcast_to(P-A, (max_am+1,3)).T, np.arange(max_am+1))
         PB_pow = np.power(np.broadcast_to(P-B, (max_am+1,3)).T, np.arange(max_am+1))
 
-
         s.a = 0
         for _ in s.while_range(lambda: s.a < dims[p1]):
           s.b = 0
           for _ in s.while_range(lambda: s.b < dims[p2]):
             # Gather angular momentum and index
-            La = angular_momentum_combinations[s.a + ld1]
-            Lb = angular_momentum_combinations[s.b + ld2]
+            la,ma,na = angular_momentum_combinations[s.a + ld1]
+            lb,mb,nb = angular_momentum_combinations[s.b + ld2]
             i = indices[p1] + s.a
             j = indices[p2] + s.b
             # Compute one electron integrals and add to appropriate index
             #overlap_int = overlap(aa,La,bb,Lb,PA,PB,prefactor) * coef
             #kinetic_int = kinetic(aa,La,bb,Lb,PA,PB,prefactor) * coef
-            overlap_int = overlap(aa,La,bb,Lb,PA_pow,PB_pow,prefactor) * coef
-            kinetic_int = kinetic(aa,La,bb,Lb,PA_pow,PB_pow,prefactor) * coef
-            potential_int = potential(aa,La,bb,Lb,PA,PB,P,prefactor,geom,charges) * coef
+            overlap_int = overlap(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
+            kinetic_int = kinetic(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
+            #potential_int = potential(la,ma,na,lb,mb,nb,aa,bb,PA,PB,P,prefactor,geom,charges) * coef
 
             s.S = jax.ops.index_add(s.S, jax.ops.index[i,j], overlap_int) 
             s.T = jax.ops.index_add(s.T, jax.ops.index[i,j], kinetic_int) 
-            s.V = jax.ops.index_add(s.V, jax.ops.index[i,j], potential_int) 
+            #s.V = jax.ops.index_add(s.V, jax.ops.index[i,j], potential_int) 
             s.b += 1
           s.a += 1
     return s.S,s.T,s.V
