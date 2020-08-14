@@ -5,8 +5,8 @@ import jax.numpy as np
 from jax.experimental import loops
 from functools import partial
 
-#from .integrals_utils import gaussian_product, boys, binomial_prefactor, new_binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
-#from .basis_utils import flatten_basis_data, get_nbf
+from .integrals_utils import gaussian_product, boys, binomial_prefactor, new_binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
+from .basis_utils import flatten_basis_data, get_nbf
 
 def overlap(la,ma,na,lb,mb,nb,aa,bb,PA,PB,prefactor):
     """
@@ -66,13 +66,6 @@ def kinetic(la,ma,na,lb,mb,nb,aa,bb,PA,PB,prefactor):
                   + mb * (mb-1) * wx * wy_minus2 * wz \
                   + nb * (nb-1) * wx * wy * wz_minus2)
     return prefactor * (term1 + term2 + term3)
-
-def A_term(i,r,u,l1,l2,PAx,PBx,CPx,gamma):
-    """
-    Taketa, Hunzinaga, Oohata 2.18
-    """
-    return neg_one_pow[i] * binomial_prefactor(i,l1,l2,PAx,PBx) * neg_one_pow[u] * factorials[i] * CPx**(i-2*r-2*u) * \
-           (0.25 / gamma)**(r+u) / factorials[r] / factorials[u] / factorials[i-2*r-2*u]
 
 def A_array(l1,l2,PA,PB,CP,g):
     with loops.Scope() as s:
@@ -197,31 +190,31 @@ def oei_arrays(geom, basis, charges):
           s.a += 1
     return s.S,s.T,s.V
 
-import psi4
-import numpy as onp
-from basis_utils import build_basis_set,flatten_basis_data,get_nbf
-from integrals_utils import gaussian_product, boys, new_binomial_prefactor, binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
-molecule = psi4.geometry("""
-                         0 1
-                         H 0.0 0.0 -0.849220457955
-                         H 0.0 0.0  0.849220457955
-                         units bohr
-                         """)
-geom = np.asarray(onp.asarray(molecule.geometry()))
-basis_name = 'cc-pvdz'
-basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
-basis_dict = build_basis_set(molecule, basis_name)
-charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
-
-S,T,V = oei_arrays(geom, basis_dict, charges)
-
-mints = psi4.core.MintsHelper(basis_set)
-psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
-psi_T = np.asarray(onp.asarray(mints.ao_kinetic()))
-psi_V = np.asarray(onp.asarray(mints.ao_potential()))
-print("Overlap matches Psi4: ", np.allclose(S, psi_S))
-print("Kinetic matches Psi4: ", np.allclose(T, psi_T))
-print("Potential matches Psi4: ", np.allclose(V, psi_V))
+#import psi4
+#import numpy as onp
+#from basis_utils import build_basis_set,flatten_basis_data,get_nbf
+#from integrals_utils import gaussian_product, boys, new_binomial_prefactor, binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
+#molecule = psi4.geometry("""
+#                         0 1
+#                         H 0.0 0.0 -0.849220457955
+#                         H 0.0 0.0  0.849220457955
+#                         units bohr
+#                         """)
+#geom = np.asarray(onp.asarray(molecule.geometry()))
+#basis_name = 'cc-pvdz'
+#basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
+#basis_dict = build_basis_set(molecule, basis_name)
+#charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
+#
+#S,T,V = oei_arrays(geom, basis_dict, charges)
+#
+#mints = psi4.core.MintsHelper(basis_set)
+#psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
+#psi_T = np.asarray(onp.asarray(mints.ao_kinetic()))
+#psi_V = np.asarray(onp.asarray(mints.ao_potential()))
+#print("Overlap matches Psi4: ", np.allclose(S, psi_S))
+#print("Kinetic matches Psi4: ", np.allclose(T, psi_T))
+#print("Potential matches Psi4: ", np.allclose(V, psi_V))
 
 
 
