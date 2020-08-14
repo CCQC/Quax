@@ -118,6 +118,7 @@ def potential(la,ma,na,lb,mb,nb,aa,bb,PA,PB,P,prefactor,geom,charges):
         Az = A_array(na,nb,PA[2],PB[2],PC[2],gamma)
 
         boys_arg = gamma * rcp2
+        boys_eval = boys(np.arange(7), boys_arg) # hard coded for f functions: l1 + l2 + 1
 
         with loops.Scope() as S:
           S.total = 0.
@@ -129,8 +130,7 @@ def potential(la,ma,na,lb,mb,nb,aa,bb,PA,PB,P,prefactor,geom,charges):
             for _ in S.while_range(lambda: S.J < ma + mb + 1):
               S.K = 0 
               for _ in S.while_range(lambda: S.K < na + nb + 1):
-                #TODO pull out boys function
-                S.total += Ax[S.I] * Ay[S.J] * Az[S.K] * boys(S.I + S.J + S.K, boys_arg)
+                S.total += Ax[S.I] * Ay[S.J] * Az[S.K] * boys_eval[S.I + S.J + S.K]
                 S.K += 1
               S.J += 1
             S.I += 1
