@@ -21,7 +21,11 @@ def binomial_prefactor(s,i,j,PAx,PBx):
         return L.total
 
 def new_binomial_prefactor(s,i,j,PAx,PBx):
-    """Eqn 15 Augsberger Dykstra 1989 J Comp Chem 11 105-111"""
+    """
+    Eqn 15 Augsberger Dykstra 1989 J Comp Chem 11 105-111
+    PAx, PBx are all vectors of components Pi-Ai, Pi-Bi raised to a power of angluar momentum.
+    PAx = [PAx^0, PAx^1,...,PAx^max_am
+    """
     with loops.Scope() as L:
         L.total = 0.
         L.t = 0
@@ -95,10 +99,12 @@ factorials = np.array([1.0000000000000000e0, 1.0000000000000000e0, 2.00000000000
                        6.4023737057280000e15,1.2164510040883200e17,2.4329020081766400e18,
                        5.1090942171709440e19,1.1240007277776077e21,2.5852016738884978e22,
                        6.2044840173323941e23,1.5511210043330986e25,4.0329146112660565e26])
-# Double factorials. We need 0!! to (l1+l2+1)!!, but sometimes we index -1, so put a 1 at the end.
-double_factorials = np.array([1,1,2,3,8,15,48,105,384,945,3840,10395,46080,1])
- 
 
+# Double factorials for overlap/kinetic. 
+# We need 0!! to (l1+l2+1+2)!! (the plus 2 is for kinetic components) 
+# but sometimes we index -1, so put a 1 at the end.
+double_factorials = np.array([1,1,2,3,8,15,48,105,384,945,3840,10395,46080,135135,645120,2027025,10321920,1])
+ 
 # All elements for a,b in which satisfy a! / (b! (a-2b)!)
 # factorial(a) / factorial(b) / factorial(a-2*b)
 # Must support up to L = l1 + l2 + l3 + l4 on row dimension, L/2 col dimension 
@@ -131,6 +137,7 @@ fact_ratio2 = np.array([[1,  0,     0,       0,         0,          0,          
 
 # Binomial Coefficients
 # C = factorial(n) // (factorial(k) * factorial(n-k))
+# Minimum required dimension is (max_am * 2, max_am)
 binomials = np.array([[1, 1,  0,  0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,   0,  0,  0, 0,0], 
                       [1, 1,  0,  0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,   0,  0,  0, 0,0],
                       [1, 2,  1,  0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,   0,  0,  0, 0,0],
@@ -152,63 +159,18 @@ binomials = np.array([[1, 1,  0,  0,   0,    0,    0,    0,    0,    0,    0,   
                       [1,18,153,816,3060, 8568,18564,31824,43758,48620,43758,31824,18564, 8568, 3060, 816,153, 18, 1,0],
                       [1,19,171,969,3876,11628,27132,50388,75582,92378,92378,75582,50388,27132,11628,3876,969,171,19,1]], dtype=int)
 
-angular_momentum_combinations = np.array([[0,0,0], 
-                                          [1,0,0],
-                                          [0,1,0],
-                                          [0,0,1],
-                                          [2,0,0],
-                                          [1,1,0],
-                                          [1,0,1],
-                                          [0,2,0],
-                                          [0,1,1],
-                                          [0,0,2], 
-                                          [3,0,0],
-                                          [2,1,0],
-                                          [2,0,1],
-                                          [1,2,0],
-                                          [1,1,1],
-                                          [1,0,2],
-                                          [0,3,0],
-                                          [0,2,1],
-                                          [0,1,2],
-                                          [0,0,3], 
-                                          [4,0,0],
-                                          [3,1,0],
-                                          [3,0,1],
-                                          [2,2,0],
-                                          [2,1,1],
-                                          [2,0,2],
-                                          [1,3,0],
-                                          [1,2,1],
-                                          [1,1,2],
-                                          [1,0,3],
-                                          [0,4,0],
-                                          [0,3,1],
-                                          [0,2,2],
-                                          [0,1,3],
-                                          [0,0,4], 
-                                          [5,0,0],
-                                          [4,1,0],
-                                          [4,0,1],
-                                          [3,2,0],
-                                          [3,1,1],
-                                          [3,0,2],
-                                          [2,3,0],
-                                          [2,2,1],
-                                          [2,1,2],
-                                          [2,0,3],
-                                          [1,4,0],
-                                          [1,3,1],
-                                          [1,2,2],
-                                          [1,1,3],
-                                          [1,0,4],
-                                          [0,5,0],
-                                          [0,4,1],
-                                          [0,3,2],
-                                          [0,2,3],
-                                          [0,1,4],
-                                          [0,0,5]], dtype=int)
+# Angular momentum distribution combinations, up to max_am=5, (h functions)
+angular_momentum_combinations = np.array([
+[0,0,0], 
+[1,0,0],[0,1,0],[0,0,1],
+[2,0,0],[1,1,0],[1,0,1],[0,2,0],[0,1,1],[0,0,2], 
+[3,0,0],[2,1,0],[2,0,1],[1,2,0],[1,1,1],[1,0,2],[0,3,0],[0,2,1],[0,1,2],[0,0,3], 
+[4,0,0],[3,1,0],[3,0,1],[2,2,0],[2,1,1],[2,0,2],[1,3,0],[1,2,1],[1,1,2],[1,0,3],[0,4,0],[0,3,1],[0,2,2],[0,1,3],[0,0,4], 
+[5,0,0],[4,1,0],[4,0,1],[3,2,0],[3,1,1],[3,0,2],[2,3,0],[2,2,1],[2,1,2],[2,0,3],[1,4,0],[1,3,1],[1,2,2],[1,1,3],[1,0,4],[0,5,0],[0,4,1],[0,3,2],[0,2,3],[0,1,4],[0,0,5]], dtype=int)
 
+# The first index of angular_momentum_combinations which corresponds to beginning of s-class, p-class, d-class, f-class, g-class, h-class
 am_leading_indices = np.array([0,1,4,10,20,35,56], dtype=int)
-neg_one_pow = np.array([1,-1,1,-1,1,-1,1,-1,1,-1,1,-1])
+
+# Powers of negative one, need indices up to l1 + l2 + l3 + l4 = 20 for h functions
+neg_one_pow = np.array([1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1])
 
