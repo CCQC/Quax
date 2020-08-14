@@ -30,6 +30,8 @@ def new_binomial_prefactor(s,i,j,PAx,PBx):
         L.total = 0.
         L.t = 0
         for _ in L.while_range(lambda: L.t < s + 1):
+          #TEMP TODO rewrite this. The cond_range causes a huge overhead.
+          # Try Valeev implementation
           for _ in L.cond_range(((s - i) <= L.t) & (L.t <= j)):
             L.total += binomials[i,s-L.t] * binomials[j,L.t] * PAx[i-s + L.t] * PBx[j - L.t]
           L.t += 1

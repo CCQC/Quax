@@ -8,9 +8,12 @@ from functools import partial
 from .integrals_utils import gaussian_product, boys, binomial_prefactor, new_binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
 from .basis_utils import flatten_basis_data, get_nbf
 
+# Useful resources: Fundamentals of Molecular Integrals Evaluation, Fermann, Valeev https://arxiv.org/abs/2007.12057
+#                   Gaussian-Expansion methods of molecular integrals Taketa, Huzinaga, O-ohata 
+
 def overlap(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor):
     """
-    Computes a single overlap integral. Taketa, Hunzinaga, Oohata 2.12
+    Computes a single overlap integral. Taketa, Huzinaga, Oohata 2.12
     P = gaussian product of aa,A; bb,B
     PA_pow, PB_pow
         All powers of Pi-Ai or Pi-Bi packed into an array
@@ -29,7 +32,7 @@ def overlap(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor):
 
 def overlap_component(l1,l2,PAx,PBx,gamma):
     """
-    The 1d overlap integral component. Taketa, Hunzinaga, Oohata 2.12
+    The 1d overlap integral component. Taketa, Huzinaga, Oohata 2.12
     """
     K = 1 + (l1 + l2) // 2  
     with loops.Scope() as s:
@@ -137,9 +140,10 @@ def oei_arrays(geom, basis, charges):
     # Obtain all possible primitive quartet index combinations 
     primitive_duets = cartesian_product(np.arange(nprim), np.arange(nprim))
     with loops.Scope() as s:
-      s.S = np.zeros((nbf,nbf))
-      s.T = np.zeros((nbf,nbf))
-      s.V = np.zeros((nbf,nbf))
+      #s.S = np.zeros((nbf,nbf))
+      #s.T = np.zeros((nbf,nbf))
+      #s.V = np.zeros((nbf,nbf))
+      s.oei = np.zeros((3,nbf,nbf))
       s.a = 0  # center A angular momentum iterator 
       s.b = 0  # center B angular momentum iterator 
 
@@ -187,12 +191,17 @@ def oei_arrays(geom, basis, charges):
             kinetic_int = kinetic(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
             potential_int = potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,rcp2,prefactor,charges) * coef
 
-            s.S = jax.ops.index_add(s.S, jax.ops.index[i,j], overlap_int) 
-            s.T = jax.ops.index_add(s.T, jax.ops.index[i,j], kinetic_int) 
-            s.V = jax.ops.index_add(s.V, jax.ops.index[i,j], potential_int) 
+            #s.S = jax.ops.index_add(s.S, jax.ops.index[i,j], overlap_int) 
+            #s.T = jax.ops.index_add(s.T, jax.ops.index[i,j], kinetic_int) 
+            #s.V = jax.ops.index_add(s.V, jax.ops.index[i,j], potential_int) 
+            s.oei = jax.ops.index_add(s.oei, [[0,1,2],[i,i,i],[j,j,j]], (overlap_int, kinetic_int, potential_int))
+
             s.b += 1
           s.a += 1
-    return s.S,s.T,s.V
+    #return s.S,s.T,s.V
+    S, T, V = s.oei[0], s.oei[1], s.oei[2]
+    return S, T, V
+
 
 #import psi4
 #import numpy as onp
