@@ -86,7 +86,6 @@ def A_array(l1,l2,PA,PB,CP,g):
             I = s.i - 2 * s.r - s.u 
             tmp = I - s.u
             fact_ratio = 1 / (factorials[s.r] * factorials[s.u] * factorials[tmp])
-            #Aterm *= neg_one_pow[s.u]  * CP**(tmp) * (0.25 / g)**(s.r+s.u) * fact_ratio 
             Aterm *= neg_one_pow[s.u]  * CP[tmp] * (0.25 / g)**(s.r+s.u) * fact_ratio 
             s.A = jax.ops.index_add(s.A, I, Aterm)
             s.u -= 1
@@ -94,7 +93,7 @@ def A_array(l1,l2,PA,PB,CP,g):
         s.i -= 1
       return s.A
 
-def potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,rcp2,prefactor,charges):
+def potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefactor,charges):
     """
     Computes a single electron-nuclear attraction integral
     """
@@ -108,9 +107,6 @@ def potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,rcp2,prefactor,cha
         Ay = A_array(ma,mb,PA_pow[1],PB_pow[1],Pgeom_pow[i,1,:],gamma)
         Az = A_array(na,nb,PA_pow[2],PB_pow[2],Pgeom_pow[i,2,:],gamma)
 
-        boys_arg = gamma * rcp2[i]
-        boys_eval = boys(np.arange(7), boys_arg) # hard coded for f functions: l1 + l2 + 1
-
         with loops.Scope() as S:
           S.total = 0.
           S.I = 0
@@ -121,7 +117,7 @@ def potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,rcp2,prefactor,cha
             for _ in S.while_range(lambda: S.J < ma + mb + 1):
               S.K = 0 
               for _ in S.while_range(lambda: S.K < na + nb + 1):
-                S.total += Ax[S.I] * Ay[S.J] * Az[S.K] * boys_eval[S.I + S.J + S.K]
+                S.total += Ax[S.I] * Ay[S.J] * Az[S.K] * boys_eval[S.I + S.J + S.K, i]
                 S.K += 1
               S.J += 1
             S.I += 1
@@ -139,22 +135,19 @@ def oei_arrays(geom, basis, charges):
     # Save various AM distributions for indexing
     # Obtain all possible primitive quartet index combinations 
     primitive_duets = cartesian_product(np.arange(nprim), np.arange(nprim))
+
     with loops.Scope() as s:
-      #s.S = np.zeros((nbf,nbf))
-      #s.T = np.zeros((nbf,nbf))
-      #s.V = np.zeros((nbf,nbf))
       s.oei = np.zeros((3,nbf,nbf))
       s.a = 0  # center A angular momentum iterator 
       s.b = 0  # center B angular momentum iterator 
 
-      #NOTE this being a scan instead of while loop improves performance
       for prim_duet in s.range(primitive_duets.shape[0]):
-        p1,p2 = primitive_duets[prim_duet] 
+        p1,p2 = primitive_duets[prim_duet]
         coef = coeffs[p1] * coeffs[p2]
         aa, bb = exps[p1], exps[p2]
-        atom1, atom2 = atoms[p1], atoms[p2] 
-        A, B = geom[atom1], geom[atom2]
+        atom1, atom2 = atoms[p1], atoms[p2]
         am1, am2 = ams[p1], ams[p2]
+        A, B = geom[atom1], geom[atom2]
         ld1, ld2 = am_leading_indices[am1], am_leading_indices[am2]
 
         gamma = aa + bb
@@ -176,6 +169,10 @@ def oei_arrays(geom, basis, charges):
         Pgeom_pow = np.power(np.transpose(np.broadcast_to(P_minus_geom, (2*max_am + 1,geom.shape[0],geom.shape[1])), (1,2,0)), np.arange(2*max_am + 1))
         # All possible np.dot(P-atom,P-atom) 
         rcp2 = np.einsum('ij,ij->i', P_minus_geom, P_minus_geom)
+        # All needed (and unneeded, for am < max_am) boys function evaluations
+        boys_arg = np.broadcast_to(rcp2 * gamma, (2*max_am+1, geom.shape[0]))
+        boys_nu = np.tile(np.arange(2*max_am+1), (geom.shape[0],1)).T
+        boys_eval = boys(boys_nu,boys_arg)
 
         s.a = 0
         for _ in s.while_range(lambda: s.a < dims[p1]):
@@ -184,21 +181,17 @@ def oei_arrays(geom, basis, charges):
             # Gather angular momentum and index
             la,ma,na = angular_momentum_combinations[s.a + ld1]
             lb,mb,nb = angular_momentum_combinations[s.b + ld2]
+            # To only create unique indices, need to have separate indices arrays for i and j.
             i = indices[p1] + s.a
             j = indices[p2] + s.b
             # Compute one electron integrals and add to appropriate index
             overlap_int = overlap(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
             kinetic_int = kinetic(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
-            potential_int = potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,rcp2,prefactor,charges) * coef
-
-            #s.S = jax.ops.index_add(s.S, jax.ops.index[i,j], overlap_int) 
-            #s.T = jax.ops.index_add(s.T, jax.ops.index[i,j], kinetic_int) 
-            #s.V = jax.ops.index_add(s.V, jax.ops.index[i,j], potential_int) 
+            potential_int = potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefactor,charges) * coef
             s.oei = jax.ops.index_add(s.oei, [[0,1,2],[i,i,i],[j,j,j]], (overlap_int, kinetic_int, potential_int))
 
             s.b += 1
           s.a += 1
-    #return s.S,s.T,s.V
     S, T, V = s.oei[0], s.oei[1], s.oei[2]
     return S, T, V
 
@@ -209,12 +202,12 @@ def oei_arrays(geom, basis, charges):
 #from integrals_utils import gaussian_product, boys, binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
 #molecule = psi4.geometry("""
 #                         0 1
-#                         N 0.0 0.0 -0.849220457955
-#                         N 0.0 0.0  0.849220457955
+#                         H 0.0 0.0 -0.849220457955
+#                         H 0.0 0.0  0.849220457955
 #                         units bohr
 #                         """)
 #geom = np.asarray(onp.asarray(molecule.geometry()))
-#basis_name = 'cc-pvtz'
+#basis_name = 'sto-3g'
 #basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
 #basis_dict = build_basis_set(molecule, basis_name)
 #charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
@@ -228,8 +221,10 @@ def oei_arrays(geom, basis, charges):
 #print("Overlap matches Psi4: ", np.allclose(S, psi_S))
 #print("Kinetic matches Psi4: ", np.allclose(T, psi_T))
 #print("Potential matches Psi4: ", np.allclose(V, psi_V))
-
-
+#
+#
+#print(S)
+#print(psi_S)
 
 
 
