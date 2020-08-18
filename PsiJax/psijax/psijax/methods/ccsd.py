@@ -60,10 +60,10 @@ def rccsd(geom, basis, nuclear_charges, charge, return_aux_data=False):
 
 @jax.jit
 def rccsd_energy(T1, T2, Voovv):
-    E_ccsd = 0.
-    E_ccsd += -1.0*np.einsum('lc, kd, klcd -> ', T1, T1, Voovv, optimize = 'optimal')
-    E_ccsd += -1.0*np.einsum('lckd, klcd -> ', np.transpose(T2,(0,2,1,3)), Voovv, optimize = 'optimal')
-    E_ccsd += 2.0*np.einsum('lckd, klcd -> ', np.transpose(T2,(1,2,0,3)), Voovv, optimize = 'optimal')
+    E_ccsd = 0.0
+    E_ccsd -= np.einsum('lc, kd, klcd -> ', T1, T1, Voovv, optimize = 'optimal')
+    E_ccsd -= np.einsum('lkcd, klcd -> ', T2, Voovv, optimize = 'optimal')
+    E_ccsd += 2.0*np.einsum('klcd, klcd -> ', T2, Voovv, optimize = 'optimal')
     E_ccsd += 2.0*np.einsum('lc, kd, lkcd -> ', T1, T1, Voovv, optimize = 'optimal')
     return E_ccsd
 
