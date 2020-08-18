@@ -6,7 +6,7 @@ import jax.numpy as np
 from jax.experimental import loops
 
 from .basis_utils import flatten_basis_data, get_nbf
-from .integrals_utils import gaussian_product, boys, new_binomial_prefactor, binomial_prefactor, cartesian_product, am_leading_indices, angular_momentum_combinations, fact_ratio2, neg_one_pow
+from .integrals_utils import gaussian_product, boys, binomial_prefactor, cartesian_product, am_leading_indices, angular_momentum_combinations, fact_ratio2, neg_one_pow
 
 @jax.jit
 def B_array(l1,l2,l3,l4,pa_pow,pb_pow,qc_pow,qd_pow,qp_pow,g1_pow,g2_pow,oodelta_pow):
@@ -21,13 +21,13 @@ def B_array(l1,l2,l3,l4,pa_pow,pb_pow,qc_pow,qd_pow,qp_pow,g1_pow,g2_pow,oodelta
       s.u = 0 
       s.i1 = l1 + l2  
       for _ in s.while_range(lambda: s.i1 > -1):   
-        Bterm = new_binomial_prefactor(s.i1,l1,l2,pa_pow,pb_pow) 
+        Bterm = binomial_prefactor(s.i1,l1,l2,pa_pow,pb_pow) 
         s.r1 = s.i1 // 2
         for _ in s.while_range(lambda: s.r1 > -1):
           Bterm *= fact_ratio2[s.i1,s.r1] * g1_pow[s.r1-s.i1] 
           s.i2 = l3 + l4 
           for _ in s.while_range(lambda: s.i2 > -1):
-            Bterm *= neg_one_pow[s.i2] * new_binomial_prefactor(s.i2,l3,l4,qc_pow,qd_pow) 
+            Bterm *= neg_one_pow[s.i2] * binomial_prefactor(s.i2,l3,l4,qc_pow,qd_pow) 
             s.r2 = s.i2 // 2
             for _ in s.while_range(lambda: s.r2 > -1):
               Bterm *= fact_ratio2[s.i2,s.r2] * g2_pow[s.r2-s.i2]
@@ -130,7 +130,6 @@ def tei_array(geom, basis):
         idx1, idx2, idx3, idx4 = indices[p1],indices[p2],indices[p3],indices[p4],
         A, B, C, D = geom[atoms[p1]], geom[atoms[p2]], geom[atoms[p3]], geom[atoms[p4]]
 
-
         # Compute common intermediates before looping over AM distributions.
         # Avoids redundant recomputations/reassignment for all classes other than (ss|ss).
         AB = A - B
@@ -208,13 +207,14 @@ def tei_array(geom, basis):
                       S.J += 1
                     S.I += 1
                 tei = prefactor * S.primitive
-                #tei = primitive_quartet(La,Lb,Lc,Ld,A,B,C,D,aa,bb,cc,dd,c1,c2,c3,c4)
                 s.G = jax.ops.index_add(s.G, jax.ops.index[i,j,k,l], tei) 
+
                 s.d += 1
               s.c += 1
             s.b += 1
           s.a += 1
       return s.G
+
 
 # Example evaluation and test against Psi4
 #import psi4

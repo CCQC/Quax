@@ -5,7 +5,7 @@ import jax.numpy as np
 from jax.experimental import loops
 from functools import partial
 
-from .integrals_utils import gaussian_product, boys, binomial_prefactor, new_binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
+from .integrals_utils import gaussian_product, boys, binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
 from .basis_utils import flatten_basis_data, get_nbf
 
 # Useful resources: Fundamentals of Molecular Integrals Evaluation, Fermann, Valeev https://arxiv.org/abs/2007.12057
@@ -39,7 +39,7 @@ def overlap_component(l1,l2,PAx,PBx,gamma):
       s.total = 0.
       s.i = 0
       for _ in s.while_range(lambda: s.i < K):
-        s.total += new_binomial_prefactor(2*s.i,l1,l2,PAx,PBx) * double_factorials[2*s.i-1] / (2*gamma)**s.i
+        s.total += binomial_prefactor(2*s.i,l1,l2,PAx,PBx) * double_factorials[2*s.i-1] / (2*gamma)**s.i
         s.i += 1
       return s.total
 
@@ -78,7 +78,7 @@ def A_array(l1,l2,PA,PB,CP,g):
 
       s.i = l1 + l2  
       for _ in s.while_range(lambda: s.i > -1):   
-        Aterm = neg_one_pow[s.i] * new_binomial_prefactor(s.i,l1,l2,PA,PB) * factorials[s.i]
+        Aterm = neg_one_pow[s.i] * binomial_prefactor(s.i,l1,l2,PA,PB) * factorials[s.i]
         s.r = s.i // 2
         for _ in s.while_range(lambda: s.r > -1):
           s.u = (s.i - 2 * s.r) // 2 
@@ -206,7 +206,7 @@ def oei_arrays(geom, basis, charges):
 #import psi4
 #import numpy as onp
 #from basis_utils import build_basis_set,flatten_basis_data,get_nbf
-#from integrals_utils import gaussian_product, boys, new_binomial_prefactor, binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
+#from integrals_utils import gaussian_product, boys, binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
 #molecule = psi4.geometry("""
 #                         0 1
 #                         N 0.0 0.0 -0.849220457955
