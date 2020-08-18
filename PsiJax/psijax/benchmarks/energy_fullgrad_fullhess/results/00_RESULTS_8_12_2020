@@ -188,7 +188,7 @@ Command terminated by signal 9
 n2 ccsd(t)/cc-pvdz hessian
 567.57user 17.62system 6:51.88elapsed 142%CPU (0avgtext+0avgdata 3672124maxresident)k
 407920inputs+8outputs (1367major+11936855minor)pagefaults 0swaps
-n2 ccsd(t)/cc-pvtz hessian
+n2!!! ccsd(t)/cc-pvtz hessian
 Command terminated by signal 9
 1976.32user 57.24system 23:01.46elapsed 147%CPU (0avgtext+0avgdata 62946148maxresident)k
 3712inputs+0outputs (8major+60697074minor)pagefaults 0swaps
@@ -207,8 +207,7 @@ h2o mp2/cc-pvtz hessian
 h2o ccsd/cc-pvdz hessian
 409.71user 15.19system 4:16.55elapsed 165%CPU (0avgtext+0avgdata 3213236maxresident)k
 32inputs+16outputs (0major+11193204minor)pagefaults 0swaps
-h2o ccsd/cc-pvtz hessian
-RuntimeError: Resource exhausted: Failed to allocate request for 77.80GiB (83540925064B) on device ordinal 0
+h2o!! ccsd/cc-pvtz hessian
 h2o ccsd(t)/cc-pvdz hessian
 436.37user 15.96system 4:34.18elapsed 164%CPU (0avgtext+0avgdata 3263428maxresident)k
 24inputs+8outputs (0major+11369630minor)pagefaults 0swaps
