@@ -75,7 +75,6 @@ def rccsd_iter(T1, T2, V, d, D, ndocc, nvir):
     newT2 = np.zeros(T2.shape)
 
     # T1 equation
-    #TODO necessarily 0
     newT1 -= np.einsum('kc, icka -> ia', T1, Vovov, optimize = 'optimal')
     newT1 += 2.0*np.einsum('kc, kica -> ia', T1, Voovv, optimize = 'optimal')
     newT1 -= np.einsum('kicd, kadc -> ia', T2, Vovvv, optimize = 'optimal')
