@@ -14,12 +14,24 @@ from basis_utils import build_basis_set
 def integrals(geom,basis,nuclear_charges,charge):
     STV = oei.oei_arrays(geom,basis,nuclear_charges)
     G = tei.tei_array(geom,basis)
-    return STV, G
 
-def hf(STV,G): 
     S = STV[0]
     T = STV[1]
     V = STV[2]
+    nbf = STV.shape[1]
+    # Create superarray with signature G=arr[0], S = arr[1,:,:,0,0], T=arr[1,:,:,0,1], V=arr[1,:,:,1,0]
+    superarray = np.zeros((2,nbf,nbf,nbf,nbf))
+    superarray = jax.ops.index_update(superarray, jax.ops.index[0,:,:,:,:], G)
+    superarray = jax.ops.index_update(superarray, jax.ops.index[1,:,:,0,0], S)
+    superarray = jax.ops.index_update(superarray, jax.ops.index[1,:,:,0,1], T)
+    superarray = jax.ops.index_update(superarray, jax.ops.index[1,:,:,1,0], V)
+    return superarray
+
+def hf(STVG): 
+    S = STVG[1,:,:,0,0]
+    T = STVG[1,:,:,0,1]
+    V = STVG[1,:,:,1,0]
+    G = STVG[0]
 
     # Hardcoded
     ndocc = 1
@@ -78,30 +90,79 @@ charge = molecule.molecular_charge()
 nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
 
 # compute integrals and nuclear repulsion energy
+#STVG = integrals(geom,basis_dict,nuclear_charges,charge)
+#Enuc = nuclear_repulsion(geom,nuclear_charges)
 
-STV, G = integrals(geom,basis_dict,nuclear_charges,charge)
-Enuc = nuclear_repulsion(geom,nuclear_charges)
+## Gradients
+#dInts_dgeom = jax.jacfwd(integrals, 0)(geom,basis_dict,nuclear_charges,charge) # (2,nbf,nbf,nbf,nbf,natom,3)
+#dEnuc_dgeom = jax.jacfwd(nuclear_repulsion, 0)(geom,nuclear_charges) # (natom,3,natom,3) 
+#dE_dInts = jax.jacrev(hf, 0)(STVG) # (2,nbf,nbf,nbf,nbf)
+#dE_dgeom = np.einsum('ijklmno,ijklm->no', dInts_dgeom, dE_dInts)
+#E_grad = dE_dgeom + dEnuc_dgeom
+#print(E_grad)
+## Gradients
 
-# GRADIENTS
-# Compute dInts/dGeom
-dSTV_dgeom, dG_dgeom = jax.jacfwd(integrals, (0))(geom,basis_dict,nuclear_charges,charge)
-# Compute dEnuc/dGeom
-dEnuc_dgeom = jax.jacfwd(nuclear_repulsion, 0)(geom,nuclear_charges)
-# Compute dE/dInts
-dE_dSTV = jax.jacfwd(hf, 0)(STV,G)
-#dE_dG = jax.jacfwd(hf, 1)(STV,G,Enuc) # This incurs massive memory for some reason?
-dE_dG = jax.jacrev(hf, 1)(STV,G) 
+# Hessians WAIT cant you just make a function that does what the above gradients thing does and just diffy it?
+#dInts_dgeom = jax.jacfwd(jax.jacfwd(integrals, 0),0)(geom,basis_dict,nuclear_charges,charge) # (2,nbf,nbf,nbf,nbf,natom,3,natom,3)
+#dEnuc_dgeom = jax.jacfwd(jax.jacfwd(nuclear_repulsion, 0),0)(geom,nuclear_charges) # (natom,3,natom,3)
+# This blows up since you are not doing jacobian-vector products like JAX does internally.
+#dE_dInts = jax.jacfwd(jax.jacrev(hf, 0),0)(STVG) # (2,nbf,nbf,nbf,nbf,nbf,nbf,nbf,nbf) (YIKES)
+#print(dE_dInts.shape)
+#print(dE_dInts)
+#print(np.allclose(
+#dE_dgeom = np.einsum('rijklabcd,ijklm->no', dInts_dgeom, dE_dInts)
+#E_grad = dE_dgeom + dEnuc_dgeom
+#print(E_grad)
 
-#print("dSTV_dgeom  ",dSTV_dgeom.shape)      #(3, 2, 2, 2, 3)         
-#print("dE_dSTV     ",dE_dSTV.shape)         #(3, 2, 2)
-#print("dG_dgeom    ",dG_dgeom.shape)        #(2, 2, 2, 2, 2, 3)
-#print("dE_dG       ",dE_dG.shape)           #(2, 2, 2, 2)
-#print("dEnuc_dgeom ",dEnuc_dgeom.shape)     #(2, 3)
-#print("dE_dEnuc    ",dE_dEnuc.shape)        #()                 
-dOne =  np.einsum('ijklm,ijk->lm', dSTV_dgeom, dE_dSTV)
-dTwo = np.einsum('ijklmn,ijkl->mn', dG_dgeom, dE_dG)
-print("Nuclear gradient from decomposition")
-print(dOne + dTwo + dEnuc_dgeom)
+
+int_nuc_grad = onp.asarray(jax.jacfwd(integrals, 0)(geom,basis_dict,nuclear_charges,charge))
+with open('h2sto3g_int_nuc_grad.npy', 'wb') as f:
+    onp.save(f,int_nuc_grad)
+
+
+def test(geom):
+    # Compute integrals
+    STVG = integrals(geom,basis_dict,nuclear_charges,charge)
+    #Enuc = nuclear_repulsion(geom,nuclear_charges)
+
+    # Compute nuclear derivative integrals (ideally these would just be given)
+    dInts_dgeom = jax.jacfwd(integrals, 0)(geom,basis_dict,nuclear_charges,charge) # (2,nbf,nbf,nbf,nbf,natom,3)
+    dEnuc_dgeom = jax.jacfwd(nuclear_repulsion, 0)(geom,nuclear_charges) # (natom,3,natom,3) 
+    dE_dInts = jax.jacrev(hf, 0)(STVG) # (2,nbf,nbf,nbf,nbf)
+    dE_dgeom = np.einsum('ijklmno,ijklm->no', dInts_dgeom, dE_dInts)
+    E_grad = dE_dgeom + dEnuc_dgeom
+    return E_grad
+
+#print(test(geom))
+#hess = jax.jacfwd(test, 0)(geom)
+#print(hess)
+
+
+
+# Hessians
+
+
+#
+## GRADIENTS
+## Compute dInts/dGeom
+#dSTV_dgeom, dG_dgeom = jax.jacfwd(integrals, (0))(geom,basis_dict,nuclear_charges,charge)
+## Compute dEnuc/dGeom
+#dEnuc_dgeom = jax.jacfwd(nuclear_repulsion, 0)(geom,nuclear_charges)
+## Compute dE/dInts
+#dE_dSTV = jax.jacfwd(hf, 0)(STV,G)
+##dE_dG = jax.jacfwd(hf, 1)(STV,G,Enuc) # This incurs massive memory for some reason?
+#dE_dG = jax.jacrev(hf, 1)(STV,G) 
+#
+##print("dSTV_dgeom  ",dSTV_dgeom.shape)      #(3, 2, 2, 2, 3)         
+##print("dE_dSTV     ",dE_dSTV.shape)         #(3, 2, 2)
+##print("dG_dgeom    ",dG_dgeom.shape)        #(2, 2, 2, 2, 2, 3)
+##print("dE_dG       ",dE_dG.shape)           #(2, 2, 2, 2)
+##print("dEnuc_dgeom ",dEnuc_dgeom.shape)     #(2, 3)
+##print("dE_dEnuc    ",dE_dEnuc.shape)        #()                 
+#dOne =  np.einsum('ijklm,ijk->lm', dSTV_dgeom, dE_dSTV)
+#dTwo = np.einsum('ijklmn,ijkl->mn', dG_dgeom, dE_dG)
+#print("Nuclear gradient from decomposition")
+#print(dOne + dTwo + dEnuc_dgeom)
 # GRADIENTS
 
 ## Compute second derivatives
