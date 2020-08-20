@@ -115,10 +115,18 @@ nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
 #print(E_grad)
 
 
-int_nuc_grad = onp.asarray(jax.jacfwd(integrals, 0)(geom,basis_dict,nuclear_charges,charge))
-with open('h2sto3g_int_nuc_grad.npy', 'wb') as f:
-    onp.save(f,int_nuc_grad)
-
+def save_nuclear_grad():
+    STVG = integrals(geom,basis_dict,nuclear_charges,charge)
+    int_nuc_grad = onp.asarray(jax.jacfwd(integrals, 0)(geom,basis_dict,nuclear_charges,charge))
+    int_nuc_hess = onp.asarray(jax.jacfwd(jax.jacfwd(integrals, 0),0)(geom,basis_dict,nuclear_charges,charge))
+    with open('h2sto3g_int_nuc_hess.npy', 'wb') as f:
+        onp.save(f,int_nuc_hess)
+    with open('h2sto3g_int_nuc_grad.npy', 'wb') as f:
+        onp.save(f,int_nuc_grad)
+    with open('h2sto3g_ints.npy', 'wb') as f:
+        onp.save(f,STVG)
+    return None
+#save_nuclear_grad()
 
 def test(geom):
     # Compute integrals
@@ -136,6 +144,49 @@ def test(geom):
 #print(test(geom))
 #hess = jax.jacfwd(test, 0)(geom)
 #print(hess)
+
+def loaded_gradient(geom):
+    with open('h2sto3g_int_nuc_grad.npy', 'rb') as f:
+        dInts_dgeom = np.load(f)
+    with open('h2sto3g_ints.npy', 'rb') as f:
+        STVG = np.load(f)
+    # We load in integrals and integral 1st derivatives, so JAX only needs to differentiate the energy and nuclear repulsion
+    dEnuc_dgeom = jax.jacfwd(nuclear_repulsion, 0)(geom,nuclear_charges) # (natom,3,natom,3) 
+    dE_dInts = jax.jacrev(hf, 0)(STVG) # (2,nbf,nbf,nbf,nbf)
+    dE_dgeom = np.einsum('ijklmno,ijklm->no', dInts_dgeom, dE_dInts)
+    E_grad = dE_dgeom + dEnuc_dgeom
+    return E_grad
+
+def loaded_hessian(geom):
+    """
+    Use second order Faa Di Bruno formula (tensor form)
+    """
+    with open('h2sto3g_ints.npy', 'rb') as f:
+        STVG = np.load(f)
+    with open('h2sto3g_int_nuc_grad.npy', 'rb') as f: # FIRST NUCLEAR INTEGRAL DERIVATIVE
+        dI1 = np.load(f)
+    with open('h2sto3g_int_nuc_hess.npy', 'rb') as f: # SECOND NUCLEAR INTEGRAL DERIVATIVE
+        dI2 = np.load(f) # (2,nbf,nbf,nbf,nbf,natom,3,natom,3)
+
+    dE1 = jax.jacrev(hf, 0)(STVG)
+    dE2 = jax.jacfwd(jax.jacrev(hf, 0),0)(STVG) 
+    term1 = np.einsum('AijklBabcd,AijklPQ,BabcdRS->PQRS', dE2, dI1, dI1) 
+    term2 = np.einsum('Aijkl,AijklPQRS->PQRS', dE1, dI2) 
+    dE_dgeom = term1 + term2
+
+    # We load in integrals and integral 1st derivatives, so JAX only needs to differentiate the energy and nuclear repulsion
+    dEnuc_dgeom = jax.jacfwd(jax.jacfwd(nuclear_repulsion, 0),0)(geom,nuclear_charges) # (natom,3,natom,3) 
+    #dE_dgeom = np.einsum('Aijklabcd,ijklm->no', dInts_dgeom, dE_dInts)
+    E_grad = dE_dgeom + dEnuc_dgeom
+    return E_grad
+
+
+#print(loaded_hessian(geom))
+
+# Taking the derivative of test2 should not work, because we have no information about second derivative of ints
+#print(jax.jacfwd(test2,0)(geom))
+
+    
 
 
 
