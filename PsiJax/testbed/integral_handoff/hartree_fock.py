@@ -11,14 +11,12 @@ from energy_utils import nuclear_repulsion, cholesky_orthogonalization
 from basis_utils import build_basis_set
 
 
-
-def preamble(geom,basis,nuclear_charges,charge):
+def integrals(geom,basis,nuclear_charges,charge):
     STV = oei.oei_arrays(geom,basis,nuclear_charges)
     G = tei.tei_array(geom,basis)
-    Enuc = nuclear_repulsion(geom,nuclear_charges)
-    return STV, G, Enuc
+    return STV, G
 
-def hf(STV,G,Enuc): 
+def hf(STV,G): 
     S = STV[0]
     T = STV[1]
     V = STV[2]
@@ -39,11 +37,11 @@ def hf(STV,G,Enuc):
     D = np.zeros_like(H)
 
     @jax.jit
-    def rhf_iter(H,A,G,D,Enuc):
+    def rhf_iter(H,A,G,D):
         J = np.einsum('pqrs,rs->pq', G, D)
         K = np.einsum('prqs,rs->pq', G, D)
         F = H + J * 2 - K
-        E_scf = np.einsum('pq,pq->', F + H, D) + Enuc
+        E_scf = np.einsum('pq,pq->', F + H, D) 
         Fp = np.linalg.multi_dot((A.T, F, A))
         Fp = Fp + fudge_factor
         
@@ -58,7 +56,7 @@ def hf(STV,G,Enuc):
     E_old = 0.0
     while abs(E_scf - E_old) > 1e-12:
         E_old = E_scf * 1
-        E_scf, D, C, eps = rhf_iter(H,A,G,D,Enuc)
+        E_scf, D, C, eps = rhf_iter(H,A,G,D)
         iteration += 1
         if iteration == SCF_MAX_ITER:
             break
@@ -67,35 +65,55 @@ def hf(STV,G,Enuc):
 
 molecule = psi4.geometry("""
                          0 1
-                         N 0.0 0.0 -0.8
-                         N 0.0 0.0  0.8
+                         H 0.0 0.0 -0.8
+                         H 0.0 0.0  0.8
                          units bohr
                          """)
 
-basis_name = 'cc-pvdz'
+basis_name = 'sto-3g'
 basis_dict = build_basis_set(molecule, basis_name)
 geom = np.asarray(onp.asarray(molecule.geometry()))
 mult = molecule.multiplicity()
 charge = molecule.molecular_charge()
 nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
 
-STV, G, Enuc = preamble(geom,basis_dict,nuclear_charges,charge)
-#E_scf = hf(STV,G,Enuc)
-#print(E_scf)
+# compute integrals and nuclear repulsion energy
 
+STV, G = integrals(geom,basis_dict,nuclear_charges,charge)
+Enuc = nuclear_repulsion(geom,nuclear_charges)
+
+# GRADIENTS
 # Compute dInts/dGeom
-dSTV_dgeom, dG_dgeom, dEnuc_dgeom = jax.jacfwd(preamble, (0))(geom,basis_dict,nuclear_charges,charge)
+dSTV_dgeom, dG_dgeom = jax.jacfwd(integrals, (0))(geom,basis_dict,nuclear_charges,charge)
+# Compute dEnuc/dGeom
+dEnuc_dgeom = jax.jacfwd(nuclear_repulsion, 0)(geom,nuclear_charges)
 # Compute dE/dInts
-dE_dSTV, dE_dG, dE_dEnuc = jax.jacfwd(hf, (0,1,2))(STV,G,Enuc)
-print("dSTV_dgeom  ",dSTV_dgeom.shape)      #(3, 2, 2, 2, 3)         
-print("dE_dSTV     ",dE_dSTV.shape)         #(3, 2, 2)
-print("dG_dgeom    ",dG_dgeom.shape)        #(2, 2, 2, 2, 2, 3)
-print("dE_dG       ",dE_dG.shape)           #(2, 2, 2, 2)
-print("dEnuc_dgeom ",dEnuc_dgeom.shape)     #(2, 3)
-print("dE_dEnuc    ",dE_dEnuc.shape)        #()                 
-dHS =  np.einsum('ijklm,ijk->lm', dSTV_dgeom, dE_dSTV)
-dG = np.einsum('ijklmn,ijkl->mn', dG_dgeom, dE_dG)
+dE_dSTV = jax.jacfwd(hf, 0)(STV,G)
+#dE_dG = jax.jacfwd(hf, 1)(STV,G,Enuc) # This incurs massive memory for some reason?
+dE_dG = jax.jacrev(hf, 1)(STV,G) 
+
+#print("dSTV_dgeom  ",dSTV_dgeom.shape)      #(3, 2, 2, 2, 3)         
+#print("dE_dSTV     ",dE_dSTV.shape)         #(3, 2, 2)
+#print("dG_dgeom    ",dG_dgeom.shape)        #(2, 2, 2, 2, 2, 3)
+#print("dE_dG       ",dE_dG.shape)           #(2, 2, 2, 2)
+#print("dEnuc_dgeom ",dEnuc_dgeom.shape)     #(2, 3)
+#print("dE_dEnuc    ",dE_dEnuc.shape)        #()                 
+dOne =  np.einsum('ijklm,ijk->lm', dSTV_dgeom, dE_dSTV)
+dTwo = np.einsum('ijklmn,ijkl->mn', dG_dgeom, dE_dG)
 print("Nuclear gradient from decomposition")
-print(dHS + dG + dEnuc_dgeom)
+print(dOne + dTwo + dEnuc_dgeom)
+# GRADIENTS
+
+## Compute second derivatives
+#d2STV_dgeom2, d2G_dgeom2, d2Enuc_dgeom2 = jax.jacfwd(jax.jacfwd(integrals, 0), 0)(geom,basis_dict,nuclear_charges,charge)
+#result = jax.jacfwd(jax.jacrev(hf, (0,1,2)), (0,1,2))(STV,G,Enuc)
+#print(len(result)) # lenght is 3, tuple of tuples
+#print(result)
+#
+#for i in result:
+#    print(i.shape)
+##dE_dSTV = jax.jacfwd(hf, 0)(STV,G,Enuc)
+##dE_dG = jax.jacfwd(jax.jacrev(hf, 1)(STV,G,Enuc) # This incurs massive memory for some reason?
+##dE_dEnuc = jax.jacfwd(hf, 2)(STV,G,Enuc)
 
 
