@@ -90,6 +90,10 @@ def derivative(molecule, basis_name, method, order=1):
     nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
     basis_dict = build_basis_set(molecule, basis_name)
     dim = geom.reshape(-1).shape[0]
+    #TODO TODO TODO: support internal coordinate wrapper function.
+    # This will take in internal coordinates, transform them into cartesians, and then compute integrals, energy
+    # JAX will then collect the internal coordinate derivative tensor instead. 
+
     if method == 'scf' or method == 'hf' or method == 'rhf':
         if order == 1:
             grad = jacfwd(restricted_hartree_fock, 0)(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
@@ -211,6 +215,10 @@ def partial_derivative(molecule, basis_name, method, order, address):
     nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
     basis_dict = build_basis_set(molecule, basis_name)
 
+    #TODO TODO TODO: support internal coordinate wrapper function.
+    # This will take in internal coordinates, transform them into cartesians, and then compute integrals, energy
+    # JAX will then collect the internal coordinate partial derivative instead. 
+
     if method == 'scf' or method == 'hf' or method == 'rhf':
         # Unpack the geometry as a list of single coordinates so we can differentiate w.r.t. single coords
         def scf_partial_wrapper(*args, **kwargs):
@@ -274,6 +282,14 @@ def partial_derivative(molecule, basis_name, method, order, address):
             i,j,k,l = address[0], address[1], address[2], address[3]
             partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
             return partial_quartic
+        if order == 5:
+            i,j,k,l,m = address[0], address[1], address[2], address[3],address[4]
+            partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l),m)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_quintic
+        if order == 6:
+            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+            partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l), m), n)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_sextic
         else:
             print("Error: Order {} partial derivatives are not implemented nor recommended for MP2.".format(order))
 
@@ -301,6 +317,14 @@ def partial_derivative(molecule, basis_name, method, order, address):
             i,j,k,l = address[0], address[1], address[2], address[3]
             partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
             return partial_quartic
+        if order == 5:
+            i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
+            partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l), m)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_quintic
+        if order == 6:
+            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+            partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l), m), n)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_sextic
         else:
             print("Error: Order {} partial derivatives are not implemented nor recommended for CCSD.".format(order))
 
@@ -328,6 +352,14 @@ def partial_derivative(molecule, basis_name, method, order, address):
             i,j,k,l = address[0], address[1], address[2], address[3]
             partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
             return partial_quartic
+        if order == 5:
+            i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
+            partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l), m)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_quintic
+        if order == 6:
+            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+            partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l), m), n)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            return partial_sextic
         else:
             print("Error: Order {} partial derivatives are not implemented nor recommended for CCSD(T).".format(order))
 
