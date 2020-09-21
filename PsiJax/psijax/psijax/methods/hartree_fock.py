@@ -9,7 +9,7 @@ from ..integrals import tei
 from ..integrals import oei 
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 
-def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=30, return_aux_data=True):
+def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True):
     nelectrons = int(np.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
 
@@ -34,22 +34,25 @@ def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=3
         J = np.einsum('pqrs,rs->pq', G, D)
         K = np.einsum('prqs,rs->pq', G, D)
         F = H + J * 2 - K
+        # TODO, can't you save einsum(H,D) and just contract F with D iteratively?
         E_scf = np.einsum('pq,pq->', F + H, D) + Enuc
         Fp = np.linalg.multi_dot((A.T, F, A))
         Fp = Fp + fudge_factor
         
         eps, C2 = np.linalg.eigh(Fp)
         C = np.dot(A,C2)
-        return E_scf, C, eps 
+        Cocc = C[:, :ndocc]
+        D = np.einsum('pi,qi->pq', Cocc, Cocc)
+        return E_scf, D, C, eps 
 
     iteration = 0
     E_scf = 1.0
     E_old = 0.0
+    #print(SCF_MAX_ITER)
     while abs(E_scf - E_old) > 1e-12:
         E_old = E_scf * 1
-        E_scf, C, eps = rhf_iter(H,A,G,D,Enuc)
-        Cocc = C[:, :ndocc]
-        D = np.einsum('pi,qi->pq', Cocc, Cocc)
+        E_scf, D, C, eps = rhf_iter(H,A,G,D,Enuc)
+        #print(E_scf, iteration)
         iteration += 1
         if iteration == SCF_MAX_ITER:
             break
@@ -60,4 +63,4 @@ def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=3
         return E_scf, C, eps, G
 
 
-    
+
