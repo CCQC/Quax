@@ -68,10 +68,10 @@ def kinetic(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor):
                   + nb * (nb-1) * wx * wy * wz_minus2)
     return prefactor * (term1 + term2 + term3)
 
-def A_array(l1,l2,PA,PB,CP,g):
+def A_array(l1,l2,PA,PB,CP,g,A_vals):
     with loops.Scope() as s:
       # Hard code only up to f functions (fxxx | fxxx) => l1 + l2 + 1 = 7
-      s.A = np.zeros(7)
+      s.A = A_vals
       s.i = 0
       s.r = 0
       s.u = 0 
@@ -93,7 +93,7 @@ def A_array(l1,l2,PA,PB,CP,g):
         s.i -= 1
       return s.A
 
-def potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefactor,charges):
+def potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefactor,charges,A_vals):
     """
     Computes a single electron-nuclear attraction integral
     """
@@ -103,9 +103,9 @@ def potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefacto
     with loops.Scope() as s:
       s.val = 0.
       for i in s.range(Pgeom_pow.shape[0]):
-        Ax = A_array(la,lb,PA_pow[0],PB_pow[0],Pgeom_pow[i,0,:],gamma)
-        Ay = A_array(ma,mb,PA_pow[1],PB_pow[1],Pgeom_pow[i,1,:],gamma)
-        Az = A_array(na,nb,PA_pow[2],PB_pow[2],Pgeom_pow[i,2,:],gamma)
+        Ax = A_array(la,lb,PA_pow[0],PB_pow[0],Pgeom_pow[i,0,:],gamma,A_vals)
+        Ay = A_array(ma,mb,PA_pow[1],PB_pow[1],Pgeom_pow[i,1,:],gamma,A_vals)
+        Az = A_array(na,nb,PA_pow[2],PB_pow[2],Pgeom_pow[i,2,:],gamma,A_vals)
 
         with loops.Scope() as S:
           S.total = 0.
@@ -131,6 +131,8 @@ def oei_arrays(geom, basis, charges):
     coeffs, exps, atoms, ams, indices, dims = flatten_basis_data(basis)
     nbf = get_nbf(basis)
     nprim = coeffs.shape[0]
+    max_am = np.max(ams)
+    A_vals = np.zeros(2*max_am+1)
 
     # Save various AM distributions for indexing
     # Obtain all possible primitive quartet index combinations 
@@ -154,7 +156,7 @@ def oei_arrays(geom, basis, charges):
         prefactor = np.exp(-aa * bb * np.dot(A-B,A-B) / gamma)
         P = (aa * A + bb * B) / gamma
         # Maximum angular momentum: hard coded
-        max_am = 3 # f function support
+        #max_am = 3 # f function support
         # Precompute all powers up to 2+max_am of Pi-Ai, Pi-Bi. 
         # We need 2+max_am since kinetic requires incrementing angluar momentum by +2
         PA_pow = np.power(np.broadcast_to(P-A, (max_am+3,3)).T, np.arange(max_am+3))
@@ -187,7 +189,7 @@ def oei_arrays(geom, basis, charges):
             # Compute one electron integrals and add to appropriate index
             overlap_int = overlap(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
             kinetic_int = kinetic(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
-            potential_int = potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefactor,charges) * coef
+            potential_int = potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefactor,charges,A_vals) * coef
             s.oei = jax.ops.index_add(s.oei, [[0,1,2],[i,i,i],[j,j,j]], (overlap_int, kinetic_int, potential_int))
 
             s.b += 1
@@ -222,9 +224,5 @@ def oei_arrays(geom, basis, charges):
 #print("Kinetic matches Psi4: ", np.allclose(T, psi_T))
 #print("Potential matches Psi4: ", np.allclose(V, psi_V))
 #
-#
-#print(S)
-#print(psi_S)
-
 
 
