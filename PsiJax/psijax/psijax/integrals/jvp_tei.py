@@ -62,7 +62,7 @@ def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,oodelta,B_vals):
         s.i1 -= 1
       return s.B
 
-@partial(jax.custom_jvp, nondiff_argnums=(4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20))
+#@partial(jax.custom_jvp, nondiff_argnums=(4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20))
 @jax.jit
 def primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef): 
     """
@@ -111,7 +111,7 @@ def primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef):
               *np.exp(-cc*dd*rcd2/gamma2)*s.primitive*coef
       return value
 
-@primitive_tei.defjvp
+#@primitive_tei.defjvp
 def primitive_tei_jvp(la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef, primals, tangents):
     '''
     Okay, so 
@@ -205,13 +205,29 @@ D = np.array([0.0,0.0,-2.0])
 la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd = 1,0,0,1,0,0,1,0,0,1,0,0
 aa, bb, cc, dd = 1.0,1.0,1.0,1.0
 coef = 1.0
-print('compiling')
-huh = primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
-huh = primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+#print('compiling')
+#huh = primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+#huh = primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
 #print(huh)
 
-what = jax.jacfwd(primitive_tei, (0,1,2,3))(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
-print(what)
+#what = jax.jacfwd(primitive_tei, 0)(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+#print(what)
+
+def testfunc(geom):
+    A = geom[0]
+    B = geom[1]
+    C = geom[0]
+    D = geom[1]
+    la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd = 1,0,0,1,0,0,1,0,0,1,0,0
+    aa, bb, cc, dd = 1.0,1.0,1.0,1.0
+    coef = 1.0
+    return primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+
+geom = np.array([[0.0,0.0,0.8], [0.0,0.0,-0.8]])
+#res = testfunc(geom) 
+#print(res)
+deriv = jax.jacfwd(jax.jacfwd(testfunc))(geom)
+print(deriv)
 
 
 
