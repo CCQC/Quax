@@ -35,7 +35,7 @@ def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,oodelta,B_vals):
         s.r1 = s.i1 // 2
         for _ in s.while_range(lambda: s.r1 > -1):
           Bterm *= fact_ratio2[s.i1,s.r1]
-          Bterm *= g1**(s.r1-s.i1)
+          Bterm *= (4*g1)**(s.r1-s.i1)
           tmp -= 2 * s.r1
           s.i2 = l3 + l4 
           for _ in s.while_range(lambda: s.i2 > -1):
@@ -45,7 +45,7 @@ def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,oodelta,B_vals):
             s.r2 = s.i2 // 2
             for _ in s.while_range(lambda: s.r2 > -1):
               Bterm *= fact_ratio2[s.i2,s.r2]
-              Bterm *= g2**(s.r2-s.i2)
+              Bterm *= (4*g2)**(s.r2-s.i2)
               tmp -= 2 * s.r2
               s.u = tmp // 2
               for _ in s.while_range(lambda: s.u > -1):
@@ -63,10 +63,16 @@ def B_array(l1,l2,l3,l4,pa,pb,qc,qd,qp,g1,g2,oodelta,B_vals):
       return s.B
 
 #@partial(jax.custom_jvp, nondiff_argnums=(4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20))
+
+#@partial(jax.custom_jvp, nondiff_argnums=(12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28))
 @jax.jit
-def primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef): 
+def primitive_tei(ax,ay,az,bx,by,bz,cx,cy,cz,dx,dy,dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef): 
     """
     """
+    A = np.array([ax,ay,az])
+    B = np.array([bx,by,bz])
+    C = np.array([cx,cy,cz])
+    D = np.array([dx,dy,dz])
     max_am=10 # temp, have to make foolproof for higher derivatives
     B_vals = np.zeros(4*max_am+1)
     rab2 = np.dot(A-B,A-B)
@@ -116,86 +122,93 @@ def primitive_tei_jvp(la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef, prim
     '''
     Okay, so 
     '''
-    A,B,C,D = primals
+    Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz = primals
     # These are one-hot 'basis' vectors. 
-    A_dot, B_dot, C_dot, D_dot = tangents
-    primals_out = primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
-    
-    # 
-    if la == 0:
-        tei_Ax = 2 * aa * primitive_tei(A,B,C,D,la+1,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
-    else:
-        tei_Ax = 2 * aa * primitive_tei(A,B,C,D,la+1,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
-                     la * primitive_tei(A,B,C,D,la-1,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
-    if ma == 0:
-        tei_Ay = 2 * aa * primitive_tei(A,B,C,D,la,ma+1,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
-    else:
-        tei_Ay = 2 * aa * primitive_tei(A,B,C,D,la,ma+1,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
-                     ma * primitive_tei(A,B,C,D,la,ma-1,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
-    if na == 0:
-        tei_Az = 2 * aa * primitive_tei(A,B,C,D,la,ma,na+1,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
-    else:                                                 
-        tei_Az = 2 * aa * primitive_tei(A,B,C,D,la,ma,na+1,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
-                     na * primitive_tei(A,B,C,D,la,ma,na-1,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+    Ax_dot,Ay_dot,Az_dot,Bx_dot,By_dot,Bz_dot,Cx_dot,Cy_dot,Cz_dot,Dx_dot,Dy_dot,Dz_dot = tangents
+    primals_out = primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
 
+    if la == 0:
+        tei_Ax = 2 * aa * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la+1,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+    else:
+        tei_Ax = 2 * aa * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la+1,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
+                     la * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la-1,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+    if ma == 0:
+        tei_Ay = 2 * aa * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma+1,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+    else:
+        tei_Ay = 2 * aa * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma+1,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
+                     ma * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma-1,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+    if na == 0:
+        tei_Az = 2 * aa * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na+1,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+    else:                                                 
+        tei_Az = 2 * aa * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na+1,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
+                     na * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na-1,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
 
     if lb == 0:
-        tei_Bx = 2 * bb * primitive_tei(A,B,C,D,la,ma,na,lb+1,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_Bx = 2 * bb * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb+1,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
     else:                                                    
-        tei_Bx = 2 * bb * primitive_tei(A,B,C,D,la,ma,na,lb+1,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
-                     lb * primitive_tei(A,B,C,D,la,ma,na,lb-1,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_Bx = 2 * bb * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb+1,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
+                     lb * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb-1,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
     if mb == 0:
-        tei_By = 2 * bb * primitive_tei(A,B,C,D,la,ma,na,lb,mb+1,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_By = 2 * bb * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb+1,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
     else:                                                       
-        tei_By = 2 * bb * primitive_tei(A,B,C,D,la,ma,na,lb,mb+1,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
-                     mb * primitive_tei(A,B,C,D,la,ma,na,lb,mb-1,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_By = 2 * bb * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb+1,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
+                     mb * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb-1,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
     if nb == 0:
-        tei_Bz = 2 * bb * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb+1,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_Bz = 2 * bb * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb+1,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
     else:                                                          
-        tei_Bz = 2 * bb * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb+1,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
-                     nb * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb-1,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_Bz = 2 * bb * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb+1,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
+                     nb * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb-1,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
 
     if lc == 0:
-        tei_Cx = 2 * cc * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc+1,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_Cx = 2 * cc * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc+1,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
     else:                                                             
-        tei_Cx = 2 * cc * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc+1,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
-                     lc * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc-1,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_Cx = 2 * cc * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc+1,mc,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
+                     lc * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc-1,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
     if mc == 0:
-        tei_Cy = 2 * cc * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc+1,nc,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_Cy = 2 * cc * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc+1,nc,ld,md,nd,aa,bb,cc,dd,coef)
     else:                                                                
-        tei_Cy = 2 * cc * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc+1,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
-                     mc * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc-1,nc,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_Cy = 2 * cc * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc+1,nc,ld,md,nd,aa,bb,cc,dd,coef) -\
+                     mc * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc-1,nc,ld,md,nd,aa,bb,cc,dd,coef)
     if nc == 0:
-        tei_Cz = 2 * cc * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc+1,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_Cz = 2 * cc * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc+1,ld,md,nd,aa,bb,cc,dd,coef)
     else:                                                                   
-        tei_Cz = 2 * cc * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc+1,ld,md,nd,aa,bb,cc,dd,coef) -\
-                     nc * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc-1,ld,md,nd,aa,bb,cc,dd,coef)
+        tei_Cz = 2 * cc * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc+1,ld,md,nd,aa,bb,cc,dd,coef) -\
+                     nc * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc-1,ld,md,nd,aa,bb,cc,dd,coef)
 
     if ld == 0:
-        tei_Dx = 2 * dd * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld+1,md,nd,aa,bb,cc,dd,coef)
+        tei_Dx = 2 * dd * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld+1,md,nd,aa,bb,cc,dd,coef)
     else:                                                                      
-        tei_Dx = 2 * dd * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld+1,md,nd,aa,bb,cc,dd,coef) -\
-                     ld * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld-1,md,nd,aa,bb,cc,dd,coef)
+        tei_Dx = 2 * dd * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld+1,md,nd,aa,bb,cc,dd,coef) -\
+                     ld * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld-1,md,nd,aa,bb,cc,dd,coef)
     if md == 0:
-        tei_Dy = 2 * dd * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md+1,nd,aa,bb,cc,dd,coef)
+        tei_Dy = 2 * dd * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md+1,nd,aa,bb,cc,dd,coef)
     else:                                                                         
-        tei_Dy = 2 * dd * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md+1,nd,aa,bb,cc,dd,coef) -\
-                     md * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md-1,nd,aa,bb,cc,dd,coef)
+        tei_Dy = 2 * dd * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md+1,nd,aa,bb,cc,dd,coef) -\
+                     md * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md-1,nd,aa,bb,cc,dd,coef)
     if nd == 0:
-        tei_Dz = 2 * dd * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd+1,aa,bb,cc,dd,coef)
+        tei_Dz = 2 * dd * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd+1,aa,bb,cc,dd,coef)
     else:                                                                            
-        tei_Dz = 2 * dd * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd+1,aa,bb,cc,dd,coef) -\
-                     nd * primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd-1,aa,bb,cc,dd,coef)
-
+        tei_Dz = 2 * dd * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd+1,aa,bb,cc,dd,coef) -\
+                     nd * primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd-1,aa,bb,cc,dd,coef)
+    
     # Not sure how to handle this...
-    tangents_out = np.dot(A_dot,np.array([tei_Ax, tei_Ay, tei_Az])) +\
-                   np.dot(B_dot,np.array([tei_Bx, tei_By, tei_Bz])) +\
-                   np.dot(C_dot,np.array([tei_Cx, tei_Cy, tei_Cz])) +\
-                   np.dot(D_dot,np.array([tei_Dx, tei_Dy, tei_Dz]))
+    # Does this need to be the total differential?
+    tangents_out = tei_Ax * Ax_dot +  tei_Ay * Ay_dot + tei_Az * Az_dot +\
+                   tei_Bx * Bx_dot +  tei_By * By_dot + tei_Bz * Bz_dot +\
+                   tei_Cx * Cx_dot +  tei_Cy * Cy_dot + tei_Cz * Cz_dot +\
+                   tei_Dx * Dx_dot +  tei_Dy * Dy_dot + tei_Dz * Dz_dot
+
+    #          np.dot(A_dot,np.array([tei_Ax, tei_Ay, tei_Az])) +\
+    #               np.dot(B_dot,np.array([tei_Bx, tei_By, tei_Bz])) +\
+    #               np.dot(C_dot,np.array([tei_Cx, tei_Cy, tei_Cz])) +\
+    #               np.dot(D_dot,np.array([tei_Dx, tei_Dy, tei_Dz]))
     return primals_out, tangents_out
     #A_dot[0] * tei_Ax
 
     #tangents_out = 
+
+#primitive_tei.defjvps(lambda Ax_dot, primal_out, Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz:
+                        
 
 
 A = np.array([0.0,0.0,1.0])
@@ -214,18 +227,18 @@ coef = 1.0
 #print(what)
 
 def testfunc(geom):
-    A = geom[0]
-    B = geom[1]
-    C = geom[0]
-    D = geom[1]
+    Ax,Ay,Az = geom[0]
+    Bx,By,Bz = geom[1]
+    Cx,Cy,Cz = geom[0]
+    Dx,Dy,Dz = geom[1]
     la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd = 1,0,0,1,0,0,1,0,0,1,0,0
     aa, bb, cc, dd = 1.0,1.0,1.0,1.0
     coef = 1.0
-    return primitive_tei(A,B,C,D,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
+    return primitive_tei(Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,Dx,Dy,Dz,la,ma,na,lb,mb,nb,lc,mc,nc,ld,md,nd,aa,bb,cc,dd,coef)
 
 geom = np.array([[0.0,0.0,0.8], [0.0,0.0,-0.8]])
-#res = testfunc(geom) 
-#print(res)
+res = testfunc(geom) 
+print(res)
 deriv = jax.jacfwd(jax.jacfwd(testfunc))(geom)
 print(deriv)
 
