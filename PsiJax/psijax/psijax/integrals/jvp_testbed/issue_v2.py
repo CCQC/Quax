@@ -133,42 +133,35 @@ func_deriv_p.def_impl(func_deriv_impl)
 def func_jvp(primals, tangents):
     vec, = primals
     out_primals = func(vec)
-    out_tangents = func_deriv(vec, tangents[0])
+    out_tangents = func_deriv(vec, tangents[0]) # NOTE what happens here: we pass a basis vector [1,0,0...] to func_deriv
     return out_primals, out_tangents
 
 def func_deriv_jvp(primals, tangents):
     vec, deriv_vec = primals
     out_primals = func_deriv(vec, deriv_vec)
-    out_tangents = func_deriv(vec, tangents[0] + deriv_vec)
+    out_tangents = func_deriv(vec, tangents[0] + deriv_vec) # NOTE and then here, that basis vector is now deriv_vec, and we are adding the current tangent to it
     return out_primals, out_tangents
 
 jax.ad.primitive_jvps[func_p] = func_jvp 
 jax.ad.primitive_jvps[func_deriv_p] = func_deriv_jvp 
 
 vec = np.array([1.0,2.0,3.0])
-
 gradient = my_jacfwd_novmap(func)(vec)
 print(gradient)
-
 hessian = my_jacfwd_novmap(my_jacfwd_novmap(func))(vec)
 print(hessian)
-
 cubic = my_jacfwd_novmap(my_jacfwd_novmap(my_jacfwd_novmap(func)))(vec)
 print(cubic)
 
-# Define JVP rules
+# Summary notes: we did it.
+# Above we have defined a function  R^n -> R^1, and a function which can compute arbitrary order partial derivatives wrt each vector component
+# We used an external library (regular NumPy) to call these functions.
+# We registered them as JAX primtives, defined their evaluation rules, defined their jacobian-vector product rules, and used a custom version of 
+# jacfwd which does not depend on vmap (so I don't have to think about batching rules)
+# and then compared nested jacfwds to JAX's nested jacfwd's, and they agree perfectly. AWESOME!
 
-#def func_jvp(primals, tangents):
-#    vec, = primals
-#    out_primals = func(vec)
-#
-#    for v_dot in tangents:
-#        d = func_deriv(vec, v_dot)
-#        #out_tangents = func_deriv(vec, tangents)
-#
-#    return out_primals, out_tangents
+# Next on the todo list is simulate the above for some simple version of TEI derivatives, such as the partial derivative of G is just the differentiated coordinates times G
+# If this works, then we can swap out that dummy derivative computation for the real deal, referencing Psi4. Boom!
 
-
-
-
+# Still not clear is how to deal with weird args in your function, like basis and molecule specification. Maybe use a JAX issue our scour the source code.
 
