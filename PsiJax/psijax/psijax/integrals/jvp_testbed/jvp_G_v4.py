@@ -8,6 +8,7 @@ config.update("jax_enable_x64", True)
 import jax.numpy as np
 import numpy as onp
 from jax import core
+np.set_printoptions(linewidth=500)
 
 # Strategy: define a TEI primitive, and TEI derivative primitive.
 # The JVP rule of TEI primitive will call TEI derivative primitive
@@ -43,10 +44,16 @@ def psi_tei_deriv_impl(geom, deriv_vec, **params):
     # and just assume the derivative of G wrt a cartesian coordinate 
     # is G plus G * cartesian coordinate. 
     # The 'deriv' vector says which coords to differentiate wrt to
-    psi_G = psi_tei(geom, **params)
-    dummy = deriv_vec * geom
-    G = np.kron(dummy, np.expand_dims(psi_G, axis=-1))
-    dG_di = psi_G + np.sum(G, axis=-1)
+    #psi_G = psi_tei(geom, **params)
+    #dummy = deriv_vec * geom
+    #G = np.kron(dummy, np.expand_dims(psi_G, axis=-1))
+    #dG_di = psi_G + np.sum(G, axis=-1)
+
+    # Actually, let the partial derivative wrt parameters just equal
+    # G times a coefficient equal to prod(geom ^ deriv_vec), so you just multiply
+    # by each geom coordinate 'deriv_vec' times.
+    G = psi_tei(geom, **params)
+    dG_di = G * onp.prod(onp.power(geom, deriv_vec)) 
     return dG_di
 
 # Register primitive evaluation rule
@@ -67,9 +74,9 @@ basis_name = 'sto-3g'
 deriv_test = np.array([1.,0.,0.,0.,0.,0.])
 params = {'mol': molecule, 'basis_name': basis_name}
 test = psi_tei(geom, **params)
-print(test)
+#print(test)
 test2 = psi_tei_deriv(geom, deriv_test, **params) 
-print(test2)
+#print(test2)
 
 # Next step: create Jacobian-vector product rules, which given some input args
 # and a tangent std basis vector, returns the function evaluated at that point
@@ -135,20 +142,59 @@ def my_jacfwd_novmap(f):
         return np.moveaxis(Jt, 0, -1)
     return jacfun
 
-#what = my_jacfwd_novmap(psi_tei)(geom, **params)
-#print(what)
+# Currently I'm using partial here, but the real jax.jacfwd should work with explicit params for molecule and basis name, since you can pick which arg to differentiate
+gradient = my_jacfwd_novmap(partial_psi_tei)(geom)
+hessian = my_jacfwd_novmap(my_jacfwd_novmap(partial_psi_tei))(geom)
 
-what = my_jacfwd_novmap(partial_psi_tei)(geom)
-print(what.shape)
+# Okay, lets check it. Gradients should just be the TEI array times the coordinate factor that you're differentiating wrt
+TEI = psi_tei(geom, **params)
+print(onp.allclose(gradient[...,0], TEI * geom[0]))
+print(onp.allclose(gradient[...,1], TEI * geom[1]))
+print(onp.allclose(gradient[...,2], TEI * geom[2]))
+print(onp.allclose(gradient[...,3], TEI * geom[3]))
+print(onp.allclose(gradient[...,4], TEI * geom[4]))
+print(onp.allclose(gradient[...,5], TEI * geom[5]))
 
-huh = my_jacfwd_novmap(my_jacfwd_novmap(partial_psi_tei))(geom)
-print(huh.shape)
+print(onp.allclose(hessian[...,0,0], TEI * geom[0] * geom[0]))
+print(onp.allclose(hessian[...,0,1], TEI * geom[0] * geom[1]))
+print(onp.allclose(hessian[...,0,2], TEI * geom[0] * geom[2]))
+print(onp.allclose(hessian[...,0,3], TEI * geom[0] * geom[3]))
+print(onp.allclose(hessian[...,0,4], TEI * geom[0] * geom[4]))
+print(onp.allclose(hessian[...,0,5], TEI * geom[0] * geom[5]))
 
-# Okay, lets check it. Since the first argument
-dAx_dAx = huh[:,:,:,:,0,0]
+print(onp.allclose(hessian[...,1,0], TEI * geom[1] * geom[0]))
+print(onp.allclose(hessian[...,1,1], TEI * geom[1] * geom[1]))
+print(onp.allclose(hessian[...,1,2], TEI * geom[1] * geom[2]))
+print(onp.allclose(hessian[...,1,3], TEI * geom[1] * geom[3]))
+print(onp.allclose(hessian[...,1,4], TEI * geom[1] * geom[4]))
+print(onp.allclose(hessian[...,1,5], TEI * geom[1] * geom[5]))
 
-test = psi_tei(geom, **params)
+print(onp.allclose(hessian[...,2,0], TEI * geom[2] * geom[0]))
+print(onp.allclose(hessian[...,2,1], TEI * geom[2] * geom[1]))
+print(onp.allclose(hessian[...,2,2], TEI * geom[2] * geom[2]))
+print(onp.allclose(hessian[...,2,3], TEI * geom[2] * geom[3]))
+print(onp.allclose(hessian[...,2,4], TEI * geom[2] * geom[4]))
+print(onp.allclose(hessian[...,2,5], TEI * geom[2] * geom[5]))
 
+print(onp.allclose(hessian[...,3,0], TEI * geom[3] * geom[0]))
+print(onp.allclose(hessian[...,3,1], TEI * geom[3] * geom[1]))
+print(onp.allclose(hessian[...,3,2], TEI * geom[3] * geom[2]))
+print(onp.allclose(hessian[...,3,3], TEI * geom[3] * geom[3]))
+print(onp.allclose(hessian[...,3,4], TEI * geom[3] * geom[4]))
+print(onp.allclose(hessian[...,3,5], TEI * geom[3] * geom[5]))
 
+print(onp.allclose(hessian[...,4,0], TEI * geom[4] * geom[0]))
+print(onp.allclose(hessian[...,4,1], TEI * geom[4] * geom[1]))
+print(onp.allclose(hessian[...,4,2], TEI * geom[4] * geom[2]))
+print(onp.allclose(hessian[...,4,3], TEI * geom[4] * geom[3]))
+print(onp.allclose(hessian[...,4,4], TEI * geom[4] * geom[4]))
+print(onp.allclose(hessian[...,4,5], TEI * geom[4] * geom[5]))
+
+print(onp.allclose(hessian[...,5,0], TEI * geom[5] * geom[0]))
+print(onp.allclose(hessian[...,5,1], TEI * geom[5] * geom[1]))
+print(onp.allclose(hessian[...,5,2], TEI * geom[5] * geom[2]))
+print(onp.allclose(hessian[...,5,3], TEI * geom[5] * geom[3]))
+print(onp.allclose(hessian[...,5,4], TEI * geom[5] * geom[4]))
+print(onp.allclose(hessian[...,5,5], TEI * geom[5] * geom[5]))
 
 
