@@ -41,15 +41,7 @@ def psi_tei_impl(geom, **params):
 
 def psi_tei_deriv_impl(geom, deriv_vec, **params):
     # For now, we use a dummy partial derivative code
-    # and just assume the derivative of G wrt a cartesian coordinate 
-    # is G plus G * cartesian coordinate. 
-    # The 'deriv' vector says which coords to differentiate wrt to
-    #psi_G = psi_tei(geom, **params)
-    #dummy = deriv_vec * geom
-    #G = np.kron(dummy, np.expand_dims(psi_G, axis=-1))
-    #dG_di = psi_G + np.sum(G, axis=-1)
-
-    # Actually, let the partial derivative wrt parameters just equal
+    # Let the partial derivative wrt parameters just equal
     # G times a coefficient equal to prod(geom ^ deriv_vec), so you just multiply
     # by each geom coordinate 'deriv_vec' times.
     G = psi_tei(geom, **params)
@@ -74,26 +66,24 @@ basis_name = 'sto-3g'
 deriv_test = np.array([1.,0.,0.,0.,0.,0.])
 params = {'mol': molecule, 'basis_name': basis_name}
 test = psi_tei(geom, **params)
-#print(test)
 test2 = psi_tei_deriv(geom, deriv_test, **params) 
-#print(test2)
 
-# Next step: create Jacobian-vector product rules, which given some input args
-# and a tangent std basis vector, returns the function evaluated at that point
-# and the slice of the Jacobian
+# Next step: create Jacobian-vector product rules, which given some input args (primals)
+# and a tangent std basis vector (tangent), returns the function evaluated at that point (primals_out)
+# and the slice of the Jacobian (tangents_out)
 
-# I guess this is working? A bit trippy though.
 def psi_tei_jvp(primals, tangents, **params):
     mol = params['mol']
     basis_name = params['basis_name']
     geom, = primals
     primals_out = psi_tei(geom, **params) 
-
-    tei_derivatives = []
-    for g_dot in tangents:
-        tei_deriv = psi_tei_deriv(geom, g_dot, mol=mol, basis_name=basis_name)
-        tei_derivatives.append(tei_deriv)
-    tangents_out = np.concatenate(tei_derivatives, axis=-1)
+    #print(tangents)
+    #tei_derivatives = []
+    #for g_dot in tangents:
+    #    tei_deriv = psi_tei_deriv(geom, g_dot, mol=mol, basis_name=basis_name)
+    #    tei_derivatives.append(tei_deriv)
+    #tangents_out = np.concatenate(tei_derivatives, axis=-1)
+    tangents_out = psi_tei_deriv(geom, tangents[0], mol=mol, basis_name=basis_name)
     return primals_out, tangents_out
 
 def psi_tei_deriv_jvp(primals, tangents, **params):
@@ -109,12 +99,9 @@ def psi_tei_deriv_jvp(primals, tangents, **params):
     #    tei_derivatives.append(tei_deriv)
     # need tangents for each input, but molecule and basis should not be modified
     #tangents_out = np.concatenate(tei_derivatives, axis=-1)
-
     # Hmm.. some random Zero(6) object is in tangents, messing everything up... Can I just ignore it?
     tangents_out = psi_tei_deriv(geom, deriv_vec + tangents[0], mol=mol, basis_name=basis_name)
-    #tangents_out = derivative
     return primals_out, tangents_out
-
 
 # Register the JVP rules with JAX
 jax.ad.primitive_jvps[psi_tei_p] = psi_tei_jvp
@@ -145,6 +132,7 @@ def my_jacfwd_novmap(f):
 # Currently I'm using partial here, but the real jax.jacfwd should work with explicit params for molecule and basis name, since you can pick which arg to differentiate
 gradient = my_jacfwd_novmap(partial_psi_tei)(geom)
 hessian = my_jacfwd_novmap(my_jacfwd_novmap(partial_psi_tei))(geom)
+#cubic = my_jacfwd_novmap(my_jacfwd_novmap(my_jacfwd_novmap(partial_psi_tei)))(geom)
 
 # Okay, lets check it. Gradients should just be the TEI array times the coordinate factor that you're differentiating wrt
 TEI = psi_tei(geom, **params)
@@ -196,5 +184,8 @@ print(onp.allclose(hessian[...,5,2], TEI * geom[5] * geom[2]))
 print(onp.allclose(hessian[...,5,3], TEI * geom[5] * geom[3]))
 print(onp.allclose(hessian[...,5,4], TEI * geom[5] * geom[4]))
 print(onp.allclose(hessian[...,5,5], TEI * geom[5] * geom[5]))
+
+
+#print(onp.allclose(cubic[...,5,5,5], TEI * geom[5] * geom[5] * geom[5]))
 
 
