@@ -33,7 +33,7 @@ def wrap(geomflat):
     geom = geomflat.reshape(-1,3)
     return tei_array(geom, basis_dict) 
 
-#TODO uncomment
+#TODO uncomment if running second order derivatives
 #tmp_Hess = onp.asarray(jax.jacfwd(jax.jacfwd(wrap))(geom.reshape(-1)))
 
 # Create primitives
@@ -172,7 +172,7 @@ batching.primitive_batchers[psi_tei_deriv_p] = psi_tei_deriv_batch
 
 # Compute gradients with above psi_tei function, compare to Psi4's gradients.
 # We are, of course, using ao_tei_deriv1 in our psi_tei_deriv function, and therefore in the JVP of psi_tei.
-# This is just making sure all the shaping a batching and tangent vector handling is correct.
+# This is just making sure all the shaping and batching and tangent vector handling is correct.
 #G_grad = jax.jacfwd(psi_tei)(geom, **params)
 #x1, y1, z1 = mints.ao_tei_deriv1(0)
 #x2, y2, z2 = mints.ao_tei_deriv1(1)
@@ -189,39 +189,16 @@ batching.primitive_batchers[psi_tei_deriv_p] = psi_tei_deriv_batch
 #G_hess = jax.jacfwd(jax.jacfwd(psi_tei))(geom, **params)
 #real_hess = jax.jacfwd(jax.jacfwd(wrap))(geom.reshape(-1))
 #print(onp.allclose(G_hess, real_hess))
-# This returns true. You got it! Now we just need the new psi api to support fast arbitrary order differentiation.
+# The above returns true. You got it! Now we just need the new psi api to support fast arbitrary order differentiation.
 
+# One last thing: simulate an energy computation. This revealed a batching bug, but it works now. 
 def dummy_energy(geom):
     G = psi_tei(geom, **params)
     energy = np.sum(G) 
     return energy
 
-def my_jacfwd_novmap(f):
-    """A basic version of jax.jacfwd, with no vmap. assumes only one argument, no static args, etc"""
-    def jacfun(x, **params):
-        # create little function that grabs tangents (second arg returned, hence [1])
-        _jvp = lambda s: jax.jvp(f, (x,), (s,))[1]
-        # evaluate tangents on standard basis. Note we are only mapping over tangents arg of jvp
-        #Jt = jax.vmap(_jvp, in_axes=1)(np.eye(len(x)))
-        Jt = np.asarray([_jvp(i) for i in np.eye(len(x))])
-        #print(Jt.shape)
-        #return np.transpose(Jt)
-        return np.moveaxis(Jt, 0, -1)
-    return jacfun
-
-test = my_jacfwd_novmap(dummy_energy)(geom)
-print(test)
-
 test = jax.jacfwd(dummy_energy)(geom)
 print(test)
-
-
-#test = my_jacfwd_novmap(my_jacfwd_novmap(dummy_energy))(geom)
-#print(test)
-#
-#test = jax.jacfwd(jax.jacfwd(dummy_energy))(geom)
-#print(test)
-
 
 
 
