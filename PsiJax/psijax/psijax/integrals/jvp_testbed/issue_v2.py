@@ -4,8 +4,10 @@
 # implementation in the external library. Ultimately, I would like to support nested derivatives `jacfwd(jacfwd(...))` 
 # of this primitive, within a larger computation which mostly uses native JAX primitives. Is this possible? 
 # To illustrate what I'm trying to do, I have come up with a simple analogue for my rather complicated use case. 
-# f(x,y,z) = exp(1 * x + 2 * y + 3 * z). Any order partial derivative of this function is just the same function times a coefficient. 
+# Consider the function R^3 --> R^1:  f(x,y,z) = exp(1 * x + 2 * y + 3 * z). 
+# Any order partial derivative of this function is just the same function times a coefficient. 
 # That coefficient is equal to Product([1,2,3]^[l,m,n]) where l,m,n are the orders of differentiation w.r.t. arguments x,y, and z, respectively.
+# We can make functions which compute this functions evaluation and all of its partial derivatives which reference external libraries but compute them within JAX.
 
 import jax
 from jax.config import config; config.update("jax_enable_x64", True)
@@ -23,10 +25,10 @@ def func_deriv(vec, deriv_vec):
     ----------
     vec: function argument
     deriv_vec : vector which indicates which components of 'vec' to differentiate with respect to, and how many times
-                e.g. [1,0,0...,0] means take the first derivative wrt component 0 of the vector
-                [2,0,0...,0] means take the second derivative wrt component 0 of the vector
-                [1,1,0...,0] means differentiate once wrt component 0 and once wrt component 1 
-                [1,1,1]      means take the third derivative wrt component 0,1, and 2
+                e.g. [1,0,0] means take the first derivative wrt component 0 of the vector
+                     [2,0,0] means take the second derivative wrt component 0 of the vector
+                     [1,1,0] means differentiate once wrt component 0 and once wrt component 1 
+                     [1,1,1]      means take the third derivative wrt component 0,1, and 2
     Returns 
     ----------
     A single partial derivative of function 'func'
@@ -34,16 +36,14 @@ def func_deriv(vec, deriv_vec):
     coef = onp.array([1.,2.,3.])
     return onp.prod(onp.power(coef, deriv_vec)) * func(vec)  
 
-# JAX-differentiable implementation
+# JAX-differentiable implementation, for reference and checking
 def jax_func(vec):
     coef = np.array([1.,2.,3.])
     return np.exp(np.sum(coef * vec))
 
 vec = np.array([1.0,2.0,3.0])
 gradient = jax.jacfwd(jax_func)(vec)
-#print(gradient)
 hessian = jax.jacfwd(jax.jacfwd(jax_func))(vec)
-#print(hessian)
 
 # Check derivatives of jax_func versus our implementation of func_deriv
 print("Checking derivatives")
@@ -62,9 +62,7 @@ print(func_deriv(vec, onp.array([1,0,1])))
 print(func_deriv(vec, onp.array([0,1,1])))
 print(func_deriv(vec, onp.array([0,0,2])))
 
-
-
-# We can now define new JAX primitives  Define JAX primitives, and JVP's
+# We can now define new JAX primitives which implement 'func' and 'func_deriv'.  
 func_p = jax.core.Primitive("func")
 func_deriv_p = jax.core.Primitive("func_deriv")
 

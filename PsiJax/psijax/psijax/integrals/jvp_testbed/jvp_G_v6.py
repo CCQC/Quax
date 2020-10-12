@@ -57,20 +57,9 @@ def psi_tei_deriv_impl(geom, deriv_vec, **params):
     if onp.allclose(onp.sum(deriv_vec), 2.):
         #NOTE the first call is correctly ordered. Check for typos
         x1x1, x1y1, x1z1, y1x1, y1y1, y1z1, z1x1, z1y1, z1z1  = mints.ao_tei_deriv2(0,0)
-        # Check second row, just to be sure. #TODO
         x1x2, x1y2, x1z2, y1x2, y1y2, y1z2, z1x2, z1y2, z1z2  = mints.ao_tei_deriv2(0,1)
-        # Found one mistake in this one, last element
         x2x1, x2y1, x2z1, y2x1, y2y1, y2z1, z2x1, z2y1, z2z1  = mints.ao_tei_deriv2(1,0)
         x2x2, x2y2, x2z2, y2x2, y2y2, y2z2, z2x2, z2y2, z2z2  = mints.ao_tei_deriv2(1,1)
-        #print('x1x2',onp.asarray(x1x2))
-        #print('x1y2',onp.asarray(x1y2))
-        #print('x1z2',onp.asarray(x1z2))
-        #print('y1x2',onp.asarray(y1x2))
-        #print('y1y2',onp.asarray(y1y2))
-        #print('y1z2',onp.asarray(y1z2))
-        #print('z1x2',onp.asarray(z1x2))
-        #print('z1y2',onp.asarray(z1y2))
-        #print('z1z2',onp.asarray(z1z2))
     if onp.allclose(deriv_vec,onp.array([2.,0.,0.,0.,0.,0.])):
         dG_di = np.asarray(onp.asarray(x1x1))
     if onp.allclose(deriv_vec,onp.array([1.,1.,0.,0.,0.,0.])):
@@ -129,7 +118,9 @@ molecule = psi4.geometry("""
                          units bohr
                          """)
 geom = np.asarray(onp.asarray(molecule.geometry())).reshape(-1)
-basis_name = 'sto-3g'
+#basis_name = 'sto-3g'
+#basis_name = '3-21g'
+basis_name = 'cc-pvdz'
 basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
 mints = psi4.core.MintsHelper(basis_set)
 params = {'mints': mints}
@@ -238,7 +229,7 @@ batching.primitive_batchers[psi_tei_deriv_p] = psi_tei_deriv_batch
 #g = jax.jacfwd(partial_psi_tei)(geom)
 #print(g)
 
-hess = jax.jacfwd(jax.jacfwd(partial_psi_tei))(geom)
+#hess = jax.jacfwd(jax.jacfwd(partial_psi_tei))(geom)
 #print(hess)
 #print(hess)
 #hessian = my_jacfwd_novmap(my_jacfwd_novmap(partial_psi_tei))(geom)
@@ -246,8 +237,49 @@ hess = jax.jacfwd(jax.jacfwd(partial_psi_tei))(geom)
 
 
 # Does not partial work?
-hess2 = jax.jacfwd(jax.jacfwd(psi_tei))(geom, **params)
-print(np.allclose(hess,hess2))
+#hess2 = jax.jacfwd(jax.jacfwd(psi_tei))(geom, **params)
+#print(np.allclose(hess,hess2))
+
+G_grad = jax.jacfwd(psi_tei)(geom, **params)
+x1, y1, z1 = mints.ao_tei_deriv1(0)
+x2, y2, z2 = mints.ao_tei_deriv1(1)
+print(onp.allclose(G_grad[:,:,:,:,0], x1))
+print(onp.allclose(G_grad[:,:,:,:,1], y1))
+print(onp.allclose(G_grad[:,:,:,:,2], z1))
+print(onp.allclose(G_grad[:,:,:,:,3], x2))
+print(onp.allclose(G_grad[:,:,:,:,4], y2))
+print(onp.allclose(G_grad[:,:,:,:,5], z2))
+
+
+# Well, we can check the same atom derivs
+G_hess = jax.jacfwd(jax.jacfwd(psi_tei))(geom, **params)
+#x1x1, x1y1, x1z1, y1x1, y1y1, y1z1, z1x1, z1y1, z1z1  = mints.ao_tei_deriv2(0,0)
+#x2x2, x2y2, x2z2, y2x2, y2y2, y2z2, z2x2, z2y2, z2z2  = mints.ao_tei_deriv2(1,1)
+
+x1x1, x1y1, x1z1, y1x1, y1y1, y1z1, z1x1, z1y1, z1z1  = mints.ao_tei_deriv2(0,0)
+#x1x2, x1y2, x1z2, y1x2, y1y2, y1z2, z1x2, z1y2, z1z2  = mints.ao_tei_deriv2(0,1)
+#x2x1, x2y1, x2z1, y2x1, y2y1, y2z1, z2x1, z2y1, z2z1  = mints.ao_tei_deriv2(1,0)
+x2x2, x2y2, x2z2, y2x2, y2y2, y2z2, z2x2, z2y2, z2z2  = mints.ao_tei_deriv2(1,1)
+
+print('x1x1', onp.allclose(x1x1, G_hess[:,:,:,:,0,0]))
+print('x1y1', onp.allclose(x1y1, G_hess[:,:,:,:,0,1]))
+print('x1z1', onp.allclose(x1z1, G_hess[:,:,:,:,0,2]))
+print('y1x1', onp.allclose(y1x1, G_hess[:,:,:,:,1,0]))
+print('y1y1', onp.allclose(y1y1, G_hess[:,:,:,:,1,1]))
+print('y1z1', onp.allclose(y1z1, G_hess[:,:,:,:,1,2]))
+print('z1x1', onp.allclose(z1x1, G_hess[:,:,:,:,2,0]))
+print('z1y1', onp.allclose(z1y1, G_hess[:,:,:,:,2,1]))
+print('z1z1', onp.allclose(z1z1, G_hess[:,:,:,:,2,2]))
+# atom 2 second derivatives: these are correct
+print('x2x2', onp.allclose(x2x2, G_hess[:,:,:,:,3,3]))
+print('x2y2', onp.allclose(x2y2, G_hess[:,:,:,:,3,4]))
+print('x2z2', onp.allclose(x2z2, G_hess[:,:,:,:,3,5]))
+print('y2x2', onp.allclose(y2x2, G_hess[:,:,:,:,4,3]))
+print('y2y2', onp.allclose(y2y2, G_hess[:,:,:,:,4,4]))
+print('y2z2', onp.allclose(y2z2, G_hess[:,:,:,:,4,5]))
+print('z2x2', onp.allclose(z2x2, G_hess[:,:,:,:,5,3]))
+print('z2y2', onp.allclose(z2y2, G_hess[:,:,:,:,5,4]))
+print('z2z2', onp.allclose(z2z2, G_hess[:,:,:,:,5,5]))
 
 
 # THIS ATOM BLOCK BELOW IS CORRECT

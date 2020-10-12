@@ -197,19 +197,12 @@ def psi_tei_deriv_batch(batched_args, batch_dims, **params):
     # I have no clue man
     geom_batch, deriv_batch = batched_args
     geom_dim, deriv_dim = batch_dims
-    print(geom_batch, deriv_batch)
-    print(geom_dim, deriv_dim)
-
     results = []
     for i in deriv_batch:
         tmp = psi_tei_deriv(geom_batch, i, **params)
-        print(tmp.shape)
         #results.append(np.expand_dims(tmp, axis=-1))
         results.append(np.expand_dims(tmp, axis=-1))
     results = np.concatenate(results, axis=-1)
-    print(results.shape)
-    print(batch_dims)
-    # WTF is the second arg supposed to be????
     #return results, batch_dims[1]
     #return results, 0  
     return results, -1
@@ -229,8 +222,7 @@ batching.primitive_batchers[psi_tei_deriv_p] = psi_tei_deriv_batch
 # Okay, theres an error here with dimensions...
 huh = jax.jacfwd(partial_psi_tei)(geom)
 print(huh.shape)
-
-#print(onp.allclose(huh,gradient))
+print(np.allclose(huh,gradient))
 
 what = jax.jacfwd(jax.jacfwd(partial_psi_tei))(geom)
 print(what.shape)
