@@ -59,6 +59,10 @@ def energy(molecule, basis_name, method='scf'):
     charge = molecule.molecular_charge()
     nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
     basis_dict = build_basis_set(molecule, basis_name)
+    # TODO when integrals are exported, switch to mints args, flatten geometry
+    # also adjust arguments of energy, gradient, partial gradient functions
+    #basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
+    #mints = psi4.core.MintsHelper(basis_set)
 
     if method == 'scf' or method == 'hf' or method == 'rhf':
         E_scf = restricted_hartree_fock(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)  
