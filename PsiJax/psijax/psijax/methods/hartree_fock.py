@@ -38,6 +38,7 @@ def restricted_hartree_fock(geom, basis, mints, nuclear_charges, charge, SCF_MAX
     #S, T, V = oei.oei_arrays(geom,basis,nuclear_charges)
     #G = tei.tei_array(geom,basis)
     #S, T, V = oei.oei_arrays(geom.reshape(-1,3),basis,nuclear_charges)
+    #G = tei.tei_array(geom.reshape(-1,3),basis)
     S = external_oei.psi_overlap(geom,mints=mints) 
     T = external_oei.psi_kinetic(geom,mints=mints) 
     V = external_oei.psi_potential(geom,mints=mints) 
