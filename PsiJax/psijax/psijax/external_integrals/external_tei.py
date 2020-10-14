@@ -1,9 +1,6 @@
 import jax 
-from jax import core
-from jax.interpreters import batching
 from jax.config import config
 config.update("jax_enable_x64", True)
-
 import jax.numpy as np
 import numpy as onp
 
@@ -15,8 +12,8 @@ import numpy as onp
 #tmp_Hess = onp.asarray(jax.jacfwd(jax.jacfwd(wrap))(geom.reshape(-1)))
 
 # Create new JAX primitives for TEI evaluation and derivative evaluation
-psi_tei_p = core.Primitive("psi_tei")
-psi_tei_deriv_p = core.Primitive("psi_tei_deriv")
+psi_tei_p = jax.core.Primitive("psi_tei")
+psi_tei_deriv_p = jax.core.Primitive("psi_tei_deriv")
 
 # Create functions to call primitives
 def psi_tei(geom, **params):
@@ -144,7 +141,7 @@ def psi_tei_deriv_batch(batched_args, batch_dims, **params):
     results = np.concatenate(results, axis=0)
     return results, 0
 
-batching.primitive_batchers[psi_tei_deriv_p] = psi_tei_deriv_batch
+jax.interpreters.batching.primitive_batchers[psi_tei_deriv_p] = psi_tei_deriv_batch
 
 
 
