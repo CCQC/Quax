@@ -3,12 +3,11 @@ import jax.numpy as np
 import numpy as onp
 jax.config.update("jax_enable_x64", True)
 
-# TEMP TODO: only needed to test psi_tei_deriv_impl
-# On second derivatives
-#def wrap(geomflat):
-#    geom = geomflat.reshape(-1,3)
-#    return tei_array(geom, basis_dict) 
-#tmp_Hess = onp.asarray(jax.jacfwd(jax.jacfwd(wrap))(geom.reshape(-1)))
+# For testing higher order derivatives: load in analytic psijax derivatives for a given molecule and basis set
+# Produce as needed for testing by evaluating jacfwd's on psijax.integrals.tei_array. 
+# This effectively simulates referencing an external library for computation
+tmp_tei_hess = onp.asarray(onp.load('tei_hess_h2_dz_1p6.npy'))
+tmp_tei_cube = onp.asarray(onp.load('tei_cube_h2_dz_1p6.npy'))
 
 # Create new JAX primitives for TEI evaluation and derivative evaluation
 psi_tei_p = jax.core.Primitive("psi_tei")
@@ -36,13 +35,7 @@ def psi_tei_deriv_impl(geom, deriv_vec, **params):
     # args = onp.repeat(indices, deriv_vec[indices]))
     # dG_di = mints.ao_tei_deriv(tuple(args))
     
-
-    # TODO Hard-coded for diatomics, gradients only
-    # change to general form once derivative API 
-    # is complete
-    # Quick, dirty, brainless TEI derivative code.
-    # For first derivatives, use Psi, since its correct.
-    # We will hardcode second derivatives as well, using PsiJax exact derivatives
+    # TODO Hard-coded for referencing Psi4 gradients, precomputed PsiJax hessians, cubics 
     mints = params['mints']
     if onp.allclose(onp.sum(deriv_vec), 1.):
         new_vec = deriv_vec.reshape(-1,3)
@@ -50,50 +43,20 @@ def psi_tei_deriv_impl(geom, deriv_vec, **params):
         atom_idx = indices[0][0]
         cart_idx = indices[1][0]
         dG_di = np.asarray(onp.asarray(mints.ao_tei_deriv1(atom_idx)[cart_idx]))
-
-    # For second derivs: use precompouted tmp_Hess from above 
-    if onp.allclose(deriv_vec,onp.array([2.,0.,0.,0.,0.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,0,0]
-    if onp.allclose(deriv_vec,onp.array([1.,1.,0.,0.,0.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,0,1]
-    if onp.allclose(deriv_vec,onp.array([1.,0.,1.,0.,0.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,0,2]
-    if onp.allclose(deriv_vec,onp.array([1.,0.,0.,1.,0.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,0,3]
-    if onp.allclose(deriv_vec,onp.array([1.,0.,0.,0.,1.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,0,4]
-    if onp.allclose(deriv_vec,onp.array([1.,0.,0.,0.,0.,1.])):
-        dG_di = tmp_Hess[:,:,:,:,0,5]
-    if onp.allclose(deriv_vec,onp.array([0.,2.,0.,0.,0.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,1,1]
-    if onp.allclose(deriv_vec,onp.array([0.,1.,1.,0.,0.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,1,2]
-    if onp.allclose(deriv_vec,onp.array([0.,1.,0.,1.,0.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,1,3]
-    if onp.allclose(deriv_vec,onp.array([0.,1.,0.,0.,1.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,1,4]
-    if onp.allclose(deriv_vec,onp.array([0.,1.,0.,0.,0.,1.])):
-        dG_di = tmp_Hess[:,:,:,:,1,5]
-    if onp.allclose(deriv_vec,onp.array([0.,0.,2.,0.,0.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,2,2]
-    if onp.allclose(deriv_vec,onp.array([0.,0.,1.,1.,0.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,2,3]
-    if onp.allclose(deriv_vec,onp.array([0.,0.,1.,0.,1.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,2,4]
-    if onp.allclose(deriv_vec,onp.array([0.,0.,1.,0.,0.,1.])):
-        dG_di = tmp_Hess[:,:,:,:,2,5]
-    if onp.allclose(deriv_vec,onp.array([0.,0.,0.,2.,0.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,3,3]
-    if onp.allclose(deriv_vec,onp.array([0.,0.,0.,1.,1.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,3,4]
-    if onp.allclose(deriv_vec,onp.array([0.,0.,0.,1.,0.,1.])):
-        dG_di = tmp_Hess[:,:,:,:,3,5]
-    if onp.allclose(deriv_vec,onp.array([0.,0.,0.,0.,2.,0.])):
-        dG_di = tmp_Hess[:,:,:,:,4,4]
-    if onp.allclose(deriv_vec,onp.array([0.,0.,0.,0.,1.,1.])):
-        dG_di = tmp_Hess[:,:,:,:,4,5]
-    if onp.allclose(deriv_vec,onp.array([0.,0.,0.,0.,0.,2.])):
-        dG_di = tmp_Hess[:,:,:,:,5,5]
+    # For second derivs: use precomputed exact PsiJax TEI hessian, saved to disk, loaded in above
+    if onp.allclose(onp.sum(deriv_vec), 2.):
+        deriv_vec = onp.asarray(deriv_vec, dtype=int)
+        indices = onp.nonzero(deriv_vec)[0]
+        args = onp.repeat(indices, deriv_vec[indices])
+        i,j = args 
+        dG_di = tmp_tei_hess[:,:,:,:,i,j]
+    # Third derivs using precomputed exact PsiJax TEI third derivatives
+    if onp.allclose(onp.sum(deriv_vec), 3.):
+        deriv_vec = onp.asarray(deriv_vec, dtype=int)
+        indices = onp.nonzero(deriv_vec)[0]
+        args = onp.repeat(indices, deriv_vec[indices])
+        i,j,k = args 
+        dG_di = tmp_tei_cube[:,:,:,:,i,j,k]
     return np.asarray(dG_di)
 
 # Register primitive evaluation rules
@@ -111,6 +74,7 @@ def psi_tei_jvp(primals, tangents, **params):
     return primals_out, tangents_out
 
 def psi_tei_deriv_jvp(primals, tangents, **params):
+    mints = params['mints']
     geom, deriv_vec = primals
     primals_out = psi_tei_deriv(geom, deriv_vec, mints=mints)
     # Here we add the current value of deriv_vec to the incoming tangent vector, 

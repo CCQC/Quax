@@ -3,6 +3,16 @@ import jax.numpy as np
 import numpy as onp
 jax.config.update("jax_enable_x64", True)
 
+# NOTE For testing higher order derivatives: load in analytic derivatives for given molecule and basis
+# Produce as needed for testing by evaluating jacfwd's on psijax.integrals.oei_arrays
+# This effectively simulates referencing an external library for computation
+tmp_S_hess = onp.asarray(onp.load('overlap_hess_h2_dz_1p6.npy'))
+tmp_T_hess = onp.asarray(onp.load('kinetic_hess_h2_dz_1p6.npy'))
+tmp_V_hess = onp.asarray(onp.load('potential_hess_h2_dz_1p6.npy'))
+tmp_S_cube = onp.asarray(onp.load('overlap_cube_h2_dz_1p6.npy'))
+tmp_T_cube = onp.asarray(onp.load('kinetic_cube_h2_dz_1p6.npy'))
+tmp_V_cube = onp.asarray(onp.load('potential_cube_h2_dz_1p6.npy'))
+
 # Create new JAX primitives for overlap, kinetic, potential evaluation and their derivatives 
 psi_overlap_p = jax.core.Primitive("psi_overlap")
 psi_overlap_deriv_p = jax.core.Primitive("psi_overlap_deriv")
@@ -48,43 +58,83 @@ def psi_potential_impl(geom, **params):
     psi_V = np.asarray(onp.asarray(mints.ao_potential()))
     return psi_V
 
-
-# TODO Following are hard-coded for gradients only
-# change to general form once integral derivative API 
-# is complete
+# TODO Following are hard-coded for gradients and precomputed hessians, precomputed third derivatives
+# Change to general form once integral derivative API is complete
 def psi_overlap_deriv_impl(geom, deriv_vec, **params):
     mints = params['mints']
-    # General way to convert one-hot flattened basis vector
-    # into atom index, cart index as psi prefers
-    deriv_vec = deriv_vec.reshape(-1,3)
-    indices = onp.nonzero(deriv_vec)
-    atom_idx = indices[0][0]
-    cart_idx = indices[1][0]
-    dG_di = mints.ao_oei_deriv1("OVERLAP",atom_idx)[cart_idx]
+    # TODO Hard-coded for referencing Psi4 gradients, precomputed PsiJax hessians, cubics 
+    if onp.allclose(onp.sum(deriv_vec), 1.):
+        # General way to convert one-hot flattened basis vector
+        # into atom index, cart index as psi prefers
+        deriv_vec = deriv_vec.reshape(-1,3)
+        indices = onp.nonzero(deriv_vec)
+        atom_idx = indices[0][0]
+        cart_idx = indices[1][0]
+        dG_di = mints.ao_oei_deriv1("OVERLAP",atom_idx)[cart_idx]
+    # For second derivatives: use precomputed exact PsiJax overlap hessian, saved to disk, loaded in above
+    if onp.allclose(onp.sum(deriv_vec), 2.):
+        deriv_vec = onp.asarray(deriv_vec, dtype=int)
+        indices = onp.nonzero(deriv_vec)[0]
+        args = onp.repeat(indices, deriv_vec[indices])
+        i,j = args
+        dG_di = tmp_S_hess[:,:,i,j]
+    # For third derivatives: use precomputed exact PsiJax overlap cubic, saved to disk, loaded in above
+    if onp.allclose(onp.sum(deriv_vec), 3.):
+        deriv_vec = onp.asarray(deriv_vec, dtype=int)
+        indices = onp.nonzero(deriv_vec)[0]
+        args = onp.repeat(indices, deriv_vec[indices])
+        i,j,k = args
+        dG_di = tmp_S_cube[:,:,i,j,k]
     return np.asarray(onp.asarray(dG_di))
 
 def psi_kinetic_deriv_impl(geom, deriv_vec, **params):
-    # TODO Hard-coded for gradients only
-    # change to general form once derivative API 
-    # is complete
     mints = params['mints']
-    deriv_vec = deriv_vec.reshape(-1,3)
-    indices = onp.nonzero(deriv_vec)
-    atom_idx = indices[0][0]
-    cart_idx = indices[1][0]
-    dG_di = mints.ao_oei_deriv1("KINETIC",atom_idx)[cart_idx]
+    # First derivatives: Use Psi4
+    if onp.allclose(onp.sum(deriv_vec), 1.):
+        deriv_vec = deriv_vec.reshape(-1,3)
+        indices = onp.nonzero(deriv_vec)
+        atom_idx = indices[0][0]
+        cart_idx = indices[1][0]
+        dG_di = mints.ao_oei_deriv1("KINETIC",atom_idx)[cart_idx]
+    # For second derivatives: use precomputed exact PsiJax kinetic hessian, saved to disk, loaded in above
+    if onp.allclose(onp.sum(deriv_vec), 2.):
+        deriv_vec = onp.asarray(deriv_vec, dtype=int)
+        indices = onp.nonzero(deriv_vec)[0]
+        args = onp.repeat(indices, deriv_vec[indices])
+        i,j = args
+        dG_di = tmp_T_hess[:,:,i,j]
+    # For third derivatives: use precomputed exact PsiJax kinetic cubic, saved to disk, loaded in above
+    if onp.allclose(onp.sum(deriv_vec), 3.):
+        deriv_vec = onp.asarray(deriv_vec, dtype=int)
+        indices = onp.nonzero(deriv_vec)[0]
+        args = onp.repeat(indices, deriv_vec[indices])
+        i,j,k = args
+        dG_di = tmp_T_cube[:,:,i,j,k]
     return np.asarray(onp.asarray(dG_di))
 
 def psi_potential_deriv_impl(geom, deriv_vec, **params):
-    # TODO Hard-coded for gradients only
-    # change to general form once derivative API 
-    # is complete
     mints = params['mints']
-    deriv_vec = deriv_vec.reshape(-1,3)
-    indices = onp.nonzero(deriv_vec)
-    atom_idx = indices[0][0]
-    cart_idx = indices[1][0]
-    dG_di = mints.ao_oei_deriv1("POTENTIAL",atom_idx)[cart_idx]
+    # First derivatives: Use Psi4
+    if onp.allclose(onp.sum(deriv_vec), 1.):
+        deriv_vec = deriv_vec.reshape(-1,3)
+        indices = onp.nonzero(deriv_vec)
+        atom_idx = indices[0][0]
+        cart_idx = indices[1][0]
+        dG_di = mints.ao_oei_deriv1("POTENTIAL",atom_idx)[cart_idx]
+    # For second derivatives: use precomputed exact PsiJax potential hessian, saved to disk, loaded in above
+    if onp.allclose(onp.sum(deriv_vec), 2.):
+        deriv_vec = onp.asarray(deriv_vec, dtype=int)
+        indices = onp.nonzero(deriv_vec)[0]
+        args = onp.repeat(indices, deriv_vec[indices])
+        i,j = args
+        dG_di = tmp_V_hess[:,:,i,j]
+    # For third derivatives: use precomputed exact PsiJax potential cubic, saved to disk, loaded in above
+    if onp.allclose(onp.sum(deriv_vec), 3.):
+        deriv_vec = onp.asarray(deriv_vec, dtype=int)
+        indices = onp.nonzero(deriv_vec)[0]
+        args = onp.repeat(indices, deriv_vec[indices])
+        i,j,k = args
+        dG_di = tmp_V_cube[:,:,i,j,k]
     return np.asarray(onp.asarray(dG_di))
 
 # Register primitive evaluation rules
@@ -106,6 +156,7 @@ def psi_overlap_jvp(primals, tangents, **params):
     return primals_out, tangents_out
 
 def psi_overlap_deriv_jvp(primals, tangents, **params):
+    mints = params['mints']
     geom, deriv_vec = primals
     primals_out = psi_overlap_deriv(geom, deriv_vec, mints=mints)
     tangents_out = psi_overlap_deriv(geom, deriv_vec + tangents[0], mints=mints)
@@ -119,6 +170,7 @@ def psi_kinetic_jvp(primals, tangents, **params):
     return primals_out, tangents_out
 
 def psi_kinetic_deriv_jvp(primals, tangents, **params):
+    mints = params['mints']
     geom, deriv_vec = primals
     primals_out = psi_kinetic_deriv(geom, deriv_vec, mints=mints)
     tangents_out = psi_kinetic_deriv(geom, deriv_vec + tangents[0], mints=mints)
@@ -132,6 +184,7 @@ def psi_potential_jvp(primals, tangents, **params):
     return primals_out, tangents_out
 
 def psi_potential_deriv_jvp(primals, tangents, **params):
+    mints = params['mints']
     geom, deriv_vec = primals
     primals_out = psi_potential_deriv(geom, deriv_vec, mints=mints)
     tangents_out = psi_potential_deriv(geom, deriv_vec + tangents[0], mints=mints)
