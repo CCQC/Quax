@@ -1,8 +1,7 @@
 import jax 
-from jax.config import config
-config.update("jax_enable_x64", True)
 import jax.numpy as np
 import numpy as onp
+jax.config.update("jax_enable_x64", True)
 
 # TEMP TODO: only needed to test psi_tei_deriv_impl
 # On second derivatives
@@ -37,22 +36,20 @@ def psi_tei_deriv_impl(geom, deriv_vec, **params):
     # args = onp.repeat(indices, deriv_vec[indices]))
     # dG_di = mints.ao_tei_deriv(tuple(args))
     
+
+    # TODO Hard-coded for diatomics, gradients only
+    # change to general form once derivative API 
+    # is complete
     # Quick, dirty, brainless TEI derivative code.
     # For first derivatives, use Psi, since its correct.
     # We will hardcode second derivatives as well, using PsiJax exact derivatives
     mints = params['mints']
-    if onp.allclose(deriv_vec,onp.array([1.,0.,0.,0.,0.,0.])):
-        dG_di = np.asarray(onp.asarray(mints.ao_tei_deriv1(0)[0]))
-    if onp.allclose(deriv_vec,onp.array([0.,1.,0.,0.,0.,0.])):
-        dG_di = np.asarray(onp.asarray(mints.ao_tei_deriv1(0)[1]))
-    if onp.allclose(deriv_vec,onp.array([0.,0.,1.,0.,0.,0.])):
-        dG_di = np.asarray(onp.asarray(mints.ao_tei_deriv1(0)[2]))
-    if onp.allclose(deriv_vec,onp.array([0.,0.,0.,1.,0.,0.])):
-        dG_di = np.asarray(onp.asarray(mints.ao_tei_deriv1(1)[0]))
-    if onp.allclose(deriv_vec,onp.array([0.,0.,0.,0.,1.,0.])):
-        dG_di = np.asarray(onp.asarray(mints.ao_tei_deriv1(1)[1]))
-    if onp.allclose(deriv_vec,onp.array([0.,0.,0.,0.,0.,1.])):
-        dG_di = np.asarray(onp.asarray(mints.ao_tei_deriv1(1)[2]))
+    if onp.allclose(onp.sum(deriv_vec), 1.):
+        new_vec = deriv_vec.reshape(-1,3)
+        indices = onp.nonzero(new_vec)
+        atom_idx = indices[0][0]
+        cart_idx = indices[1][0]
+        dG_di = np.asarray(onp.asarray(mints.ao_tei_deriv1(atom_idx)[cart_idx]))
 
     # For second derivs: use precompouted tmp_Hess from above 
     if onp.allclose(deriv_vec,onp.array([2.,0.,0.,0.,0.,0.])):
@@ -141,7 +138,7 @@ def psi_tei_deriv_batch(batched_args, batch_dims, **params):
     results = np.concatenate(results, axis=0)
     return results, 0
 
+# Register the batching rules with JAX
 jax.interpreters.batching.primitive_batchers[psi_tei_deriv_p] = psi_tei_deriv_batch
-
 
 

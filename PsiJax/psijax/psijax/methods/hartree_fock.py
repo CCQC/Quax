@@ -9,7 +9,8 @@ np.set_printoptions(linewidth=500)
 
 from ..integrals import tei
 
-from ..integrals import external_tei
+from ..external_integrals import external_tei
+from ..external_integrals import external_oei
 from ..integrals import oei 
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 from functools import partial
@@ -36,7 +37,10 @@ def restricted_hartree_fock(geom, basis, mints, nuclear_charges, charge, SCF_MAX
 
     #S, T, V = oei.oei_arrays(geom,basis,nuclear_charges)
     #G = tei.tei_array(geom,basis)
-    S, T, V = oei.oei_arrays(geom.reshape(-1,3),basis,nuclear_charges)
+    #S, T, V = oei.oei_arrays(geom.reshape(-1,3),basis,nuclear_charges)
+    S = external_oei.psi_overlap(geom,mints=mints) 
+    T = external_oei.psi_kinetic(geom,mints=mints) 
+    V = external_oei.psi_potential(geom,mints=mints) 
     G = external_tei.psi_tei(geom,mints=mints)
 
     # Canonical orthogonalization via cholesky decomposition
