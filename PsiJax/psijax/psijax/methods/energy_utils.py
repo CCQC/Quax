@@ -39,12 +39,10 @@ def cholesky_orthogonalization(S):
     """
     return np.linalg.inv(np.linalg.cholesky(S)).T
 
-@jax.jit
 def tei_transformation(G, C):
     G = np.einsum('pqrs, sS, rR, qQ, pP -> PQRS', G, C, C, C, C, optimize='optimal')
     return G
 
-@jax.jit
 def partial_tei_transformation(G, Ci, Cj, Ck, Cl):
     G = np.einsum('pqrs, sS, rR, qQ, pP -> PQRS', G, Ci, Cj, Ck, Cl, optimize='optimal')
     return G
