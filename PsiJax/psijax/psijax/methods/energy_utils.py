@@ -1,6 +1,7 @@
 import jax
 from jax.config import config; config.update("jax_enable_x64", True)
 config.enable_omnistaging()
+from jax.experimental import loops
 import jax.numpy as np
 import numpy as onp
 from functools import partial
@@ -39,11 +40,34 @@ def cholesky_orthogonalization(S):
     """
     return np.linalg.inv(np.linalg.cholesky(S)).T
 
+def old_tei_transformation(G, C):
+    """
+    Transform TEI's to MO basis.
+    This algorithm is worse than below, since it creates intermediate arrays in memory.
+    """
+    G = np.einsum('pqrs, pP, qQ, rR, sS -> PQRS', G, C, C, C, C, optimize='optimal')
+    return G
+
+@jax.jit
+def tmp_transform(G, C):
+    return np.tensordot(C, G, axes=(0,0))
+
 def tei_transformation(G, C):
-    G = np.einsum('pqrs, sS, rR, qQ, pP -> PQRS', G, C, C, C, C, optimize='optimal')
+    """
+    New algo for TEI transform
+    It's faster than psi4.MintsHelper.mo_transform()
+    """
+    # New algo: call same jitted einsum routine, but transpose array
+    G = tmp_transform(G, C)           # (A,b,c,d)
+    G = np.transpose(G, (1,0,2,3))    # (b,A,c,d)
+    G = tmp_transform(G, C)           # (B,A,c,d)
+    G = np.transpose(G, (2,0,1,3))    # (c,B,A,d)
+    G = tmp_transform(G, C)           # (C,B,A,d)
+    G = np.transpose(G, (3,0,1,2))    # (d,C,B,A)
+    G = tmp_transform(G, C)           # (D,C,B,A)
     return G
 
 def partial_tei_transformation(G, Ci, Cj, Ck, Cl):
-    G = np.einsum('pqrs, sS, rR, qQ, pP -> PQRS', G, Ci, Cj, Ck, Cl, optimize='optimal')
+    G = np.einsum('pqrs, pP, qQ, rR, sS -> PQRS', G, Ci, Cj, Ck, Cl, optimize='optimal')
     return G
     
