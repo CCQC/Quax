@@ -9,9 +9,9 @@ import numpy as onp
 from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation
 from .hartree_fock import restricted_hartree_fock
 
-def rccsd(geom, basis, nuclear_charges, charge, return_aux_data=False):
+def rccsd(geom, basis, mints, nuclear_charges, charge, return_aux_data=False):
     # Do HF
-    E_scf, C, eps, V = restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis, mints, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
 
     nelectrons = int(np.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
@@ -38,7 +38,6 @@ def rccsd(geom, basis, nuclear_charges, charge, return_aux_data=False):
     T1 = np.zeros((ndocc,nvir))
     T2 = D*V[2]
 
-    # Pre iterations
     CC_MAX_ITER = 30
     iteration = 0
     E_ccsd = 1.0
@@ -51,6 +50,7 @@ def rccsd(geom, basis, nuclear_charges, charge, return_aux_data=False):
         if iteration == CC_MAX_ITER:
             break
 
+    print(iteration, " CCSD iterations performed")
     #print("CCSD Correlation Energy:   ", E_ccsd)
     #print("CCSD Total Energy:         ", E_ccsd + E_scf)
     if return_aux_data:
