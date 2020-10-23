@@ -55,16 +55,15 @@ def tmp_transform(G, C):
 def tei_transformation(G, C):
     """
     New algo for TEI transform
-    It's faster than psi4.MintsHelper.mo_transform()
+    It's faster than psi4.MintsHelper.mo_transform() for basis sets <~120.
     """
-    # New algo: call same jitted einsum routine, but transpose array
-    G = tmp_transform(G, C)           # (A,b,c,d)
-    G = np.transpose(G, (1,0,2,3))    # (b,A,c,d)
-    G = tmp_transform(G, C)           # (B,A,c,d)
-    G = np.transpose(G, (2,0,1,3))    # (c,B,A,d)
-    G = tmp_transform(G, C)           # (C,B,A,d)
-    G = np.transpose(G, (3,0,1,2))    # (d,C,B,A)
-    G = tmp_transform(G, C)           # (D,C,B,A)
+    G = tmp_transform(G,C)          # A b c d
+    G = np.transpose(G, (1,0,2,3))  # b A c d  1 transpose
+    G = tmp_transform(G,C)          # B A c d 
+    G = np.transpose(G, (2,3,0,1))  # c d B A  2 transposes
+    G = tmp_transform(G,C)          # C d B A
+    G = np.transpose(G, (1,0,2,3))  # d C B A  1 transpose
+    G = tmp_transform(G,C)          # D C B A  (equivalent to A B C D)
     return G
 
 def partial_tei_transformation(G, Ci, Cj, Ck, Cl):
