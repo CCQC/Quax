@@ -6,8 +6,9 @@ jax.config.update("jax_enable_x64", True)
 # For testing higher order derivatives: load in analytic psijax derivatives for a given molecule and basis set
 # Produce as needed for testing by evaluating jacfwd's on psijax.integrals.tei_array. 
 # This effectively simulates referencing an external library for computation
-tmp_tei_hess = onp.asarray(onp.load('tei_hess_h2_dz_1p6.npy'))
-tmp_tei_cube = onp.asarray(onp.load('tei_cube_h2_dz_1p6.npy'))
+#path ='/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/saved_ints/'
+#tmp_tei_hess = onp.asarray(onp.load(path + 'tei_hess_h2_dz_1p6.npy'))
+#tmp_tei_cube = onp.asarray(onp.load(path + 'tei_cube_h2_dz_1p6.npy'))
 
 # Create new JAX primitives for TEI evaluation and derivative evaluation
 psi_tei_p = jax.core.Primitive("psi_tei")
@@ -42,16 +43,16 @@ def psi_tei_deriv_impl(geom, deriv_vec, **params):
         indices = onp.nonzero(new_vec)
         atom_idx = indices[0][0]
         cart_idx = indices[1][0]
-        dG_di = np.asarray(onp.asarray(mints.ao_tei_deriv1(atom_idx)[cart_idx]))
+        dG_di = onp.asarray(mints.ao_tei_deriv1(atom_idx)[cart_idx])
     # For second derivs: use precomputed exact PsiJax TEI hessian, saved to disk, loaded in above
-    if onp.allclose(onp.sum(deriv_vec), 2.):
+    elif onp.allclose(onp.sum(deriv_vec), 2.):
         deriv_vec = onp.asarray(deriv_vec, dtype=int)
         indices = onp.nonzero(deriv_vec)[0]
         args = onp.repeat(indices, deriv_vec[indices])
         i,j = args 
         dG_di = tmp_tei_hess[:,:,:,:,i,j]
     # Third derivs using precomputed exact PsiJax TEI third derivatives
-    if onp.allclose(onp.sum(deriv_vec), 3.):
+    elif onp.allclose(onp.sum(deriv_vec), 3.):
         deriv_vec = onp.asarray(deriv_vec, dtype=int)
         indices = onp.nonzero(deriv_vec)[0]
         args = onp.repeat(indices, deriv_vec[indices])

@@ -6,12 +6,13 @@ jax.config.update("jax_enable_x64", True)
 # NOTE For testing higher order derivatives: load in analytic derivatives for given molecule and basis
 # Produce as needed for testing by evaluating jacfwd's on psijax.integrals.oei_arrays
 # This effectively simulates referencing an external library for computation
-tmp_S_hess = onp.asarray(onp.load('overlap_hess_h2_dz_1p6.npy'))
-tmp_T_hess = onp.asarray(onp.load('kinetic_hess_h2_dz_1p6.npy'))
-tmp_V_hess = onp.asarray(onp.load('potential_hess_h2_dz_1p6.npy'))
-tmp_S_cube = onp.asarray(onp.load('overlap_cube_h2_dz_1p6.npy'))
-tmp_T_cube = onp.asarray(onp.load('kinetic_cube_h2_dz_1p6.npy'))
-tmp_V_cube = onp.asarray(onp.load('potential_cube_h2_dz_1p6.npy'))
+#path ='/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/saved_ints/'
+#tmp_S_hess = onp.asarray(onp.load(path + 'overlap_hess_h2_dz_1p6.npy'))
+#tmp_T_hess = onp.asarray(onp.load(path + 'kinetic_hess_h2_dz_1p6.npy'))
+#tmp_V_hess = onp.asarray(onp.load(path + 'potential_hess_h2_dz_1p6.npy'))
+#tmp_S_cube = onp.asarray(onp.load(path + 'overlap_cube_h2_dz_1p6.npy'))
+#tmp_T_cube = onp.asarray(onp.load(path + 'kinetic_cube_h2_dz_1p6.npy'))
+#tmp_V_cube = onp.asarray(onp.load(path + 'potential_cube_h2_dz_1p6.npy'))
 
 # Create new JAX primitives for overlap, kinetic, potential evaluation and their derivatives 
 psi_overlap_p = jax.core.Primitive("psi_overlap")
@@ -70,22 +71,22 @@ def psi_overlap_deriv_impl(geom, deriv_vec, **params):
         indices = onp.nonzero(deriv_vec)
         atom_idx = indices[0][0]
         cart_idx = indices[1][0]
-        dG_di = mints.ao_oei_deriv1("OVERLAP",atom_idx)[cart_idx]
+        dG_di = onp.asarray(mints.ao_oei_deriv1("OVERLAP",atom_idx)[cart_idx])
     # For second derivatives: use precomputed exact PsiJax overlap hessian, saved to disk, loaded in above
-    if onp.allclose(onp.sum(deriv_vec), 2.):
+    elif onp.allclose(onp.sum(deriv_vec), 2.):
         deriv_vec = onp.asarray(deriv_vec, dtype=int)
         indices = onp.nonzero(deriv_vec)[0]
         args = onp.repeat(indices, deriv_vec[indices])
         i,j = args
         dG_di = tmp_S_hess[:,:,i,j]
     # For third derivatives: use precomputed exact PsiJax overlap cubic, saved to disk, loaded in above
-    if onp.allclose(onp.sum(deriv_vec), 3.):
+    elif onp.allclose(onp.sum(deriv_vec), 3.):
         deriv_vec = onp.asarray(deriv_vec, dtype=int)
         indices = onp.nonzero(deriv_vec)[0]
         args = onp.repeat(indices, deriv_vec[indices])
         i,j,k = args
         dG_di = tmp_S_cube[:,:,i,j,k]
-    return np.asarray(onp.asarray(dG_di))
+    return np.asarray(dG_di)
 
 def psi_kinetic_deriv_impl(geom, deriv_vec, **params):
     mints = params['mints']
@@ -95,22 +96,22 @@ def psi_kinetic_deriv_impl(geom, deriv_vec, **params):
         indices = onp.nonzero(deriv_vec)
         atom_idx = indices[0][0]
         cart_idx = indices[1][0]
-        dG_di = mints.ao_oei_deriv1("KINETIC",atom_idx)[cart_idx]
+        dG_di = onp.asarray(mints.ao_oei_deriv1("KINETIC",atom_idx)[cart_idx])
     # For second derivatives: use precomputed exact PsiJax kinetic hessian, saved to disk, loaded in above
-    if onp.allclose(onp.sum(deriv_vec), 2.):
+    elif onp.allclose(onp.sum(deriv_vec), 2.):
         deriv_vec = onp.asarray(deriv_vec, dtype=int)
         indices = onp.nonzero(deriv_vec)[0]
         args = onp.repeat(indices, deriv_vec[indices])
         i,j = args
         dG_di = tmp_T_hess[:,:,i,j]
     # For third derivatives: use precomputed exact PsiJax kinetic cubic, saved to disk, loaded in above
-    if onp.allclose(onp.sum(deriv_vec), 3.):
+    elif onp.allclose(onp.sum(deriv_vec), 3.):
         deriv_vec = onp.asarray(deriv_vec, dtype=int)
         indices = onp.nonzero(deriv_vec)[0]
         args = onp.repeat(indices, deriv_vec[indices])
         i,j,k = args
         dG_di = tmp_T_cube[:,:,i,j,k]
-    return np.asarray(onp.asarray(dG_di))
+    return np.asarray(dG_di)
 
 def psi_potential_deriv_impl(geom, deriv_vec, **params):
     mints = params['mints']
@@ -120,22 +121,22 @@ def psi_potential_deriv_impl(geom, deriv_vec, **params):
         indices = onp.nonzero(deriv_vec)
         atom_idx = indices[0][0]
         cart_idx = indices[1][0]
-        dG_di = mints.ao_oei_deriv1("POTENTIAL",atom_idx)[cart_idx]
+        dG_di = onp.asarray(mints.ao_oei_deriv1("POTENTIAL",atom_idx)[cart_idx])
     # For second derivatives: use precomputed exact PsiJax potential hessian, saved to disk, loaded in above
-    if onp.allclose(onp.sum(deriv_vec), 2.):
+    elif onp.allclose(onp.sum(deriv_vec), 2.):
         deriv_vec = onp.asarray(deriv_vec, dtype=int)
         indices = onp.nonzero(deriv_vec)[0]
         args = onp.repeat(indices, deriv_vec[indices])
         i,j = args
         dG_di = tmp_V_hess[:,:,i,j]
     # For third derivatives: use precomputed exact PsiJax potential cubic, saved to disk, loaded in above
-    if onp.allclose(onp.sum(deriv_vec), 3.):
+    elif onp.allclose(onp.sum(deriv_vec), 3.):
         deriv_vec = onp.asarray(deriv_vec, dtype=int)
         indices = onp.nonzero(deriv_vec)[0]
         args = onp.repeat(indices, deriv_vec[indices])
         i,j,k = args
         dG_di = tmp_V_cube[:,:,i,j,k]
-    return np.asarray(onp.asarray(dG_di))
+    return np.asarray(dG_di)
 
 # Register primitive evaluation rules
 psi_overlap_p.def_impl(psi_overlap_impl)
