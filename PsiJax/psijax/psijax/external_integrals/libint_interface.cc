@@ -20,7 +20,7 @@ int add(int i, int j) {
     return i + j;
 }
 
-// Function takes two strings: xyzfile absolute path and basis set name  
+// Function takes two strings: xyzfile absolute path (TODO in Angstroms) and basis set name  
 // Builds BasisSet objects, which are basically vectors of Shell's.
 // Prints the basis set info
 int test(std::string xyzfilename, std::string basis_name) {
@@ -66,6 +66,7 @@ int test(std::string xyzfilename, std::string basis_name) {
     
         // integrals are packed into ints_shellset in row-major (C) form
         // this iterates over integrals in this order
+        // TODO how to pack ints_shellset into final vector representing entire array?
         for(auto f1=0; f1!=n1; ++f1)
           for(auto f2=0; f2!=n2; ++f2)
             cout << "  " << bf1+f1 << " " << bf2+f2 << " " << ints_shellset[f1*n2+f2] << endl;
@@ -88,6 +89,17 @@ PYBIND11_MODULE(libint_interface, m) {
 
 // Temporary libint reference: new shared library compilation
 // currently needs export LD_LIBRARY_PATH=/path/to/libint2.so
+
+// New compile with full libint am=2 deriv=4 
+//g++ -c libint_interface.cc -o libint_interface.o -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include/libint2 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include -L/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/ -lint2 
+
+//g++ libint_interface.o -o libint_interface`python3-config --extension-suffix`  -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include/libint2 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include -lint2 -L/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6
+
+// TODO let's try to simplify the above... can we combine into one compile?
+//g++ -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include/libint2 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include -L/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/ -lint2 libint_interface.cc -o libint_interface`python3-config --extension-suffix` 
+
+
+
 
 // Then two stage compile:
 
