@@ -1,6 +1,7 @@
 import jax 
 import jax.numpy as np
 import numpy as onp
+from . import libint_interface
 jax.config.update("jax_enable_x64", True)
 
 # NOTE For testing higher order derivatives: load in analytic derivatives for given molecule and basis
@@ -45,19 +46,31 @@ def psi_potential_deriv(geom, deriv_vec, **params):
 
 # Create primitive evaluation rules 
 def psi_overlap_impl(geom, **params):
-    mints = params['mints']
-    psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
-    return psi_S
+    #mints = params['mints']
+    #psi_S = np.asarray(onp.asarray(mints.ao_overlap()))
+    xyzpath, basis_name = params['xyzpath'], params['basis_name']
+    S = libint_interface.overlap(xyzpath, basis_name)
+    d = int(onp.sqrt(S.shape[0]))
+    S = S.reshape(d,d)
+    return np.asarray(S)
 
 def psi_kinetic_impl(geom, **params):
-    mints = params['mints']
-    psi_T = np.asarray(onp.asarray(mints.ao_kinetic()))
-    return psi_T
+    #mints = params['mints']
+    #psi_T = np.asarray(onp.asarray(mints.ao_kinetic()))
+    xyzpath, basis_name = params['xyzpath'], params['basis_name']
+    T = libint_interface.kinetic(xyzpath, basis_name)
+    d = int(onp.sqrt(T.shape[0]))
+    T = T.reshape(d,d)
+    return np.asarray(T) 
 
 def psi_potential_impl(geom, **params):
-    mints = params['mints']
-    psi_V = np.asarray(onp.asarray(mints.ao_potential()))
-    return psi_V
+    #mints = params['mints']
+    #psi_V = np.asarray(onp.asarray(mints.ao_potential()))
+    xyzpath, basis_name = params['xyzpath'], params['basis_name']
+    V = libint_interface.potential(xyzpath, basis_name)
+    d = int(onp.sqrt(V.shape[0]))
+    V = V.reshape(d,d)
+    return np.asarray(V)
 
 # TODO Following are hard-coded for gradients and precomputed hessians, precomputed third derivatives
 # Change to general form once integral derivative API is complete

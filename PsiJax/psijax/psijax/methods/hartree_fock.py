@@ -15,7 +15,8 @@ from ..integrals import oei
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 from functools import partial
 
-def restricted_hartree_fock(geom, basis, mints, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True):
+def restricted_hartree_fock(geom, basis_name, xyzpath, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True):
+#def restricted_hartree_fock(geom, basis, mints, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True):
 #def restricted_hartree_fock(geom, basis, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True):
     nelectrons = int(np.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
@@ -26,10 +27,16 @@ def restricted_hartree_fock(geom, basis, mints, nuclear_charges, charge, SCF_MAX
     #S, T, V = oei.oei_arrays(geom.reshape(-1,3),basis,nuclear_charges)
     #G = tei.tei_array(geom.reshape(-1,3),basis)
 
-    S = external_oei.psi_overlap(geom,mints=mints) 
-    T = external_oei.psi_kinetic(geom,mints=mints) 
-    V = external_oei.psi_potential(geom,mints=mints) 
-    G = external_tei.psi_tei(geom,mints=mints)
+    #S = external_oei.psi_overlap(geom,mints=mints) 
+    #T = external_oei.psi_kinetic(geom,mints=mints) 
+    #V = external_oei.psi_potential(geom,mints=mints) 
+    #G = external_tei.psi_tei(geom,mints=mints)
+
+    # Use Libint2 directly
+    S = external_oei.psi_overlap(geom,xyzpath=xyzpath,basis_name=basis_name)
+    T = external_oei.psi_kinetic(geom,xyzpath=xyzpath,basis_name=basis_name) 
+    V = external_oei.psi_potential(geom,xyzpath=xyzpath,basis_name=basis_name) 
+    G = external_tei.psi_tei(geom,xyzpath=xyzpath,basis_name=basis_name)
 
     # Canonical orthogonalization via cholesky decomposition
     A = cholesky_orthogonalization(S)
@@ -69,6 +76,7 @@ def restricted_hartree_fock(geom, basis, mints, nuclear_charges, charge, SCF_MAX
     while abs(E_scf - E_old) > 1e-12:
         E_old = E_scf * 1
         E_scf, D, C, eps = rhf_iter(H,A,G,D,Enuc)
+        print(E_scf)
         iteration += 1
         if iteration == SCF_MAX_ITER:
             break

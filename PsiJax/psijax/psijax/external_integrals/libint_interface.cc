@@ -15,14 +15,7 @@ void libint2stop() {
 
 namespace py = pybind11;
 
-// You can code all functions directly into here. Example:
-int add(int i, int j) {
-    return i + j;
-}
-
 // Function takes two strings: xyzfile absolute path (TODO in Angstroms) and basis set name  
-// Then computes overlap integrals
-//py::array_t<double> test(std::string xyzfilename, std::string basis_name) {
 py::array overlap(std::string xyzfilename, std::string basis_name) {
     using namespace libint2;
     using namespace std;
@@ -33,62 +26,212 @@ py::array overlap(std::string xyzfilename, std::string basis_name) {
     vector<Atom> atoms = read_dotxyz(input_file);
     BasisSet obs(basis_name, atoms);
     obs.set_pure(false); // use cartesian gaussians
+    int nbf = obs.nbf();
 
-
-    //Engine eri_engine(Operator::coulomb, obs.max_nprim(), obs.max_l());
-    // Overlap integrals engine 
     Engine s_engine(Operator::overlap,obs.max_nprim(),obs.max_l());
 
-    size_t length = obs.size() * obs.size();
+    size_t length = nbf * nbf;
     std::vector<double> result(length);
 
     auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
     const auto& buf_vec = s_engine.results(); // will point to computed shell sets
     
     for(auto s1=0; s1!=obs.size(); ++s1) {
-      for(auto s2=0; s2!=obs.size(); ++s2) {
+        for(auto s2=0; s2!=obs.size(); ++s2) {
+            s_engine.compute(obs[s1], obs[s2]); // Compute shell set
+            auto ints_shellset = buf_vec[0];    // Location of the computed integrals
+            if (ints_shellset == nullptr)
+                continue;  // nullptr returned if the entire shell-set was screened out
     
-        //cout << "compute shell set {" << s1 << "," << s2 << "} ... ";
-        s_engine.compute(obs[s1], obs[s2]);
-        //cout << "done" << endl;
-        auto ints_shellset = buf_vec[0];  // location of the computed integrals
-        if (ints_shellset == nullptr)
-          continue;  // nullptr returned if the entire shell-set was screened out
+            auto bf1 = shell2bf[s1];  // first basis function in first shell
+            auto n1 = obs[s1].size(); // number of basis functions in first shell
+            auto bf2 = shell2bf[s2];  // first basis function in second shell
+            auto n2 = obs[s2].size(); // number of basis functions in second shell
     
-        auto bf1 = shell2bf[s1];  // first basis function in first shell
-        auto n1 = obs[s1].size(); // number of basis functions in first shell
-        auto bf2 = shell2bf[s2];  // first basis function in second shell
-        auto n2 = obs[s2].size(); // number of basis functions in second shell
-    
-        // integrals are packed into ints_shellset in row-major (C) form
-        // this iterates over integrals in this order
-        // TODO how to pack ints_shellset into final vector representing entire array?
-        for(auto f1=0; f1!=n1; ++f1)
-          for(auto f2=0; f2!=n2; ++f2)
-            //result[f1 * n2 + f2]; // dummy add
-            //result[f1*n2+f2] = ints_shellset[f1 * n2 + f2];
-            // true idx is probably  s1 * n2 + s2 + f1 * n2 + f2
-            result[s1 * n2 + s2 + f1 * n2 + f2] = ints_shellset[f1 * n2 + f2];
-            //cout << "  " << bf1+f1 << " " << bf2+f2 << " " << ints_shellset[f1*n2+f2] << endl;
-      }
+            // Loop over shell block, keeping a total count idx for the size of shell set
+            for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+                    // idx = x + (y * width) where x = bf2 + f2 and y = bf1 + f1 
+                    result[ (bf1 + f1) * nbf + bf2 + f2 ] = ints_shellset[idx];
+                }
+            }
+        }
     }
     libint2::finalize();
-
-    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042
-    //return 0;
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 }
+
+// Function takes two strings: xyzfile absolute path (TODO in Angstroms) and basis set name  
+py::array kinetic(std::string xyzfilename, std::string basis_name) {
+    using namespace libint2;
+    using namespace std;
+    libint2::initialize();
+
+    // Load basis set and geometry. TODO this assumes units are angstroms... 
+    ifstream input_file(xyzfilename);
+    vector<Atom> atoms = read_dotxyz(input_file);
+    BasisSet obs(basis_name, atoms);
+    obs.set_pure(false); // use cartesian gaussians
+    int nbf = obs.nbf();
+
+    Engine k_engine(Operator::kinetic,obs.max_nprim(),obs.max_l());
+    size_t length = nbf * nbf;
+    std::vector<double> result(length);
+
+    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
+    const auto& buf_vec = k_engine.results(); // will point to computed shell sets
+    
+    for(auto s1=0; s1!=obs.size(); ++s1) {
+        for(auto s2=0; s2!=obs.size(); ++s2) {
+            k_engine.compute(obs[s1], obs[s2]); // Compute shell set
+            auto ints_shellset = buf_vec[0];    // Location of the computed integrals
+            if (ints_shellset == nullptr)
+                continue;  // nullptr returned if the entire shell-set was screened out
+    
+            auto bf1 = shell2bf[s1];  // first basis function in first shell
+            auto n1 = obs[s1].size(); // number of basis functions in first shell
+            auto bf2 = shell2bf[s2];  // first basis function in second shell
+            auto n2 = obs[s2].size(); // number of basis functions in second shell
+    
+            // Loop over shell block, keeping a total count idx for the size of shell set
+            for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+                    // idx = x + (y * width) where x = bf2 + f2 and y = bf1 + f1 
+                    result[ (bf1 + f1) * nbf + bf2 + f2 ] = ints_shellset[idx];
+                }
+            }
+        }
+    }
+    libint2::finalize();
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+}
+
+// Function takes two strings: xyzfile absolute path (TODO in Angstroms) and basis set name  
+py::array potential(std::string xyzfilename, std::string basis_name) {
+    using namespace libint2;
+    using namespace std;
+    libint2::initialize();
+
+    // Load basis set and geometry. TODO this assumes units are angstroms... 
+    ifstream input_file(xyzfilename);
+    vector<Atom> atoms = read_dotxyz(input_file);
+    BasisSet obs(basis_name, atoms);
+    obs.set_pure(false); // use cartesian gaussians
+
+    Engine v_engine(Operator::nuclear,obs.max_nprim(),obs.max_l());
+    v_engine.set_params(make_point_charges(atoms));
+    int nbf = obs.nbf();
+
+    size_t length = nbf * nbf;
+    std::vector<double> result(length);
+
+    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
+    const auto& buf_vec = v_engine.results(); // will point to computed shell sets
+    
+    for(auto s1=0; s1!=obs.size(); ++s1) {
+        for(auto s2=0; s2!=obs.size(); ++s2) {
+            v_engine.compute(obs[s1], obs[s2]); // Compute shell set
+            auto ints_shellset = buf_vec[0];    // Location of the computed integrals
+            if (ints_shellset == nullptr)
+                continue;  // nullptr returned if the entire shell-set was screened out
+    
+            auto bf1 = shell2bf[s1];  // first basis function in first shell
+            auto n1 = obs[s1].size(); // number of basis functions in first shell
+            auto bf2 = shell2bf[s2];  // first basis function in second shell
+            auto n2 = obs[s2].size(); // number of basis functions in second shell
+    
+            // Loop over shell block, keeping a total count idx for the size of shell set
+            for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+                    // idx = x + (y * width) where x = bf2 + f2 and y = bf1 + f1 
+                    result[ (bf1 + f1) * nbf + bf2 + f2 ] = ints_shellset[idx];
+                }
+            }
+        }
+    }
+    libint2::finalize();
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+}
+
+py::array eri(std::string xyzfilename, std::string basis_name) {
+    // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
+    using namespace libint2;
+    using namespace std;
+    libint2::initialize();
+
+    // Load basis set and geometry. TODO this assumes units are angstroms... 
+    ifstream input_file(xyzfilename);
+    vector<Atom> atoms = read_dotxyz(input_file);
+    BasisSet obs(basis_name, atoms);
+    obs.set_pure(false); // use cartesian gaussians
+    int nbf = obs.nbf();
+    Engine eri_engine(Operator::coulomb,obs.max_nprim(),obs.max_l());
+
+    size_t length = nbf * nbf * nbf * nbf;
+    std::vector<double> result(length);
+
+    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
+    const auto& buf_vec = eri_engine.results(); // will point to computed shell sets
+    
+    for(auto s1=0; s1!=obs.size(); ++s1) {
+        for(auto s2=0; s2!=obs.size(); ++s2) {
+            for(auto s3=0; s3!=obs.size(); ++s3) {
+                for(auto s4=0; s4!=obs.size(); ++s4) {
+                    eri_engine.compute(obs[s1], obs[s2], obs[s3], obs[s4]); // Compute shell set
+                    auto ints_shellset = buf_vec[0];    // Location of the computed integrals
+                    if (ints_shellset == nullptr)
+                        continue;  // nullptr returned if the entire shell-set was screened out
+    
+                    auto bf1 = shell2bf[s1];  // first basis function in first shell
+                    auto n1 = obs[s1].size(); // number of basis functions in first shell
+                    auto bf2 = shell2bf[s2];  // first basis function in second shell
+                    auto n2 = obs[s2].size(); // number of basis functions in second shell
+                    auto bf3 = shell2bf[s3];  // first basis function in third shell
+                    auto n3 = obs[s3].size(); // number of basis functions in third shell
+                    auto bf4 = shell2bf[s4];  // first basis function in fourth shell
+                    auto n4 = obs[s4].size(); // number of basis functions in fourth shell
+    
+                    // Loop over shell block, keeping a total count idx for the size of shell set
+                    for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                        size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
+                        for(auto f2=0; f2!=n2; ++f2) {
+                            size_t offset_2 = (bf2 + f2) * nbf * nbf;
+                            for(auto f3=0; f3!=n3; ++f3) {
+                                size_t offset_3 = (bf3 + f3) * nbf;
+                                for(auto f4=0; f4!=n4; ++f4, ++idx) {
+                                    result[offset_1 + offset_2 + offset_3 + bf4 + f4] = ints_shellset[idx];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    libint2::finalize();
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+}
+
+
 
 // Define module named 'libint_interface' which can be imported with python
 // The second arg, 'm' defines a variable py::module_ which can be used to create
 // bindings. the def() methods generates binding code that exposes new functions to Python.
 PYBIND11_MODULE(libint_interface, m) {
     m.doc() = "pybind11 libint interface to molecular integrals"; // optional module docstring
-    m.def("add", &add, "A function which adds two numbers");
     m.def("overlap", &overlap, "Computes overlap integrals with libint");
+    m.def("kinetic", &kinetic, "Computes kinetic integrals with libint");
+    m.def("potential", &potential, "Computes potential integrals with libint");
+    m.def("eri", &eri, "Computes electron repulsion integrals with libint");
+    //m.def("overlap_deriv", &overlap_deriv, "Computes overlap integral nuclear derivatives with libint");
+    //m.def("kinetic_deriv", &kinetic_deriv, "Computes kinetic integral nuclear derivatives with libint");
+    //m.def("potential_deriv", &potential_deriv, "Computes potential integral nuclear derivatives with libint");
+    //m.def("eri_deriv", &eri_deriv, "Computes electron repulsion integral nuclear derivatives with libint");
+
 }
 
 // Temporary libint reference: new shared library compilation
-// currently needs export LD_LIBRARY_PATH=/path/to/libint2.so
+// currently needs export LD_LIBRARY_PATH=/path/to/libint2.so. Alternatively, add compiler flag -Wl,-rpath /path/to/where/libint2.so/is/located
 // Compilation script for libint with am=2 deriv=4, may need to set LD_LIBRARY_PATH = /path/to/libint2.so corresponding to this installation.
 // g++ libint_interface.cc -o libint_interface`python3-config --extension-suffix`  -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include/libint2 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include -L/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/ -lint2 
 
@@ -97,52 +240,6 @@ PYBIND11_MODULE(libint_interface, m) {
 //g++ -c libint_interface.cc -o libint_interface.o -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include/libint2 -lint2 -L/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/lib
 
 //g++ libint_interface.o -o libint_interface`python3-config --extension-suffix` -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include/libint2 -lint2 -L/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/lib
-
-
-//g++ -c libint_interface.cc -o libint_interface.o -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include/libint2 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include -L/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/ -lint2 
-
-//g++ libint_interface.o -o libint_interface`python3-config --extension-suffix`  -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include/libint2 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include -lint2 -L/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6
-
-// TODO let's try to simplify the above... can we combine into one compile?
-//g++ -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include/libint2 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include -L/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/ -lint2 libint_interface.cc -o libint_interface`python3-config --extension-suffix` 
-
-// Okay it fails with the follwoing:
-// /home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/libint_interface.cpython-36m-x86_64-linux-gnu.so: undefined symbol: libint2_build_default
-
-// Does it work if i cll script first?
-//g++ libint_interface.cc -o libint_interface`python3-config --extension-suffix`  -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include/libint2 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include -L/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/ -lint2 
-
-// Yes the above works just fine... why do things work fine when I put the .cc first?
-
-//g++ libint_interface.cc -o libint_interface`python3-config --extension-suffix`  -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 
-
-
-// Then two stage compile:
-
-//g++ -c libint_interface.cc -o libint_interface.o -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include/libint2 -lint2 -L/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/lib
-
-//g++ libint_interface.o -o libint_interface`python3-config --extension-suffix` -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include/libint2 -lint2 -L/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/lib
-
-
-// After compilation, should be able to access this funciton:
-// >>> import psijax
-// >>> psijax.external_integrals.libint_interface.add(1,2)
-// 3
-// >>> psijax.external_integrals.libint_interface.test(1,2)
-// 0
-
-
-// TODO Define functions, figure out args stuff, e.g. py::array_t<double>
-// also define in another .cc file containing these routines
-// TODO figure out how to handle BasisSet objects here. 
-//void compute_tei()
-//void compute_tei_deriv()
-//void compute_overlap()
-//void compute_overlap_deriv()
-//void compute_kinetic()
-//void compute_kinetic_deriv()
-//void compute_potential()
-//void compute_potential_deriv()
 
 //PYBIND11_PLUGIN(libint_tei) {
 //    py::module m("libint_interface", "pybind11 interface to libint molecule integrals and their derivatives")

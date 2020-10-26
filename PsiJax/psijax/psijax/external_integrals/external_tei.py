@@ -1,6 +1,7 @@
 import jax 
 import jax.numpy as np
 import numpy as onp
+from . import libint_interface
 jax.config.update("jax_enable_x64", True)
 
 # For testing higher order derivatives: load in analytic psijax derivatives for a given molecule and basis set
@@ -23,9 +24,13 @@ def psi_tei_deriv(geom, deriv_vec, **params):
 
 # Create primitive evaluation rules 
 def psi_tei_impl(geom, **params):
-    mints = params['mints']
-    psi_G = np.asarray(onp.asarray(mints.ao_eri()))
-    return psi_G
+    #mints = params['mints']
+    #psi_G = np.asarray(onp.asarray(mints.ao_eri()))
+    xyzpath, basis_name = params['xyzpath'], params['basis_name']
+    G = libint_interface.eri(xyzpath, basis_name)
+    d = int(onp.sqrt(onp.sqrt(G.shape[0])))
+    G = G.reshape(d,d,d,d)
+    return np.asarray(G)
 
 def psi_tei_deriv_impl(geom, deriv_vec, **params):
     # TODO once Psi has TEI deriv:
