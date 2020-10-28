@@ -219,15 +219,44 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
     using namespace libint2;
     using namespace std;
     libint2::initialize();
-
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
     // Number of derivatives at this order of differentiation. 
     // 1/n! * Multiply(from i=0 to n-1)(3k + i) where n = deriv_order and k=4 number of centers
-    std::vector<int> total_shell_derivatives{0, 12, 78, 364, 1365};
-    int num_derivs = total_shell_derivatives[deriv_order];
+    //std::vector<int> total_shell_derivatives{0, 12, 78, 364, 1365};
 
-    // Load basis set and geometry. TODO this assumes units are angstroms... 
+    // Default: first derivatives, but if deriv_order=2 then use 2nd derivative buffer index lookup
+    const std::vector<int> buffer_index_lookup1 = {0,1,2,3,4,5,6,7,8,9,10,11};
+    const std::vector<std::vector<int>> buffer_index_lookup2 = {
+        { 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11},
+        { 1, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22},
+        { 2, 13, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32},
+        { 3, 14, 24, 33, 34, 35, 36, 37, 38, 39, 40, 41},
+        { 4, 15, 25, 34, 42, 43, 44, 45, 46, 47, 48, 49},
+        { 5, 16, 26, 35, 43, 50, 51, 52, 53, 54, 55, 56},
+        { 6, 17, 27, 36, 44, 51, 57, 58, 59, 60, 61, 62},
+        { 7, 18, 28, 37, 45, 52, 58, 63, 64, 65, 66, 67},
+        { 8, 19, 29, 38, 46, 53, 59, 64, 68, 69, 70, 71},
+        { 9, 20, 30, 39, 47, 54, 60, 65, 69, 72, 73, 74},
+        {10, 21, 31, 40, 48, 55, 61, 66, 70, 73, 75, 76},
+        {11, 22, 32, 41, 49, 56, 62, 67, 71, 74, 76, 77},};
+    // TODO 
+    // if deriv_order == 3
+    // if deriv_order == 4
+
+    // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
+    std::vector<int> desired_atom_indices;
+    std::vector<int> desired_coordinates;
+    for (int i = 0; i < deriv_vec.size(); i++) {
+        if (deriv_vec[i] > 0) {
+            for (int j = 0; j < deriv_vec[i]; j++) {
+                desired_atom_indices.push_back(i / 3);
+                desired_coordinates.push_back(i % 3);
+            }
+        }
+    }
+
+    // Load basis set and geometry.
     ifstream input_file(xyzfilename);
     vector<Atom> atoms = read_dotxyz(input_file);
     BasisSet obs(basis_name, atoms);
@@ -235,20 +264,6 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
     int nbf = obs.nbf();
     // ERI derivative integral engine
     Engine eri_engine(Operator::coulomb,obs.max_nprim(),obs.max_l(),deriv_order);
-
-    auto natom = atoms.size();
-    std::vector<bool> desired_atoms(natom, false);
-    // Which atoms are involved in the deriv_vec?
-    for (int i = 0; i < natom; i++) {
-        bool desired = false;
-        // x
-        if (deriv_vec[3 * i + 0] > 0) desired = true;
-        // y
-        if (deriv_vec[3 * i + 1] > 0) desired = true;
-        // z
-        if (deriv_vec[3 * i + 2] > 0) desired = true;
-        desired_atoms[i] = desired;
-    }
 
     // Get size of ERI array and allocate 
     size_t length = nbf * nbf * nbf * nbf;
@@ -278,48 +293,48 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
                     // If the atoms are the same we ignore it as the derivatives will be zero.
                     if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
 
-                    // Create list of atom indices corresponding to each shell 
-                    std::vector<int> atom_index_list{atom1,atom2,atom3,atom4};
+                    // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
+                    std::vector<long> shell_atom_index_list{atom1,atom2,atom3,atom4};
 
-                    // Check if EVERY differentiated atom according to deriv_vec is in atom_index_list, if not, skip computing this shell quartet derivative
-                    // Screens out a lot of higher order derivatives, or if you have a lot of atoms.
-                    bool tmp = true;
-                    for (int i = 0; i < natom; ++i) {
-                        if (desired_atoms[i]) {
-                            tmp = (tmp && (i == atom1 || i == atom2 || i == atom3 || i == atom4));
-                        }
+                    // Every shell quartet has 4 atom indices. 
+                    // We can check if EVERY differentiated atom according to deriv_vec is contained in this set of 4 atom indices
+                    // This will ensure the derivative we want is in the buffer.
+                    std::vector<int> desired_shell_atoms; 
+                    for (int i=0; i < deriv_order; i++){
+                        int desired_atom = desired_atom_indices[i];
+                        if (shell_atom_index_list[0] == desired_atom) desired_shell_atoms.push_back(0); 
+                        else if (shell_atom_index_list[1] == desired_atom) desired_shell_atoms.push_back(1); 
+                        else if (shell_atom_index_list[2] == desired_atom) desired_shell_atoms.push_back(2); 
+                        else if (shell_atom_index_list[3] == desired_atom) desired_shell_atoms.push_back(3); 
                     }
-                    if (tmp == false) continue;
+
+                    // If the length of this vector is not == deriv_order, this shell quartet can be skipped, since it does not contain desired derivative
+                    if (desired_shell_atoms.size() != deriv_order) continue;
 
                     // If we made it this far, the shell derivative we want is in the buffer, perhaps even more than once.
                     // Compute this shell quartet derivative, and find one of the buffer indices which gives it to us.
                     eri_engine.compute(obs[s1], obs[s2], obs[s3], obs[s4]); // Compute shell set, fills buf_vec
 
-                    // The buf_vec contains two indices: first index is which shell quartet derivative operator, second is shell set
-                    // We need to loop over first index, deriv_index, and check if it is an index which corresponds to deriv_vec, 
-                    // which is in terms of nuclear derivatives, distinct from shell derivatives
-                    for (int deriv_index = 0; deriv_index < num_derivs; ++deriv_index) {
-                        // Map this shell derivative index, e.g. d^2/ dAx dCx to its corresponding nuclear derivative index in flattened cartesian geometry array
-                        // TODO define cart_component_indices, shell_center_indices
-                        cart_indices = cart_component_indices[deriv_index];      // Length = deriv_order, integer says which cartesian component
-                        shell_deriv_indices = shell_center_indices[deriv_index]; // Length = deriv_order, integer 0,1,2,3 says which shell is involved in each partial derivative
-                    
-                        // Grab each cartesian coordinate index in (nbf,nbf,nbf,nbf,g1,g2,g3,...)  
-                        //  slice (nbf,nbf,nbf,nbf,1,1,1...)
-                        std::vector<int> coord_indices(deriv_order);
-                        for (int i = 0, i < deriv_order, ++i) {
-                            int atom_idx = atom_index_list[shell_deriv_indices[i]]; // atom index this shell derivative corresponds to
-                            int cart_component = cart_indices[i];                   // cartesian component 0,1,2-->x,y,z
-                            int coord_idx = 3 * atom_idx + cart_component;          // index in flattened cartesian coordinate geometry
-                            coord_indices.push_back(coord_idx);
-                        // Now we check if these are the cartesian coordinates we want in deriv_vec
-                        // e.g. if deriv_vec is [2,1,0,0,0...,0] then we have coord_indices = [0,0,1]
-                         
-                        }
+                    // Now convert these shell atom indices into a shell derivative index
+                    // shell_derivative is a set of indices of length deriv_order with values between 0 and 11, representing the 12 possible shell center coordinates.
+                    // Index 0 represents d^n/dx1^n, etc.
+                    std::vector<int> shell_derivative;
+                    for (int i=0; i < deriv_order; i++){
+                        shell_derivative.push_back(3 * desired_shell_atoms[i] + desired_coordinates[i]);
                     }
 
-                    //TEMP TODO try other integers
-                    auto ints_shellset = buf_vec[1];                        // Location of the computed integrals
+                    //TODO The buffer index converts the multidimensional index shell_derivative into a one-dimensional buffer index
+                    // according to the layout defined in the Libint wiki
+                    // Depending on deriv_order, buffer_index_lookup will be a different dimension of array.
+                    int buffer_idx;
+                    if (deriv_order == 1) { 
+                        buffer_idx = buffer_index_lookup1[shell_derivative[0]];
+                    }
+                    else if (deriv_order == 2) { 
+                        buffer_idx = buffer_index_lookup2[shell_derivative[0]][shell_derivative[1]];
+                    }
+                    
+                    auto ints_shellset = buf_vec[buffer_idx]; // Location of the computed integrals
 
                     if (ints_shellset == nullptr)
                         continue;  // nullptr returned if the entire shell-set was screened out
