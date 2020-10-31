@@ -264,6 +264,7 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
     int nbf = obs.nbf();
     // ERI derivative integral engine
     Engine eri_engine(Operator::coulomb,obs.max_nprim(),obs.max_l(),deriv_order);
+    //eri_engine.set(CartesianShellNormalization::uniform); //TODO what is this doing
 
     // Get size of ERI array and allocate 
     size_t length = nbf * nbf * nbf * nbf;
@@ -323,7 +324,7 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
                         shell_derivative.push_back(3 * desired_shell_atoms[i] + desired_coordinates[i]);
                     }
 
-                    //TODO The buffer index converts the multidimensional index shell_derivative into a one-dimensional buffer index
+                    // The buffer index converts the multidimensional index shell_derivative into a one-dimensional buffer index
                     // according to the layout defined in the Libint wiki
                     // Depending on deriv_order, buffer_index_lookup will be a different dimension of array.
                     int buffer_idx;
@@ -333,6 +334,13 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
                     else if (deriv_order == 2) { 
                         buffer_idx = buffer_index_lookup2[shell_derivative[0]][shell_derivative[1]];
                     }
+
+                    // TEMP print all elements of buf_vec
+                    //for(auto i=0; i<9; ++i){
+                    //    for (auto j=0; j<(n1*n2*n3*n4); j++){
+                    //        printf("%lf \n", buf_vec[i][j]);
+                    //    }
+                    //}
                     
                     auto ints_shellset = buf_vec[buffer_idx]; // Location of the computed integrals
 
@@ -360,8 +368,115 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 }
 
+py::array overlap_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
+    using namespace libint2;
+    using namespace std;
+    libint2::initialize();
+    // Get order of differentiation
+    int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
+    // Default: first derivatives, but if deriv_order=2 then use 2nd derivative buffer index lookup
+    const std::vector<int> buffer_index_lookup1 = {0,1,2,3,4,5};
+    const std::vector<std::vector<int>> buffer_index_lookup2 = {
+         {0, 1,  2,  3,  4,  5}, 
+         {1, 6,  7,  8,  9, 10},
+         {2, 7, 11, 12, 13, 14},
+         {3, 8, 12, 15, 16, 17},
+         {4, 9, 13, 16, 18, 19},
+         {5,10, 14, 17, 19, 20},};
+    // TODO 
+    // if deriv_order == 3
+    // if deriv_order == 4
 
+    // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
+    std::vector<int> desired_atom_indices;
+    std::vector<int> desired_coordinates;
+    for (int i = 0; i < deriv_vec.size(); i++) {
+        if (deriv_vec[i] > 0) {
+            for (int j = 0; j < deriv_vec[i]; j++) {
+                desired_atom_indices.push_back(i / 3);
+                desired_coordinates.push_back(i % 3);
+            }
+        }
+    }
+
+    // Load basis set and geometry.
+    ifstream input_file(xyzfilename);
+    vector<Atom> atoms = read_dotxyz(input_file);
+    BasisSet obs(basis_name, atoms);
+    obs.set_pure(false); // use cartesian gaussians
+    int nbf = obs.nbf();
+    // Overlap derivative integral engine
+    Engine s_engine(Operator::overlap,obs.max_nprim(),obs.max_l(),deriv_order);
+
+    // Get size of overlap derivative array and allocate 
+    size_t length = nbf * nbf;
+    std::vector<double> result(length);
+
+    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
+    const auto shell2atom = obs.shell2atom(atoms); // maps shell index to atom index
+    const auto& buf_vec = s_engine.results(); // will point to computed shell sets
+    
+    for(auto s1=0; s1!=obs.size(); ++s1) {
+        auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
+        auto atom1 = shell2atom[s1]; // Atom index of shell 1
+        auto n1 = obs[s1].size();    // number of basis functions in shell 1
+        for(auto s2=0; s2!=obs.size(); ++s2) {
+            auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
+            auto atom2 = shell2atom[s2]; // Atom index of shell 2
+            auto n2 = obs[s2].size();    // number of basis functions in shell 2
+            // If the atoms are the same we ignore it as the derivatives will be zero.
+            if (atom1 == atom2) continue;
+
+            // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
+            std::vector<long> shell_atom_index_list{atom1,atom2};
+
+            // We can check if EVERY differentiated atom according to deriv_vec is contained in this set of 2 atom indices
+            // This will ensure the derivative we want is in the buffer.
+            std::vector<int> desired_shell_atoms; 
+            for (int i=0; i < deriv_order; i++){
+                int desired_atom = desired_atom_indices[i];
+                if (shell_atom_index_list[0] == desired_atom) desired_shell_atoms.push_back(0); 
+                else if (shell_atom_index_list[1] == desired_atom) desired_shell_atoms.push_back(1); 
+            }
+
+            // If the length of this vector is not == deriv_order, this shell duet can be skipped, since it does not contain desired derivative
+            if (desired_shell_atoms.size() != deriv_order) continue;
+
+            // If we made it this far, the shell derivative we want is in the buffer, perhaps even more than once. 
+            s_engine.compute(obs[s1], obs[s2]); 
+
+            // Now convert these shell atom indices into a shell derivative index, a set of indices length deriv_order with values between 0 and 5, corresponding to 6 possible shell center coordinates
+            std::vector<int> shell_derivative;
+            for (int i=0; i < deriv_order; i++){
+                shell_derivative.push_back(3 * desired_shell_atoms[i] + desired_coordinates[i]);
+            }
+
+            // Now we must convert our multidimensional shell_derivative index into a one-dimensional buffer index. 
+            // We know how to do this since libint tells us what order they come in. The lookup arrays above map the multidim index to the buffer idx
+            int buffer_idx;
+            if (deriv_order == 1) { 
+                buffer_idx = buffer_index_lookup1[shell_derivative[0]];
+            }
+            else if (deriv_order == 2) { 
+                buffer_idx = buffer_index_lookup2[shell_derivative[0]][shell_derivative[1]];
+            }
+
+            auto ints_shellset = buf_vec[buffer_idx]; // Location of the computed integrals
+            if (ints_shellset == nullptr)
+                continue;  // nullptr returned if the entire shell-set was screened out
+
+            // Loop over shell block, keeping a total count idx for the size of shell set
+            for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+                    result[(bf1 + f1) * nbf + bf2 + f2 ] = ints_shellset[idx];
+                }
+            }
+        }
+    }
+    libint2::finalize();
+    return py::array(result.size(), result.data()); 
+}
 
 // Define module named 'libint_interface' which can be imported with python
 // The second arg, 'm' defines a variable py::module_ which can be used to create
@@ -372,7 +487,7 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("kinetic", &kinetic, "Computes kinetic integrals with libint");
     m.def("potential", &potential, "Computes potential integrals with libint");
     m.def("eri", &eri, "Computes electron repulsion integrals with libint");
-    //m.def("overlap_deriv", &overlap_deriv, "Computes overlap integral nuclear derivatives with libint");
+    m.def("overlap_deriv", &overlap_deriv, "Computes overlap integral nuclear derivatives with libint");
     //m.def("kinetic_deriv", &kinetic_deriv, "Computes kinetic integral nuclear derivatives with libint");
     //m.def("potential_deriv", &potential_deriv, "Computes potential integral nuclear derivatives with libint");
     m.def("eri_deriv", &eri_deriv, "Computes electron repulsion integral nuclear derivatives with libint");
@@ -384,20 +499,14 @@ PYBIND11_MODULE(libint_interface, m) {
 // Compilation script for libint with am=2 deriv=4, may need to set LD_LIBRARY_PATH = /path/to/libint2.so corresponding to this installation.
 // g++ libint_interface.cc -o libint_interface`python3-config --extension-suffix`  -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include/libint2 -I/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/include -L/home/adabbott/Git/libint/BUILD/libint-2.7.0-beta.6/ -lint2 
 
+
+// NEW ninja install with am=2 deriv=2
+// g++ libint_interface.cc -o libint_interface`python3-config --extension-suffix`  -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint_trial3/libint/BUILD/libint-2.7.0-beta.6include/libint2 -I/home/adabbott/Git/libint_trial3/libint/BUILD/libint-2.7.0-beta.6/include -L/home/adabbott/Git/libint_trial3/libint/BUILD/libint-2.7.0-beta.6 -lint2 
+
+
 // Warning: above is very slow since its a huge copy of libint. can use smaller version, just s, p with gradients,
 // Can do quick compile with the following:
 //g++ -c libint_interface.cc -o libint_interface.o -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include/libint2 -lint2 -L/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/lib
 
 //g++ libint_interface.o -o libint_interface`python3-config --extension-suffix` -O3 -fPIC -shared -std=c++11 -I/home/adabbott/anaconda3/envs/psijax/include/python3.6m -I/home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include -I/home/adabbott/anaconda3/envs/psijax/include/eigen3 -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include -I/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/include/libint2 -lint2 -L/home/adabbott/Git/libint_pgrad/libint-2.7.0-beta.6/PREFIX/lib
 
-//PYBIND11_PLUGIN(libint_tei) {
-//    py::module m("libint_interface", "pybind11 interface to libint molecule integrals and their derivatives")
-//    m.def("compute_tei", &compute_tei, "Compute two-electron integral array, shape (nbf,nbf,nbf,nbf)")
-//    m.def("compute_tei_deriv", &compute_tei, "Compute partial derivative of two-electron integral array, shape (nbf,nbf,nbf,nbf)")
-//    m.def("compute_overlap", &compute_overlap, "Compute overlap integral array, shape (nbf,nbf)")
-//    m.def("compute_overlap_deriv", &compute_overlap, "Compute (nbf,nbf,nbf,nbf) nuclear partial derivative of two-electron integral array")
-//    m.def("compute_kinetic", &compute_kinetic, "Compute (nbf,nbf,nbf,nbf) two-electron integral array")
-//    m.def("compute_kinetic_deriv", &compute_kinetic, "Compute (nbf,nbf) nuclear partial derivative of two-electron integral array")
-//
-//    return m.ptr();
-//}
