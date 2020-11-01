@@ -556,7 +556,9 @@ py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::
 py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
     libint2::initialize();
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
-    // Lookup arrays for mapping shell derivative index to buffer index TODO move somewhere
+    // Lookup arrays for mapping shell derivative index to buffer index 
+    // TODO move somewhere, change deriv orders to support 3rd, 4th
+    assert(deriv_order <= 2);
     static const std::vector<int> buffer_index_lookup1 = {0,1,2,3,4,5,6,7,8,9,10,11};
     static const std::vector<std::vector<int>> buffer_index_lookup2 = {
         { 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11},
@@ -579,6 +581,8 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
 
     // Load basis set and geometry.
     std::vector<libint2::Atom> atoms = get_atoms(xyzfilename);
+    // Make sure the number of atoms match the size of deriv_vec
+    assert(atoms.size() * 3 == deriv_vec.size());
 
     libint2::BasisSet obs(basis_name, atoms);
     obs.set_pure(false); // use cartesian gaussians
@@ -619,59 +623,104 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
                     // Every shell quartet has 4 atom indices. 
                     // We can check if EVERY differentiated atom according to deriv_vec is contained in this set of 4 atom indices
                     // This will ensure the derivative we want is in the buffer.
-                    std::vector<int> desired_shell_atoms; 
-                    for (int i=0; i < deriv_order; i++){
-                        int desired_atom = desired_atom_indices[i];
-                        if (shell_atom_index_list[0] == desired_atom) desired_shell_atoms.push_back(0); 
-                        else if (shell_atom_index_list[1] == desired_atom) desired_shell_atoms.push_back(1); 
-                        else if (shell_atom_index_list[2] == desired_atom) desired_shell_atoms.push_back(2); 
-                        else if (shell_atom_index_list[3] == desired_atom) desired_shell_atoms.push_back(3); 
+                    //std::vector<int> desired_shell_atoms; 
+                    //for (int i=0; i < deriv_order; i++){
+                    //    int desired_atom = desired_atom_indices[i];
+                    //    if (shell_atom_index_list[0] == desired_atom) desired_shell_atoms.push_back(0); 
+                    //    else if (shell_atom_index_list[1] == desired_atom) desired_shell_atoms.push_back(1); 
+                    //    else if (shell_atom_index_list[2] == desired_atom) desired_shell_atoms.push_back(2); 
+                    //    else if (shell_atom_index_list[3] == desired_atom) desired_shell_atoms.push_back(3); 
+                    //}
+
+                    //// If the length of this vector is not == deriv_order, this shell quartet can be skipped, since it does not contain desired derivative
+                    //if (desired_shell_atoms.size() != deriv_order) continue;
+
+
+                    // Need to know how many times the differentiated atom (according to deriv_vec) appears in this shell quartet.
+                    std::vector<int> buffer_indices;
+                    std::vector<int> tmp;
+                    for (int i=0; i < 4; i++){
+                        int atom_idx = shell_atom_index_list[i];
+                        for (int j=0; j<deriv_order; j++){
+                            int desired_atom_idx = desired_atom_indices[j];
+                            if (atom_idx == desired_atom_idx) { 
+                                tmp.push_back(3 * i + desired_coordinates[j]);
+                            }
+                        }
+                        if (tmp.size() > 0) {
+                            if (deriv_order == 1) {
+                                buffer_indices.push_back(buffer_index_lookup1[tmp[0]]);
+                            }
+                            else if (deriv_order == 2) {
+                                buffer_indices.push_back(buffer_index_lookup2[tmp[0]][tmp[1]]);
+                            }
+                        }
+                        tmp.clear(); // wipe the temporary vector 
                     }
 
-                    // If the length of this vector is not == deriv_order, this shell quartet can be skipped, since it does not contain desired derivative
-                    if (desired_shell_atoms.size() != deriv_order) continue;
+                    // This effectively checks that this shell quartet contains the desired derivative 
+                    if (buffer_indices.size() == 0) continue;
 
-                    // If we made it this far, the shell derivative we want is in the buffer, perhaps even more than once.
-                    // Compute this shell quartet derivative, and find one of the buffer indices which gives it to us.
+                    // If we made it this far, the shell derivative we want is contained in the buffer. 
                     eri_engine.compute(obs[s1], obs[s2], obs[s3], obs[s4]); // Compute shell set, fills buf_vec
 
-                    // Now convert these shell atom indices into a shell derivative index
-                    // shell_derivative is a set of indices of length deriv_order with values between 0 and 11, representing the 12 possible shell center coordinates.
-                    // Index 0 represents d^n/dx1^n, etc.
-                    std::vector<int> shell_derivative;
-                    for (int i=0; i < deriv_order; i++){
-                        shell_derivative.push_back(3 * desired_shell_atoms[i] + desired_coordinates[i]);
-                    }
-
-                    // The buffer index converts the multidimensional index shell_derivative into a one-dimensional buffer index
-                    // according to the layout defined in the Libint wiki
-                    // Depending on deriv_order, buffer_index_lookup will be a different dimension of array.
-                    int buffer_idx;
-                    if (deriv_order == 1) { 
-                        buffer_idx = buffer_index_lookup1[shell_derivative[0]];
-                    }
-                    else if (deriv_order == 2) { 
-                        buffer_idx = buffer_index_lookup2[shell_derivative[0]][shell_derivative[1]];
-                    }
-
-                    auto ints_shellset = buf_vec[buffer_idx]; // Location of the computed integrals
-
-                    if (ints_shellset == nullptr)
-                        continue;  // nullptr returned if the entire shell-set was screened out
-    
-                    // Loop over shell block, keeping a total count idx for the size of shell set
-                    for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                        size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
-                        for(auto f2=0; f2!=n2; ++f2) {
-                            size_t offset_2 = (bf2 + f2) * nbf * nbf;
-                            for(auto f3=0; f3!=n3; ++f3) {
-                                size_t offset_3 = (bf3 + f3) * nbf;
-                                for(auto f4=0; f4!=n4; ++f4, ++idx) {
-                                    result[offset_1 + offset_2 + offset_3 + bf4 + f4] = ints_shellset[idx];
+                    // This won't loop if none of the atoms in the shell quartet
+                    for(auto i=0; i<buffer_indices.size(); ++i) {
+                        auto ints_shellset = buf_vec[buffer_indices[i]];
+                        for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                            size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
+                            for(auto f2=0; f2!=n2; ++f2) {
+                                size_t offset_2 = (bf2 + f2) * nbf * nbf;
+                                for(auto f3=0; f3!=n3; ++f3) {
+                                    size_t offset_3 = (bf3 + f3) * nbf;
+                                    for(auto f4=0; f4!=n4; ++f4, ++idx) {
+                                        result[offset_1 + offset_2 + offset_3 + bf4 + f4] += ints_shellset[idx];
+                                    }
                                 }
                             }
                         }
                     }
+
+                    // Now convert these shell atom indices into a shell derivative index
+                    // shell_derivative is a set of indices of length deriv_order with values between 0 and 11, representing the 12 possible shell center coordinates.
+                    // Index 0 represents d^n/dx1^n, etc.
+                    //std::vector<int> shell_derivative;
+                    //for (int i=0; i < deriv_order; i++){
+                    //    shell_derivative.push_back(3 * desired_shell_atoms[i] + desired_coordinates[i]);
+                    //}
+
+                    // The buffer index converts the multidimensional index shell_derivative into a one-dimensional buffer index
+                    // according to the layout defined in the Libint wiki
+                    // Depending on deriv_order, buffer_index_lookup will be a different dimension of array.
+                    //int buffer_idx;
+                    //if (deriv_order == 1) { 
+                    //    buffer_idx = buffer_index_lookup1[shell_derivative[0]];
+                    //}
+                    //else if (deriv_order == 2) { 
+                    //    buffer_idx = buffer_index_lookup2[shell_derivative[0]][shell_derivative[1]];
+                    //}
+//
+//                    int buffer_idx = 1;
+//                    auto ints_shellset = buf_vec[buffer_idx]; // Location of the computed integrals
+//
+//                    if (ints_shellset == nullptr)
+//                        continue;  // nullptr returned if the entire shell-set was screened out
+//    
+//                    // Loop over shell block, keeping a total count idx for the size of shell set
+//                    for(auto f1=0, idx=0; f1!=n1; ++f1) {
+//                        size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
+//                        for(auto f2=0; f2!=n2; ++f2) {
+//                            size_t offset_2 = (bf2 + f2) * nbf * nbf;
+//                            for(auto f3=0; f3!=n3; ++f3) {
+//                                size_t offset_3 = (bf3 + f3) * nbf;
+//                                for(auto f4=0; f4!=n4; ++f4, ++idx) {
+//                                    //result[offset_1 + offset_2 + offset_3 + bf4 + f4] = ints_shellset[idx];
+//                                    result[offset_1 + offset_2 + offset_3 + bf4 + f4] += ints_shellset[idx];
+//
+//                                }
+//                            }
+//                        }
+//                    }
                 }
             }
         }
