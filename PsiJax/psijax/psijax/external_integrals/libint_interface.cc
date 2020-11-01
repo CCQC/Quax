@@ -411,6 +411,146 @@ py::array kinetic_deriv(std::string xyzfilename, std::string basis_name, std::ve
     return py::array(result.size(), result.data()); 
 }
 
+// Computes potential energy integral nuclear derivatives
+py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
+    libint2::initialize();
+    // Get order of differentiation
+    int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
+
+    // Default: first derivatives, but if deriv_order=2 then use 2nd derivative buffer index lookup
+    static const std::vector<int> buffer_index_lookup1 = {0,1,2,3,4,5};
+    static const std::vector<std::vector<int>> buffer_index_lookup2 = {
+         {0, 1,  2,  3,  4,  5}, 
+         {1, 6,  7,  8,  9, 10},
+         {2, 7, 11, 12, 13, 14},
+         {3, 8, 12, 15, 16, 17},
+         {4, 9, 13, 16, 18, 19},
+         {5,10, 14, 17, 19, 20},};
+
+    // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
+    std::vector<int> desired_atom_indices;
+    std::vector<int> desired_coordinates;
+    process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
+
+    // Load basis set and geometry.
+    std::vector<libint2::Atom> atoms = get_atoms(xyzfilename);
+    libint2::BasisSet obs(basis_name, atoms);
+    obs.set_pure(false); // use cartesian gaussians
+
+    // Overlap derivative integral engine
+    libint2::Engine v_engine(libint2::Operator::nuclear,obs.max_nprim(),obs.max_l(),deriv_order);
+    v_engine.set_params(libint2::make_point_charges(atoms));
+    const auto& buf_vec = v_engine.results(); // will point to computed shell sets
+
+    // Get size of kinetic derivative array and allocate 
+    int nbf = obs.nbf();
+    size_t length = nbf * nbf;
+    std::vector<double> result(length);
+    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
+    const auto shell2atom = obs.shell2atom(atoms); // maps shell index to atom index
+    
+    for(auto s1=0; s1!=obs.size(); ++s1) {
+        auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
+        auto atom1 = shell2atom[s1]; // Atom index of shell 1
+        auto n1 = obs[s1].size();    // number of basis functions in shell 1
+        for(auto s2=0; s2!=obs.size(); ++s2) {
+            auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
+            auto atom2 = shell2atom[s2]; // Atom index of shell 2
+            auto n2 = obs[s2].size();    // number of basis functions in shell 2
+            // If the atoms are the same we ignore it as the derivatives will be zero.
+            // TODO took this out
+            //if (atom1 == atom2) continue;
+
+            // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
+            std::vector<long> shell_atom_index_list{atom1,atom2};
+
+            // We can check if EVERY differentiated atom according to deriv_vec is contained in this set of 2 atom indices
+            // This will ensure the derivative we want is in the buffer.
+            std::vector<int> desired_shell_atoms; 
+            for (int i=0; i < deriv_order; i++){
+                int desired_atom = desired_atom_indices[i];
+                if (shell_atom_index_list[0] == desired_atom) desired_shell_atoms.push_back(0); 
+                else if (shell_atom_index_list[1] == desired_atom) desired_shell_atoms.push_back(1); 
+            }
+
+            // TODO took this out
+            // If the length of this vector is not == deriv_order, this shell duet can be skipped, since it does not contain desired derivative
+
+            // Very weird buffer storage practice from libint: if 
+            //if (desired_shell_atoms.size() != deriv_order) continue;
+
+            // If we made it this far, the shell derivative we want is in the buffer, perhaps even more than once. 
+            v_engine.compute(obs[s1], obs[s2]); 
+
+            printf("Shell set %d %d \n", s1,s2);
+            for(auto i=0; i < buf_vec.size(); ++i){
+                printf("%lf \n", buf_vec[i][0]);
+            }
+
+    
+            // TODO only gradients work here
+            int buffer_idx = 3 * desired_atom_indices[0] + desired_coordinates[0];
+
+            // TODO, is this right?
+            for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+                    result[(bf1 + f1) * nbf + bf2 + f2] += buf_vec[buffer_idx][idx] + buf_vec[buffer_idx + 12][idx];
+                }
+            }
+//
+//
+//
+//            // Now convert these shell atom indices into a shell derivative index, a set of indices length deriv_order with values between 0 and 5, corresponding to 6 possible shell center coordinates
+//            std::vector<int> shell_derivative;
+//            for (int i=0; i < deriv_order; i++){
+//                shell_derivative.push_back(3 * desired_shell_atoms[i] + desired_coordinates[i]);
+//            }
+//
+//            // Now we must convert our multidimensional shell_derivative index into a one-dimensional buffer index. 
+//            // We know how to do this since libint tells us what order they come in. The lookup arrays above map the multidim index to the buffer idx
+//            int buffer_idx;
+//            if (deriv_order == 1) { 
+//                buffer_idx = buffer_index_lookup1[shell_derivative[0]];
+//            }
+//            else if (deriv_order == 2) { 
+//                buffer_idx = buffer_index_lookup2[shell_derivative[0]][shell_derivative[1]];
+//            }
+//             
+//            auto ints_shellset = buf_vec[buffer_idx]; // Location of the computed integrals
+//
+//            //TODO
+//            if (ints_shellset == nullptr)
+//                continue;  // nullptr returned if the entire shell-set was screened out
+//
+//            ////TODO print
+//            printf("ints shellset");
+//            printf("%lf \n", ints_shellset);
+//            printf("\nints shellset");
+//
+//            //printf("%ld \n", buf_vec.size());
+//            //printf("%ld \n", atom1);
+//            //printf("%ld \n", atom2);
+//    
+//            for(auto i=0; i < buf_vec.size(); ++i){
+//                printf("%lf \n", buf_vec[i][0]);
+//                //for (auto j=0; j<6; j++){
+//                //    printf("%lf \n", buf_vec[i][j]);
+//                //}
+//            }
+//
+//            // Loop over shell block, keeping a total count idx for the size of shell set
+//            for(auto f1=0, idx=0; f1!=n1; ++f1) {
+//                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+//                    result[(bf1 + f1) * nbf + bf2 + f2 ] += ints_shellset[idx];
+//                    //result[(bf1 + f1) * nbf + bf2 + f2 ] += buf_vec[buffer_idx][idx] + buf_vec[buffer_idx * -1 - 1][idx];
+//                }
+//            }
+        }
+    }
+    libint2::finalize();
+    return py::array(result.size(), result.data()); 
+}
+
 
 // Computes nuclear electron repulsion integral derivatives
 py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
@@ -552,9 +692,8 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("eri", &eri, "Computes electron repulsion integrals with libint");
     m.def("overlap_deriv", &overlap_deriv, "Computes overlap integral nuclear derivatives with libint");
     m.def("kinetic_deriv", &kinetic_deriv, "Computes kinetic integral nuclear derivatives with libint");
-    //m.def("potential_deriv", &potential_deriv, "Computes potential integral nuclear derivatives with libint");
+    m.def("potential_deriv", &potential_deriv, "Computes potential integral nuclear derivatives with libint");
     m.def("eri_deriv", &eri_deriv, "Computes electron repulsion integral nuclear derivatives with libint");
-
 }
 
 // Temporary libint reference: new shared library compilation
