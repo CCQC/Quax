@@ -620,27 +620,68 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
                     std::vector<long> shell_atom_index_list{atom1,atom2,atom3,atom4};
 
                     // Need to know how many times the differentiated atom (according to deriv_vec) appears in this shell quartet.
-                    std::vector<int> buffer_indices;
+                    //std::vector<int> buffer_indices;
+                    //std::vector<int> tmp;
+                    //for (int i=0; i < 4; i++){
+                    //    int atom_idx = shell_atom_index_list[i];
+                    //    for (int j=0; j<deriv_order; j++){
+                    //        int desired_atom_idx = desired_atom_indices[j];
+                    //        if (atom_idx == desired_atom_idx) { 
+                    //            tmp.push_back(3 * i + desired_coordinates[j]);
+                    //        }
+                    //    }
+                    //    if (tmp.size() > 0) {
+                    //        if (deriv_order == 1) {
+                    //            buffer_indices.push_back(buffer_index_lookup1[tmp[0]]);
+                    //        }
+                    //        else if (deriv_order == 2) {
+                    //            buffer_indices.push_back(buffer_index_lookup2[tmp[0]][tmp[1]]);
+                    //        }
+                    //    }
+                    //    tmp.clear(); // wipe the temporary vector 
+                    //}
+
+                    // Collect primary shell derivatives 
+                    std::vector<std::vector<int>> indices;
                     std::vector<int> tmp;
-                    for (int i=0; i < 4; i++){
-                        int atom_idx = shell_atom_index_list[i];
-                        for (int j=0; j<deriv_order; j++){
+                    for (int j=0; j < desired_atom_indices.size(); j++){
+                        for (int i=0; i<4; i++){
+                            int atom_idx = shell_atom_index_list[i];
                             int desired_atom_idx = desired_atom_indices[j];
                             if (atom_idx == desired_atom_idx) { 
                                 tmp.push_back(3 * i + desired_coordinates[j]);
                             }
                         }
                         if (tmp.size() > 0) {
-                            if (deriv_order == 1) {
-                                buffer_indices.push_back(buffer_index_lookup1[tmp[0]]);
-                            }
-                            else if (deriv_order == 2) {
-                                buffer_indices.push_back(buffer_index_lookup2[tmp[0]][tmp[1]]);
-                            }
+                            indices.push_back(tmp);
                         }
                         tmp.clear(); // wipe the temporary vector 
                     }
 
+                    // Alternative to below: effectively takes the cartesian product of every subvector of 'indices' 
+                    // would be general and avoid loop blocks for each case below
+
+                    // Loop over combinations of shell derivatives and look up buffer index
+                    //int n_shells_involved = indices.size();
+
+                    std::vector<int> buffer_indices;
+                    if (deriv_order == 1){
+                      for (int i=0; i < indices[0].size(); i++){
+                        int idx = indices[0][i]; 
+                        buffer_indices.push_back(buffer_index_lookup1[idx]);
+                      }
+                    }
+
+                    else if (deriv_order == 2){
+                      for (int i=0; i < indices[0].size(); i++){
+                        for (int j=0; j < indices[1].size(); j++){
+                          int idx1 = indices[0][i]; 
+                          int idx2 = indices[1][j]; 
+                          buffer_indices.push_back(buffer_index_lookup2[idx1][idx2]);
+                        }
+                      }
+                    }
+                    
                     // This effectively checks that this shell quartet contains the desired derivative 
                     if (buffer_indices.size() == 0) continue;
 
