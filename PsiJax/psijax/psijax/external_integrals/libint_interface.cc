@@ -210,7 +210,7 @@ py::array eri(std::string xyzfilename, std::string basis_name) {
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 }
 
-// Computes nuclear overlap derivatives
+// Computes nuclear derivatives of overlap integrals
 py::array overlap_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
     libint2::initialize();
     // Get order of differentiation
@@ -312,7 +312,7 @@ py::array overlap_deriv(std::string xyzfilename, std::string basis_name, std::ve
     return py::array(result.size(), result.data()); 
 }
 
-// Computes nuclear kinetic derivatives
+// Computes nuclear derivatives of kinetic energy integrals
 py::array kinetic_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
     libint2::initialize();
     // Get order of differentiation
@@ -411,7 +411,7 @@ py::array kinetic_deriv(std::string xyzfilename, std::string basis_name, std::ve
     return py::array(result.size(), result.data()); 
 }
 
-// Computes potential energy integral nuclear derivatives
+// Computes nuclear derivatives of potential energy integrals 
 py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
     libint2::initialize();
     // Get order of differentiation
@@ -551,8 +551,7 @@ py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::
     return py::array(result.size(), result.data()); 
 }
 
-
-// Computes nuclear electron repulsion integral derivatives
+// Computes nuclear derivatives of electron repulsion integrals
 py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
     libint2::initialize();
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
@@ -620,22 +619,6 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
                     // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
                     std::vector<long> shell_atom_index_list{atom1,atom2,atom3,atom4};
 
-                    // Every shell quartet has 4 atom indices. 
-                    // We can check if EVERY differentiated atom according to deriv_vec is contained in this set of 4 atom indices
-                    // This will ensure the derivative we want is in the buffer.
-                    //std::vector<int> desired_shell_atoms; 
-                    //for (int i=0; i < deriv_order; i++){
-                    //    int desired_atom = desired_atom_indices[i];
-                    //    if (shell_atom_index_list[0] == desired_atom) desired_shell_atoms.push_back(0); 
-                    //    else if (shell_atom_index_list[1] == desired_atom) desired_shell_atoms.push_back(1); 
-                    //    else if (shell_atom_index_list[2] == desired_atom) desired_shell_atoms.push_back(2); 
-                    //    else if (shell_atom_index_list[3] == desired_atom) desired_shell_atoms.push_back(3); 
-                    //}
-
-                    //// If the length of this vector is not == deriv_order, this shell quartet can be skipped, since it does not contain desired derivative
-                    //if (desired_shell_atoms.size() != deriv_order) continue;
-
-
                     // Need to know how many times the differentiated atom (according to deriv_vec) appears in this shell quartet.
                     std::vector<int> buffer_indices;
                     std::vector<int> tmp;
@@ -680,47 +663,6 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
                             }
                         }
                     }
-
-                    // Now convert these shell atom indices into a shell derivative index
-                    // shell_derivative is a set of indices of length deriv_order with values between 0 and 11, representing the 12 possible shell center coordinates.
-                    // Index 0 represents d^n/dx1^n, etc.
-                    //std::vector<int> shell_derivative;
-                    //for (int i=0; i < deriv_order; i++){
-                    //    shell_derivative.push_back(3 * desired_shell_atoms[i] + desired_coordinates[i]);
-                    //}
-
-                    // The buffer index converts the multidimensional index shell_derivative into a one-dimensional buffer index
-                    // according to the layout defined in the Libint wiki
-                    // Depending on deriv_order, buffer_index_lookup will be a different dimension of array.
-                    //int buffer_idx;
-                    //if (deriv_order == 1) { 
-                    //    buffer_idx = buffer_index_lookup1[shell_derivative[0]];
-                    //}
-                    //else if (deriv_order == 2) { 
-                    //    buffer_idx = buffer_index_lookup2[shell_derivative[0]][shell_derivative[1]];
-                    //}
-//
-//                    int buffer_idx = 1;
-//                    auto ints_shellset = buf_vec[buffer_idx]; // Location of the computed integrals
-//
-//                    if (ints_shellset == nullptr)
-//                        continue;  // nullptr returned if the entire shell-set was screened out
-//    
-//                    // Loop over shell block, keeping a total count idx for the size of shell set
-//                    for(auto f1=0, idx=0; f1!=n1; ++f1) {
-//                        size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
-//                        for(auto f2=0; f2!=n2; ++f2) {
-//                            size_t offset_2 = (bf2 + f2) * nbf * nbf;
-//                            for(auto f3=0; f3!=n3; ++f3) {
-//                                size_t offset_3 = (bf3 + f3) * nbf;
-//                                for(auto f4=0; f4!=n4; ++f4, ++idx) {
-//                                    //result[offset_1 + offset_2 + offset_3 + bf4 + f4] = ints_shellset[idx];
-//                                    result[offset_1 + offset_2 + offset_3 + bf4 + f4] += ints_shellset[idx];
-//
-//                                }
-//                            }
-//                        }
-//                    }
                 }
             }
         }
