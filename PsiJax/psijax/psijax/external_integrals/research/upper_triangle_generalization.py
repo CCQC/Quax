@@ -2,60 +2,60 @@ import numpy as np
 from itertools import combinations_with_replacement as cwr
 from itertools import permutations
 
-def generate_lookup(dim, order):
-    # Based on order of differentiation (number of dimensions)
-    # and using dimension size dim, instantiate lookup array
-    # and collect the multidimensional indices
-    if order == 1:
-      lookup = np.zeros((dim),int)
+def generate_lookup(dim_size, ndim):
+    # Based on order of differentiation (number of dimensions, ndim)
+    # and using dimension size dim_size, instantiate lookup array
+    # and collect the multidimensional indices corresponding to generalized upper triangle
+    if ndim == 1:
+      lookup = np.zeros((dim_size),int)
       combos = []
-      for i in range(0,dim):
+      for i in range(0,dim_size):
         combos.append([i])
-    if order == 2:        
-      lookup = np.zeros((dim,dim),int)
+    if ndim == 2:        
+      lookup = np.zeros((dim_size,dim_size),int)
       combos = []
-      for i in range(0,dim):
-        for j in range(i,dim):
+      for i in range(0,dim_size):
+        for j in range(i,dim_size):
           combos.append([i,j])
-    if order == 3:        
-      lookup = np.zeros((dim,dim,dim),int)
+    if ndim == 3:        
+      lookup = np.zeros((dim_size,dim_size,dim_size),int)
       combos = []
-      for i in range(0,dim):
-        for j in range(i,dim):
-          for k in range(j,dim):
+      for i in range(0,dim_size):
+        for j in range(i,dim_size):
+          for k in range(j,dim_size):
             combos.append([i,j,k])
-    if order == 4:
-      lookup = np.zeros((dim,dim,dim,dim),int)
+    if ndim == 4:
+      lookup = np.zeros((dim_size,dim_size,dim_size,dim_size),int)
       combos = []
-      for i in range(0,dim):
-        for j in range(i,dim):
-          for k in range(j,dim):
-            for l in range(k,dim):
+      for i in range(0,dim_size):
+        for j in range(i,dim_size):
+          for k in range(j,dim_size):
+            for l in range(k,dim_size):
               combos.append([i,j,k,l])
 
-    if order == 5:
-      lookup = np.zeros((dim,dim,dim,dim,dim),int)
+    if ndim == 5:
+      lookup = np.zeros((dim_size,dim_size,dim_size,dim_size,dim_size),int)
       combos = []
-      for i in range(0,dim):
-        for j in range(i,dim):
-          for k in range(j,dim):
-            for l in range(k,dim):
-              for m in range(l,dim):
+      for i in range(0,dim_size):
+        for j in range(i,dim_size):
+          for k in range(j,dim_size):
+            for l in range(k,dim_size):
+              for m in range(l,dim_size):
                 combos.append([i,j,k,l,m])
 
-    if order == 6:
-      lookup = np.zeros((dim,dim,dim,dim,dim,dim),int)
+    if ndim == 6:
+      lookup = np.zeros((dim_size,dim_size,dim_size,dim_size,dim_size,dim_size),int)
       combos = []
-      for i in range(0,dim):
-        for j in range(i,dim):
-          for k in range(j,dim):
-            for l in range(k,dim):
-              for m in range(l,dim):
-                for n in range(m,dim):
+      for i in range(0,dim_size):
+        for j in range(i,dim_size):
+          for k in range(j,dim_size):
+            for l in range(k,dim_size):
+              for m in range(l,dim_size):
+                for n in range(m,dim_size):
                   combos.append([i,j,k,l,m,n])
 
     # Number of elements in generalized upper tri
-    # This is the single-dimension index
+    # This corresponds to flattened buffer index 
     size = len(combos)
     for i in range(size):
         # Get multi-dim index 
@@ -65,12 +65,12 @@ def generate_lookup(dim, order):
             lookup[perm] = i 
     return lookup
 
-def generate_lookup_old(dim, order):
+def generate_lookup_old(dim_size, ndim):
     """dim: tuple of dimensions """
-    dimensions = (dim,) * order
+    dimensions = (dim_size,) * ndim 
     buffer_index_lookup = np.zeros(dimensions, dtype=int)
     count = 0
-    for idx in cwr(np.arange(dim),order):
+    for idx in cwr(np.arange(dim_size),ndim):
         # for all permutations of index, assign to array (totally symmetric)
         for perm in permutations(idx):
             buffer_index_lookup[perm] = count
@@ -78,25 +78,25 @@ def generate_lookup_old(dim, order):
     return buffer_index_lookup
     
 
-dim = 12 # just do 12 for now, simulates either 4 atom cartesian or 
-a = generate_lookup(dim,2)
-b = generate_lookup_old(dim,2)
+dim_size = 12 # just do 12 for now, simulates either 4 atom cartesian or 
+a = generate_lookup(dim_size,2)
+b = generate_lookup_old(dim_size,2)
 print("2d match", np.allclose(a,b))
 
-a = generate_lookup(dim,3)
-b = generate_lookup_old(dim,3)
+a = generate_lookup(dim_size,3)
+b = generate_lookup_old(dim_size,3)
 print("3d match", np.allclose(a,b))
 
-a = generate_lookup(dim,4)
-b = generate_lookup_old(dim,4)
+a = generate_lookup(dim_size,4)
+b = generate_lookup_old(dim_size,4)
 print("4d match", np.allclose(a,b))
 
-a = generate_lookup(dim,5)
-b = generate_lookup_old(dim,5)
+a = generate_lookup(dim_size,5)
+b = generate_lookup_old(dim_size,5)
 print("5d match", np.allclose(a,b))
 
-a = generate_lookup(dim,6)
-b = generate_lookup_old(dim,6)
+a = generate_lookup(dim_size,6)
+b = generate_lookup_old(dim_size,6)
 print("6d match", np.allclose(a,b))
 
 # These functions, generate_lookup*, create the buffer index lookup arrays. 
