@@ -606,79 +606,86 @@ py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::
             // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
             std::vector<long> shell_atom_index_list{atom1,atom2};
 
-            // Find shell derivatives pack into indices
-            std::vector<std::vector<int>> shell_indices;
-            std::vector<int> tmp;
+            // New approach: get all indices, shell or nuclear, don't discriminate, then take all CWR of size DERIV ORDER
+            // Hold on... but overlap, kinetic for sure take both 2,5 and 5,2 for instance. So you'll need a new version of cwr, in dev/groups
+            // which doesnt care about dupes. Need to expand current Cwr in this file and /dev/ and 
+
+            // TODO TODO TODO
+            // Wait for mixed second derivatives don't you need to know what goes with what? naive combinations will not do this!!!
+            // You need to add to different subvectors of indices based on 
+            // So for deriv order = 2 we have indices = { {} {} } and if we match desired atom 1, put in first subvec
+            // and if we match desired atom 2, put in second subvec
+            // So here's this difference: BEFORE you were separating subvectors arbitrarily. Now you make one for each desired atom.
+            // The number of subvectors is equal to order diffy. Then take cartesian product of result 
+            // Nuclear indices
+
+            // Initialize 2d vector, with DERIV_ORDER subvectors
+            // Each subvector contains index candidates which are possible choices for each partial derivative operator
+            // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
+            // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
+            std::vector<std::vector<int>> indices; 
+            for (int i=0;i<deriv_order; i++){
+                std::vector<int> new_vec;
+                indices.push_back(new_vec);
+            }
+
+            // For every desired atom derivative, check shell and nuclear indices for a match, add it to subvector for that derivative
+            // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
             for (int j=0; j < desired_atom_indices.size(); j++){
                 int desired_atom_idx = desired_atom_indices[j];
-                // Find shell derivatives
-                // TODO ultimately, don't you just want this to also loop over  nuc_offset to nuc_offset + natom?
-                // NO because then cartesian product will find all triples
-                // You need a new function, which given (this batch) (this batch) and (this batch), select all combinations of size K
-                // Which is a generalization of combiations with repititions
-                // WAIT, cant you jsut collect (shell indices, nucelar indices) and then take all combinations of size DERIV_ORDER?
+                // Shell indices
                 for (int i=0; i<2; i++){
                     int atom_idx = shell_atom_index_list[i];
                     if (atom_idx == desired_atom_idx) { 
-                        tmp.push_back(3 * i + desired_coordinates[j]);
+                        int tmp = 3 * i + desired_coordinates[j];
+                        indices[j].push_back(tmp);
                     }
                 }
-                if (tmp.size() > 0) {
-                    shell_indices.push_back(tmp);
-                }
-                tmp.clear(); // wipe the temporary vector 
-            }
-            // Find nuclear derivatives, pack into indices TODO can combine these loops
-            std::vector<std::vector<int>> nuc_indices;
-            for (int j=0; j < desired_atom_indices.size(); j++){
-                int desired_atom_idx = desired_atom_indices[j];
-                for (int i=0; i< natom; i++){
+                // TODO weird action here by libint, theres a NCART block of zeros introduced between shell derivs and real NCART derivs
+                // So we compensate by starting from 2 + natom
+                // If this is ever changed, this needs to be edited.
+                //for (int i=2 + natom; i< 2 + 2 * natom; i++){
+                for (int i=0; i<natom; i++){
+                    // i = shell_atom_index_list[i];
                     if (i == desired_atom_idx) { 
-                        tmp.push_back(nuc_offset + 3 * i + desired_coordinates[j]);
+                        int offset_i = i + 2 + natom;
+                        int tmp = 3 * offset_i + desired_coordinates[j];
+                        indices[j].push_back(tmp);
                     }
                 }
-                if (tmp.size() > 0) {
-                    nuc_indices.push_back(tmp);
-                }
-                tmp.clear(); // wipe the temporary vector 
             }
 
-            // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
-            // and the total number of subvectors is the order of differentiation
-            // Now we want all combinations where we pick exactly one index from each subvector.
-            // This is achievable through a cartesian product 
-            std::vector<std::vector<int>> index_combos1 = cartesian_product(shell_indices);
-            std::vector<std::vector<int>> index_combos2 = cartesian_product(nuc_indices);
-            // TODO what about cross terms? We need now all nth derivatives involving both shells and nuclear parts... hmmmm
+            //printf("\n New indices format"); 
+            //for (int i = 0; i < indices.size(); i++) {
+            //  printf("\n"); 
+            //  for (int j = 0; j < indices[i].size(); j++) {
+            //    printf("%d ", indices[i][j]); 
+            //  }
+            //}
 
-            // Merge cartesian products vectors (GOLLY c++ is stupid)
-            std::vector<std::vector<int>> index_combos; 
-            for (int i=0; i < index_combos1.size(); i++){
-                if (index_combos1[i].size() != 0){ 
-                    index_combos.push_back(index_combos1[i]);
-                }
-            }   
-            for (int j=0; j < index_combos2.size(); j++) {
-                if (index_combos2[j].size() != 0){ 
-                    index_combos.push_back(index_combos2[j]);
-                }
-            } 
-            printf("Index combos size %ld", index_combos.size());
+            // Create index combos representing every mixed partial derivative operator which contributes to nuclear derivative
+            std::vector<std::vector<int>> index_combos = cartesian_product(indices);
 
-            printf("\n Merged cart product"); 
+            printf("\n Index combos from cartesian product"); 
             for (int i = 0; i < index_combos.size(); i++) {
               printf("\n"); 
               for (int j = 0; j < index_combos[i].size(); j++) {
                 printf("%d ", index_combos[i][j]); 
               }
             }
+            printf("\n"); 
 
-            // Now create buffer_indices from these index combos using lookup array
+            // Compute the integrals
+            v_engine.compute(obs[s1], obs[s2]); 
+            
+            // Loop over every subvector of index_combos and lookup buffer index.
+            // TODO is there a way to dynamically index different sized arrays? need to use conditionals for now
+
             std::vector<int> buffer_indices;
-            if (deriv_order == 1){ 
+            if (deriv_order == 1){
                 for (int i=0; i < index_combos.size(); i++){
-                  int idx1 = index_combos[i][0]; // this must be fine right?
-                  buffer_indices.push_back(buffer_index_lookup1[idx1]);
+                    int idx1 = index_combos[i][0];
+                    buffer_indices.push_back(buffer_index_lookup1[idx1]);
                 }
             }
             else if (deriv_order == 2){
@@ -689,10 +696,105 @@ py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::
                 }
             }
 
-            printf("\nBuffer indices \n"); 
-            for (int i = 0; i < buffer_indices.size(); i++) {
-                printf("%d ", buffer_indices[i]); 
+            // Loop over every buffer index and accumulate for every shell set.
+            for(auto i=0; i<buffer_indices.size(); ++i) {
+              auto ints_shellset = buf_vec[buffer_indices[i]]; 
+              //if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+              for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+                  result[(bf1 + f1) * nbf + bf2 + f2] += ints_shellset[idx]; 
+                }
+              }
             }
+
+            // Find shell derivatives pack into indices
+            //std::vector<std::vector<int>> shell_indices;
+            //std::vector<int> tmp;
+            //for (int j=0; j < desired_atom_indices.size(); j++){
+            //    int desired_atom_idx = desired_atom_indices[j];
+            //    // Find shell derivatives
+            //    // TODO ultimately, don't you just want this to also loop over  nuc_offset to nuc_offset + natom?
+            //    // NO because then cartesian product will find all triples
+            //    // You need a new function, which given (this batch) (this batch) and (this batch), select all combinations of size K
+            //    // Which is a generalization of combiations with repititions
+            //    // WAIT, cant you jsut collect (shell indices, nucelar indices) and then take all combinations of size DERIV_ORDER?
+            //    // 
+            //    for (int i=0; i<2; i++){
+            //        int atom_idx = shell_atom_index_list[i];
+            //        if (atom_idx == desired_atom_idx) { 
+            //            tmp.push_back(3 * i + desired_coordinates[j]);
+            //        }
+            //    }
+            //    if (tmp.size() > 0) {
+            //        shell_indices.push_back(tmp);
+            //    }
+            //    tmp.clear(); // wipe the temporary vector 
+            //}
+            //// Find nuclear derivatives, pack into indices TODO can combine these loops
+            //std::vector<std::vector<int>> nuc_indices;
+            //for (int j=0; j < desired_atom_indices.size(); j++){
+            //    int desired_atom_idx = desired_atom_indices[j];
+            //    for (int i=0; i < natom; i++){
+            //        if (i == desired_atom_idx) { 
+            //            tmp.push_back(nuc_offset + 3 * i + desired_coordinates[j]);
+            //        }
+            //    }
+            //    if (tmp.size() > 0) {
+            //        nuc_indices.push_back(tmp);
+            //    }
+            //    tmp.clear(); // wipe the temporary vector 
+            //}
+
+            //// Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+            //// and the total number of subvectors is the order of differentiation
+            //// Now we want all combinations where we pick exactly one index from each subvector.
+            //// This is achievable through a cartesian product 
+            //std::vector<std::vector<int>> index_combos1 = cartesian_product(shell_indices);
+            //std::vector<std::vector<int>> index_combos2 = cartesian_product(nuc_indices);
+            //// TODO what about cross terms? We need now all nth derivatives involving both shells and nuclear parts... hmmmm
+
+            //// Merge cartesian products vectors (GOLLY c++ is stupid)
+            //std::vector<std::vector<int>> index_combos; 
+            //for (int i=0; i < index_combos1.size(); i++){
+            //    if (index_combos1[i].size() != 0){ 
+            //        index_combos.push_back(index_combos1[i]);
+            //    }
+            //}   
+            //for (int j=0; j < index_combos2.size(); j++) {
+            //    if (index_combos2[j].size() != 0){ 
+            //        index_combos.push_back(index_combos2[j]);
+            //    }
+            //} 
+            //printf("Index combos size %ld", index_combos.size());
+
+            //printf("\n Merged cart product"); 
+            //for (int i = 0; i < index_combos.size(); i++) {
+            //  printf("\n"); 
+            //  for (int j = 0; j < index_combos[i].size(); j++) {
+            //    printf("%d ", index_combos[i][j]); 
+            //  }
+            //}
+
+            // Now create buffer_indices from these index combos using lookup array
+            //std::vector<int> buffer_indices;
+            //if (deriv_order == 1){ 
+            //    for (int i=0; i < index_combos.size(); i++){
+            //      int idx1 = index_combos[i][0]; // this must be fine right?
+            //      buffer_indices.push_back(buffer_index_lookup1[idx1]);
+            //    }
+            //}
+            //else if (deriv_order == 2){
+            //    for (int i=0; i < index_combos.size(); i++){
+            //        int idx1 = index_combos[i][0];
+            //        int idx2 = index_combos[i][1];
+            //        buffer_indices.push_back(buffer_index_lookup2[idx1][idx2]);
+            //    }
+            //}
+
+            //printf("\nBuffer indices \n"); 
+            //for (int i = 0; i < buffer_indices.size(); i++) {
+            //    printf("%d ", buffer_indices[i]); 
+            //}
 
             // For potential integrals, we compute all derivatives wrt the two shell centers have the 2 shell centers making 6 coordinates
             // and every single nuclear derivative. These components must be summed to obtain 
@@ -741,7 +843,7 @@ py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::
             //}
 
             // Compute integrals
-            v_engine.compute(obs[s1], obs[s2]); 
+            //v_engine.compute(obs[s1], obs[s2]); 
 
             //int tmp_idx = 0; 
             //for (int i = 0; i < desired_atom_indices.size(); i++){
@@ -813,15 +915,15 @@ py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::
 
 
             // Loop over every buffer index and accumulate for every shell set.
-            for(auto i=0; i<buffer_indices.size(); ++i) {
-              auto ints_shellset = buf_vec[buffer_indices[i]]; 
-              //if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
-              for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                for(auto f2=0; f2!=n2; ++f2, ++idx) {
-                  result[(bf1 + f1) * nbf + bf2 + f2] += ints_shellset[idx]; 
-                }
-              }
-            }
+            //for(auto i=0; i<buffer_indices.size(); ++i) {
+            //  auto ints_shellset = buf_vec[buffer_indices[i]]; 
+            //  //if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+            //  for(auto f1=0, idx=0; f1!=n1; ++f1) {
+            //    for(auto f2=0; f2!=n2; ++f2, ++idx) {
+            //      result[(bf1 + f1) * nbf + bf2 + f2] += ints_shellset[idx]; 
+            //    }
+            //  }
+            //}
         }
     }
     libint2::finalize();
