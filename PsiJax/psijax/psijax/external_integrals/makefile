@@ -1,5 +1,6 @@
 # NOTE: These paths below need to be edited such that they point to a set of 
 # Eigen headers, libint API headers libint2.h libint2.hpp, the rest of the libint2 headers, python headers, pybind11 headers, and the library location of libint2.a and libint2.so
+# Note this requires compiling LIBINT with shared libraries, i.e. the flag -DLIBINT2_BUILD_SHARED_AND_STATIC_LIBS=ON must be passed when compiling
 # These paths currently use a version of libint2, which only has up to 2 angular momentum and two orders of differentiation, but I remembered to compile oei derivs this time.
 CC      := g++
 INCL1   := /home/adabbott/anaconda3/envs/psijax/include/eigen3
