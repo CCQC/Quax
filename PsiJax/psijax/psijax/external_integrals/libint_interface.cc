@@ -7,6 +7,42 @@
 
 namespace py = pybind11;
 
+std::vector<libint2::Atom> atoms;
+libint2::BasisSet obs;
+int nbf;
+int natom;
+int ncart;
+std::vector<size_t> shell2bf;
+std::vector<long> shell2atom;
+
+// Creates atom objects from xyz file path
+std::vector<libint2::Atom> get_atoms(std::string xyzfilename) 
+{
+    std::ifstream input_file(xyzfilename);
+    std::vector<libint2::Atom> atoms = libint2::read_dotxyz(input_file);
+    return atoms;
+}
+
+// Must call initialize before computing ints 
+void initialize(std::string xyzfilename, std::string basis_name) {
+    libint2::initialize();
+    atoms = get_atoms(xyzfilename);
+    // Move harddrive load of basis and xyz to happen only once
+    obs = libint2::BasisSet(basis_name, atoms);
+    obs.set_pure(false); // use cartesian gaussians
+    // Get size of potential derivative array and allocate 
+    nbf = obs.nbf();
+    natom = atoms.size();
+    ncart = natom * 3;
+    shell2bf = obs.shell2bf(); // maps shell index to basis function index
+    shell2atom = obs.shell2atom(atoms); // maps shell index to atom index
+}
+
+void finalize() {
+    libint2::finalize();
+}
+
+// TODO re formulate all functions in terms of global var's
 // TODO get rid of cartesian gaussians
 // TODO test third, fourth derivs
 // TODO move static const buffer index lookups to global variable at top of file, give unique names for each integral type
@@ -145,28 +181,12 @@ void process_deriv_vec(std::vector<int> deriv_vec,
     }
 }
 
-// Creates atom objects from xyz file path
-std::vector<libint2::Atom> get_atoms(std::string xyzfilename) 
-{
-    std::ifstream input_file(xyzfilename);
-    std::vector<libint2::Atom> atoms = libint2::read_dotxyz(input_file);
-    return atoms;
-}
 
 // Compute overlap integrals
-py::array overlap(std::string xyzfilename, std::string basis_name) {
-    libint2::initialize();
-    // Load geometry and basis set
-    std::vector<libint2::Atom> atoms = get_atoms(xyzfilename);
-    libint2::BasisSet obs(basis_name, atoms);
-    obs.set_pure(false); // use cartesian gaussians
-
+py::array overlap() {
     // Overlap integral engine
     libint2::Engine s_engine(libint2::Operator::overlap,obs.max_nprim(),obs.max_l());
     const auto& buf_vec = s_engine.results(); // will point to computed shell sets
-
-    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
-    int nbf = obs.nbf();
     size_t length = nbf * nbf;
     std::vector<double> result(length); // vector to store integral array
 
@@ -189,24 +209,14 @@ py::array overlap(std::string xyzfilename, std::string basis_name) {
             }
         }
     }
-    libint2::finalize();
     return py::array(result.size(), result.data()); 
 }
 
 // Compute kinetic energy integrals
-py::array kinetic(std::string xyzfilename, std::string basis_name) {
-    libint2::initialize();
-    // Load geometry and basis set
-    std::vector<libint2::Atom> atoms = get_atoms(xyzfilename);
-    libint2::BasisSet obs(basis_name, atoms);
-    obs.set_pure(false); // use cartesian gaussians
-
+py::array kinetic() {
     // Kinetic energy integral engine
     libint2::Engine t_engine(libint2::Operator::kinetic,obs.max_nprim(),obs.max_l());
     const auto& buf_vec = t_engine.results(); // will point to computed shell sets
-
-    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
-    int nbf = obs.nbf();
     size_t length = nbf * nbf;
     std::vector<double> result(length);
 
@@ -229,25 +239,16 @@ py::array kinetic(std::string xyzfilename, std::string basis_name) {
             }
         }
     }
-    libint2::finalize();
     return py::array(result.size(), result.data());
 }
 
 // Compute nuclear-electron potential energy integrals
-py::array potential(std::string xyzfilename, std::string basis_name) {
-    libint2::initialize();
-    // Load geometry and basis set
-    std::vector<libint2::Atom> atoms = get_atoms(xyzfilename);
-    libint2::BasisSet obs(basis_name, atoms);
-    obs.set_pure(false); // use cartesian gaussians
-
+py::array potential() {
     // Potential integral engine
     libint2::Engine v_engine(libint2::Operator::nuclear,obs.max_nprim(),obs.max_l());
     v_engine.set_params(make_point_charges(atoms));
     const auto& buf_vec = v_engine.results(); // will point to computed shell sets
 
-    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
-    int nbf = obs.nbf();
     size_t length = nbf * nbf;
     std::vector<double> result(length);
     
@@ -271,27 +272,17 @@ py::array potential(std::string xyzfilename, std::string basis_name) {
             }
         }
     }
-    libint2::finalize();
     return py::array(result.size(), result.data());
 }
 
 // Computes electron repulsion integrals
-py::array eri(std::string xyzfilename, std::string basis_name) {
+py::array eri() {
     // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
-    libint2::initialize();
-
-    // Load basis set and geometry. TODO this assumes units are angstroms... 
-    std::vector<libint2::Atom> atoms = get_atoms(xyzfilename);
-    libint2::BasisSet obs(basis_name, atoms);
-    obs.set_pure(false); // use cartesian gaussians
-    int nbf = obs.nbf();
     libint2::Engine eri_engine(libint2::Operator::coulomb,obs.max_nprim(),obs.max_l());
+    const auto& buf_vec = eri_engine.results(); // will point to computed shell sets
 
     size_t length = nbf * nbf * nbf * nbf;
     std::vector<double> result(length);
-
-    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
-    const auto& buf_vec = eri_engine.results(); // will point to computed shell sets
     
     for(auto s1=0; s1!=obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];  // first basis function in first shell
@@ -327,18 +318,15 @@ py::array eri(std::string xyzfilename, std::string basis_name) {
             }
         }
     }
-    libint2::finalize();
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 }
 
 // Computes nuclear derivatives of overlap integrals
-py::array overlap_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
-    libint2::initialize();
+py::array overlap_deriv(std::vector<int> deriv_vec) {
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
     // Lookup arrays for mapping shell derivative index to buffer index 
-    //static const std::vector<int> buffer_index_lookup1 = {0,1,2,3,4,5};
     static const std::vector<int> buffer_index_lookup1 = generate_1d_lookup(6);
     static const std::vector<std::vector<int>> buffer_index_lookup2 = generate_2d_lookup(6); 
     // TODO add 3rd, 4th order
@@ -348,10 +336,6 @@ py::array overlap_deriv(std::string xyzfilename, std::string basis_name, std::ve
     std::vector<int> desired_coordinates;
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
-    // Load basis set and geometry.
-    std::vector<libint2::Atom> atoms = get_atoms(xyzfilename);
-    libint2::BasisSet obs(basis_name, atoms);
-    obs.set_pure(false); // use cartesian gaussians
     // Make sure number of atoms match size of deriv vec
     assert(3 * atoms.size() == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
 
@@ -359,12 +343,9 @@ py::array overlap_deriv(std::string xyzfilename, std::string basis_name, std::ve
     libint2::Engine s_engine(libint2::Operator::overlap,obs.max_nprim(),obs.max_l(),deriv_order);
 
     // Get size of overlap derivative array and allocate 
-    int nbf = obs.nbf();
     size_t length = nbf * nbf;
     std::vector<double> result(length);
 
-    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
-    const auto shell2atom = obs.shell2atom(atoms); // maps shell index to atom index
     const auto& buf_vec = s_engine.results(); // will point to computed shell sets
     
     for(auto s1=0; s1!=obs.size(); ++s1) {
@@ -424,13 +405,11 @@ py::array overlap_deriv(std::string xyzfilename, std::string basis_name, std::ve
             }
         }
     }
-    libint2::finalize();
     return py::array(result.size(), result.data()); 
 }
 
 // Computes nuclear derivatives of kinetic energy integrals
-py::array kinetic_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
-    libint2::initialize();
+py::array kinetic_deriv(std::vector<int> deriv_vec) {
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
@@ -444,23 +423,14 @@ py::array kinetic_deriv(std::string xyzfilename, std::string basis_name, std::ve
     std::vector<int> desired_coordinates;
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
-    // Load basis set and geometry.
-    std::vector<libint2::Atom> atoms = get_atoms(xyzfilename);
-    libint2::BasisSet obs(basis_name, atoms);
-    obs.set_pure(false); // use cartesian gaussians
     assert(3 * atoms.size() == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
 
     // Kinetic integral derivative engine
     libint2::Engine t_engine(libint2::Operator::kinetic,obs.max_nprim(),obs.max_l(),deriv_order);
     const auto& buf_vec = t_engine.results(); // will point to computed shell sets
 
-    // Get size of kinetic derivative array and allocate 
-    int nbf = obs.nbf();
     size_t length = nbf * nbf;
     std::vector<double> result(length);
-    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
-    const auto shell2atom = obs.shell2atom(atoms); // maps shell index to atom index
-
     
     for(auto s1=0; s1!=obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
@@ -519,20 +489,15 @@ py::array kinetic_deriv(std::string xyzfilename, std::string basis_name, std::ve
             }
         }
     }
-    libint2::finalize();
     return py::array(result.size(), result.data()); 
 }
 
 // Computes nuclear derivatives of potential energy integrals 
-py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
-    libint2::initialize();
+py::array potential_deriv(std::vector<int> deriv_vec) {
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
     // Load basis set and geometry.
-    std::vector<libint2::Atom> atoms = get_atoms(xyzfilename);
-    libint2::BasisSet obs(basis_name, atoms);
-    obs.set_pure(false); // use cartesian gaussians
     assert(3 * atoms.size() == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
 
     // Lookup arrays for mapping shell derivative index to buffer index 
@@ -553,17 +518,9 @@ py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::
     const auto& buf_vec = v_engine.results(); // will point to computed shell sets
 
     // Get size of potential derivative array and allocate 
-    int nbf = obs.nbf();
-    int natom = atoms.size();
-    int ncart = natom * 3;
     size_t length = nbf * nbf;
     std::vector<double> result(length);
-    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
-    const auto shell2atom = obs.shell2atom(atoms); // maps shell index to atom index
 
-    // Libint spits out nuclear derivatives at the end. Each axis is 6 shell derivs, then ncart dummy places, then ncart nuc derivs 
-    int nuc_offset = 6 + ncart;
-    
     for(auto s1=0; s1!=obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
         auto atom1 = shell2atom[s1]; // Atom index of shell 1
@@ -618,7 +575,6 @@ py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::
             v_engine.compute(obs[s1], obs[s2]); 
             
             // Loop over every subvector of index_combos and lookup buffer index.
-            // TODO is there a way to dynamically index different sized arrays? need to use conditionals for now
             std::vector<int> buffer_indices;
             if (deriv_order == 1){
                 for (int i=0; i < index_combos.size(); i++){
@@ -646,13 +602,11 @@ py::array potential_deriv(std::string xyzfilename, std::string basis_name, std::
             }
         }
     }
-    libint2::finalize();
     return py::array(result.size(), result.data()); 
 }
 
 // Computes nuclear derivatives of electron repulsion integrals
-py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector<int> deriv_vec) {
-    libint2::initialize();
+py::array eri_deriv(std::vector<int> deriv_vec) {
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
     assert(deriv_order <= 2);
     // Lookup arrays for mapping shell derivative index to buffer index 
@@ -665,21 +619,12 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
     std::vector<int> desired_coordinates;
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
-    // Load basis set and geometry.
-    std::vector<libint2::Atom> atoms = get_atoms(xyzfilename);
-    // Make sure the number of atoms match the size of deriv_vec
     assert(3 * atoms.size() == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
-
-    libint2::BasisSet obs(basis_name, atoms);
-    obs.set_pure(false); // use cartesian gaussians
 
     // ERI derivative integral engine
     libint2::Engine eri_engine(libint2::Operator::coulomb,obs.max_nprim(),obs.max_l(),deriv_order);
     const auto& buf_vec = eri_engine.results(); // will point to computed shell sets
 
-    auto shell2bf = obs.shell2bf(); // maps shell index to basis function index
-    const auto shell2atom = obs.shell2atom(atoms); // maps shell index to atom index
-    int nbf = obs.nbf();
     size_t length = nbf * nbf * nbf * nbf;
     std::vector<double> result(length);
 
@@ -782,7 +727,6 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
             }
         }
     }
-    libint2::finalize();
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 }
 
@@ -792,6 +736,8 @@ py::array eri_deriv(std::string xyzfilename, std::string basis_name, std::vector
 // bindings. the def() methods generates binding code that exposes new functions to Python.
 PYBIND11_MODULE(libint_interface, m) {
     m.doc() = "pybind11 libint interface to molecular integrals"; // optional module docstring
+    m.def("initialize", &initialize, "Initializes libint, builds geom and basis, assigns globals");
+    m.def("finalize", &finalize, "Kills libint");
     m.def("overlap", &overlap, "Computes overlap integrals with libint");
     m.def("kinetic", &kinetic, "Computes kinetic integrals with libint");
     m.def("potential", &potential, "Computes potential integrals with libint");
