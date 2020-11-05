@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <libint2.hpp>
 
+#include "buffer_lookups.h"
+
 namespace py = pybind11;
 
 std::vector<libint2::Atom> atoms;
@@ -14,6 +16,19 @@ int natom;
 int ncart;
 std::vector<size_t> shell2bf;
 std::vector<long> shell2atom;
+
+// ERI,overlap,kinetic buffer lookup arrays are always the same, create at compile time.
+// Potential buffer lookups have to be created at runtime since they are dependent on natoms
+// Total size of these is (12 + 12^2 + 12^3 + 12^4 + 6 + 6^2 + 6^3 + 6^4) * 2 bytes = 48 kB 
+// Note quintic, sextics will likely require long int
+static const std::vector<int> buffer_index_eri1d = generate_1d_lookup(12);
+static const std::vector<std::vector<int>> buffer_index_eri2d = generate_2d_lookup(12);
+static const std::vector<std::vector<std::vector<int>>> buffer_index_eri3d = generate_3d_lookup(12);
+static const std::vector<std::vector<std::vector<std::vector<int>>>> buffer_index_eri4d = generate_4d_lookup(12);
+static const std::vector<int> buffer_index_oei1d = generate_1d_lookup(6);
+static const std::vector<std::vector<int>> buffer_index_oei2d = generate_2d_lookup(6);
+static const std::vector<std::vector<std::vector<int>>> buffer_index_oei3d = generate_3d_lookup(6);
+static const std::vector<std::vector<std::vector<std::vector<int>>>> buffer_index_oei4d = generate_4d_lookup(6);
 
 // Creates atom objects from xyz file path
 std::vector<libint2::Atom> get_atoms(std::string xyzfilename) 
@@ -47,7 +62,10 @@ void finalize() {
 // TODO test third, fourth derivs
 // TODO move static const buffer index lookups to global variable at top of file, give unique names for each integral type
 // TODO consider changing overlap, kinetic deriv algos to cartesian product algo used by eri and potential derivs, for consistency
-// TODO anyway to get around the if derivorder==1 if derivorder==2 etc in every shell quartet loop? would be nice to have dynamic indices for buffer lookups
+// TODO parallelization with openmp?
+// TODO dedicated ERI_DERIV function for computing full ERI deriv tensor and saving to disk, and corresponding jax functions to access it.
+// This would work great for full derivative comps. Current implementation is great for partial derivatives.
+// TODO add check to see if atoms are in desired atoms, much faster!
 
 // Cartesian product of arbitrary number of vectors, given a vector of vectors
 // Used to find all possible combinations of indices which correspond to desired nuclear derivatives
@@ -79,91 +97,91 @@ std::vector<std::vector<int>> cartesian_product (const std::vector<std::vector<i
 // These arrays are always the same for finding the shell derivative mapping for overlap, kinetic, and ERI for a given derivative order. 
 // These are also used for nuclear derivatives of nuclear attraction integrals,
 // which vary in size dynamically due to the presence of additional nuclear derivatives 
-std::vector<int> generate_1d_lookup(int dim_size) { 
-    std::vector<int> lookup(dim_size, 0);
-    for (int i = 0; i < dim_size; i++){
-        lookup[i] = i; 
-    }
-    return lookup;
-}
-
-std::vector<std::vector<int>> generate_2d_lookup(int dim_size) { 
-    using namespace std;
-    vector<vector<int>> lookup(dim_size, vector<int> (dim_size, 0));
-    vector<vector<int>> combos; // always the same, list of lists
-
-    // Collect multidimensional indices corresponding to generalized upper triangle 
-    for (int i = 0; i < dim_size; i++) {
-      for (int j = i; j < dim_size; j++) {
-        vector<int> tmp = {i, j};
-        combos.push_back(tmp);
-      }
-    }
-    // Build lookup array and return
-    for (int i = 0; i < combos.size(); i++){
-        auto multi_idx = combos[i];
-        // Loop over all permutations, assign 1d buffer index to appropriate addresses in totally symmetric lookup array
-        do { 
-        lookup[multi_idx[0]][multi_idx[1]] = i; 
-        } 
-        while (next_permutation(multi_idx.begin(),multi_idx.end())); 
-    }
-    return lookup;
-}
-
-std::vector<std::vector<std::vector<int>>> generate_3d_lookup(int dim_size) { 
-    //TODO test this.
-    using namespace std;
-    vector<vector<vector<int>>> lookup(dim_size, vector<vector<int>>(dim_size, vector<int>(dim_size)));
-    vector<vector<int>> combos; // always the same, list of lists
-    // Collect multidimensional indices corresponding to generalized upper triangle 
-    for (int i = 0; i < dim_size; i++) {
-      for (int j = i; j < dim_size; j++) {
-        for (int k = j; k < dim_size; k++) {
-          vector<int> tmp = {i, j, k};
-          combos.push_back(tmp);
-        }
-      }
-    }
-    // Build lookup array and return
-    for (int i = 0; i < combos.size(); i++){
-        auto multi_idx = combos[i];
-        // Loop over all permutations, assign 1d buffer index to appropriate addresses in totally symmetric lookup array
-        do { 
-        lookup[multi_idx[0]][multi_idx[1]][multi_idx[2]] = i; 
-        } 
-        while (next_permutation(multi_idx.begin(),multi_idx.end())); 
-    }
-    return lookup;
-}
-
-std::vector<std::vector<std::vector<std::vector<int>>>> generate_4d_lookup(int dim_size) { 
-    //TODO test this.
-    using namespace std;
-    vector<vector<vector<vector<int>>>> lookup(dim_size, vector<vector<vector<int>>>(dim_size, vector<vector<int>>(dim_size, vector<int>(dim_size))));
-    vector<vector<int>> combos; // always the same, list of lists
-    // Collect multidimensional indices corresponding to generalized upper triangle 
-    for (int i = 0; i < dim_size; i++) {
-      for (int j = i; j < dim_size; j++) {
-        for (int k = j; k < dim_size; k++) {
-          for (int l = k; l < dim_size; l++) {
-            vector<int> tmp = {i, j, k, l};
-            combos.push_back(tmp);
-          }
-        }
-      }
-    }
-    // Build lookup array and return
-    for (int i = 0; i < combos.size(); i++){
-        auto multi_idx = combos[i];
-        // Loop over all permutations, assign 1d buffer index to appropriate addresses in totally symmetric lookup array
-        do { 
-        lookup[multi_idx[0]][multi_idx[1]][multi_idx[2]][multi_idx[3]] = i; 
-        } 
-        while (next_permutation(multi_idx.begin(),multi_idx.end())); 
-    }
-    return lookup;
-}
+//std::vector<int> generate_1d_lookup(int dim_size) { 
+//    std::vector<int> lookup(dim_size, 0);
+//    for (int i = 0; i < dim_size; i++){
+//        lookup[i] = i; 
+//    }
+//    return lookup;
+//}
+//
+//std::vector<std::vector<int>> generate_2d_lookup(int dim_size) { 
+//    using namespace std;
+//    vector<vector<int>> lookup(dim_size, vector<int> (dim_size, 0));
+//    vector<vector<int>> combos; // always the same, list of lists
+//
+//    // Collect multidimensional indices corresponding to generalized upper triangle 
+//    for (int i = 0; i < dim_size; i++) {
+//      for (int j = i; j < dim_size; j++) {
+//        vector<int> tmp = {i, j};
+//        combos.push_back(tmp);
+//      }
+//    }
+//    // Build lookup array and return
+//    for (int i = 0; i < combos.size(); i++){
+//        auto multi_idx = combos[i];
+//        // Loop over all permutations, assign 1d buffer index to appropriate addresses in totally symmetric lookup array
+//        do { 
+//        lookup[multi_idx[0]][multi_idx[1]] = i; 
+//        } 
+//        while (next_permutation(multi_idx.begin(),multi_idx.end())); 
+//    }
+//    return lookup;
+//}
+//
+//std::vector<std::vector<std::vector<int>>> generate_3d_lookup(int dim_size) { 
+//    //TODO test this.
+//    using namespace std;
+//    vector<vector<vector<int>>> lookup(dim_size, vector<vector<int>>(dim_size, vector<int>(dim_size)));
+//    vector<vector<int>> combos; // always the same, list of lists
+//    // Collect multidimensional indices corresponding to generalized upper triangle 
+//    for (int i = 0; i < dim_size; i++) {
+//      for (int j = i; j < dim_size; j++) {
+//        for (int k = j; k < dim_size; k++) {
+//          vector<int> tmp = {i, j, k};
+//          combos.push_back(tmp);
+//        }
+//      }
+//    }
+//    // Build lookup array and return
+//    for (int i = 0; i < combos.size(); i++){
+//        auto multi_idx = combos[i];
+//        // Loop over all permutations, assign 1d buffer index to appropriate addresses in totally symmetric lookup array
+//        do { 
+//        lookup[multi_idx[0]][multi_idx[1]][multi_idx[2]] = i; 
+//        } 
+//        while (next_permutation(multi_idx.begin(),multi_idx.end())); 
+//    }
+//    return lookup;
+//}
+//
+//std::vector<std::vector<std::vector<std::vector<int>>>> generate_4d_lookup(int dim_size) { 
+//    //TODO test this.
+//    using namespace std;
+//    vector<vector<vector<vector<int>>>> lookup(dim_size, vector<vector<vector<int>>>(dim_size, vector<vector<int>>(dim_size, vector<int>(dim_size))));
+//    vector<vector<int>> combos; // always the same, list of lists
+//    // Collect multidimensional indices corresponding to generalized upper triangle 
+//    for (int i = 0; i < dim_size; i++) {
+//      for (int j = i; j < dim_size; j++) {
+//        for (int k = j; k < dim_size; k++) {
+//          for (int l = k; l < dim_size; l++) {
+//            vector<int> tmp = {i, j, k, l};
+//            combos.push_back(tmp);
+//          }
+//        }
+//      }
+//    }
+//    // Build lookup array and return
+//    for (int i = 0; i < combos.size(); i++){
+//        auto multi_idx = combos[i];
+//        // Loop over all permutations, assign 1d buffer index to appropriate addresses in totally symmetric lookup array
+//        do { 
+//        lookup[multi_idx[0]][multi_idx[1]][multi_idx[2]][multi_idx[3]] = i; 
+//        } 
+//        while (next_permutation(multi_idx.begin(),multi_idx.end())); 
+//    }
+//    return lookup;
+//}
 
 // Converts a derivative vector (3*Natom array of integers defining which coordinates to 
 // differentiate wrt and how many times) to a set of atom indices and coordinate indices 0,1,2->x,y,z
@@ -327,8 +345,8 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
     // Lookup arrays for mapping shell derivative index to buffer index 
-    static const std::vector<int> buffer_index_lookup1 = generate_1d_lookup(6);
-    static const std::vector<std::vector<int>> buffer_index_lookup2 = generate_2d_lookup(6); 
+    static const std::vector<int> buffer_index_oei1d = generate_1d_lookup(6);
+    static const std::vector<std::vector<int>> buffer_index_oei2d = generate_2d_lookup(6); 
     // TODO add 3rd, 4th order
 
     // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
@@ -387,10 +405,10 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
             // We know how to do this since libint tells us what order they come in. The lookup arrays above map the multidim index to the buffer idx
             int buffer_idx;
             if (deriv_order == 1) { 
-                buffer_idx = buffer_index_lookup1[shell_derivative[0]];
+                buffer_idx = buffer_index_oei1d[shell_derivative[0]];
             }
             else if (deriv_order == 2) { 
-                buffer_idx = buffer_index_lookup2[shell_derivative[0]][shell_derivative[1]];
+                buffer_idx = buffer_index_oei2d[shell_derivative[0]][shell_derivative[1]];
             }
 
             auto ints_shellset = buf_vec[buffer_idx]; // Location of the computed integrals
@@ -414,8 +432,8 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
     // Lookup arrays for mapping shell derivative index to buffer index 
-    static const std::vector<int> buffer_index_lookup1 = {0,1,2,3,4,5};
-    static const std::vector<std::vector<int>> buffer_index_lookup2 = generate_2d_lookup(6); 
+    static const std::vector<int> buffer_index_oei1d = {0,1,2,3,4,5};
+    static const std::vector<std::vector<int>> buffer_index_oei2d = generate_2d_lookup(6); 
     // TODO add 3rd, 4th order
 
     // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
@@ -471,10 +489,10 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
             // We know how to do this since libint tells us what order they come in. The lookup arrays above map the multidim index to the buffer idx
             int buffer_idx;
             if (deriv_order == 1) { 
-                buffer_idx = buffer_index_lookup1[shell_derivative[0]];
+                buffer_idx = buffer_index_oei1d[shell_derivative[0]];
             }
             else if (deriv_order == 2) { 
-                buffer_idx = buffer_index_lookup2[shell_derivative[0]][shell_derivative[1]];
+                buffer_idx = buffer_index_oei2d[shell_derivative[0]][shell_derivative[1]];
             }
 
             auto ints_shellset = buf_vec[buffer_idx]; // Location of the computed integrals
@@ -611,8 +629,8 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
     assert(deriv_order <= 2);
     // Lookup arrays for mapping shell derivative index to buffer index 
     // static const std::vector<int> buffer_index_lookup1 = {0,1,2,3,4,5,6,7,8,9,10,11};
-    static const std::vector<int> buffer_index_lookup1 = generate_1d_lookup(12);
-    static const std::vector<std::vector<int>> buffer_index_lookup2 = generate_2d_lookup(12);
+    //static const std::vector<int> buffer_index_eri1d = generate_1d_lookup(12);
+    //static const std::vector<std::vector<int>> buffer_index_eri2d = generate_2d_lookup(12);
 
     // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
     std::vector<int> desired_atom_indices;
@@ -624,7 +642,6 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
     // ERI derivative integral engine
     libint2::Engine eri_engine(libint2::Operator::coulomb,obs.max_nprim(),obs.max_l(),deriv_order);
     const auto& buf_vec = eri_engine.results(); // will point to computed shell sets
-
     size_t length = nbf * nbf * nbf * nbf;
     std::vector<double> result(length);
 
@@ -647,6 +664,16 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
 
                     // If the atoms are the same we ignore it as the derivatives will be zero.
                     if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                    // Ensure all desired_atoms correspond to at least one shell atom to ensure desired derivative exists. else, skip this shell quartet.
+                    bool atoms_not_present = false;
+                    for (int i=0; i < deriv_order; i++){
+                        if (atom1 == desired_atom_indices[i]) continue; 
+                        else if (atom2 == desired_atom_indices[i]) continue;
+                        else if (atom3 == desired_atom_indices[i]) continue;
+                        else if (atom4 == desired_atom_indices[i]) continue;
+                        else {atoms_not_present = true; break;}
+                    }
+                    if (atoms_not_present) continue;
 
                     // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
                     std::vector<long> shell_atom_index_list{atom1,atom2,atom3,atom4};
@@ -661,7 +688,7 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
                         indices.push_back(new_vec);
                     }
                 
-                    // For every desired atom derivative, check shell and nuclear indices for a match, add it to subvector for that derivative
+                    // For every desired atom derivative, check shell indices for a match, add it to subvector for that derivative
                     // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
                     for (int j=0; j < desired_atom_indices.size(); j++){
                         int desired_atom_idx = desired_atom_indices[j];
@@ -674,13 +701,6 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
                             }
                         }
                     }
-                    // If one of the derivative operators cannot be satisfied by any of the shell's centers, 
-                    // derivative is 0. skip this shell quartet.
-                    bool check = false;
-                    for (int i=0;i<deriv_order; i++){
-                        if (indices[i].size() == 0) check = true;
-                    }
-                    if (check) continue;
                     
                     // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
                     // and the total number of subvectors is the order of differentiation
@@ -693,14 +713,31 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
                     if (deriv_order == 1){ 
                         for (int i=0; i < index_combos.size(); i++){
                             int idx1 = index_combos[i][0];
-                            buffer_indices.push_back(buffer_index_lookup1[idx1]);
+                            buffer_indices.push_back(buffer_index_eri1d[idx1]);
                         }
                     }
                     else if (deriv_order == 2){ 
                         for (int i=0; i < index_combos.size(); i++){
                             int idx1 = index_combos[i][0];
                             int idx2 = index_combos[i][1];
-                            buffer_indices.push_back(buffer_index_lookup2[idx1][idx2]);
+                            buffer_indices.push_back(buffer_index_eri2d[idx1][idx2]);
+                        }
+                    }
+                    else if (deriv_order == 3){ 
+                        for (int i=0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            int idx3 = index_combos[i][2];
+                            buffer_indices.push_back(buffer_index_eri3d[idx1][idx2][idx3]);
+                        }
+                    }
+                    else if (deriv_order == 4){ 
+                        for (int i=0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            int idx3 = index_combos[i][2];
+                            int idx4 = index_combos[i][3];
+                            buffer_indices.push_back(buffer_index_eri3d[idx1][idx2][idx3][idx4]);
                         }
                     }
 
@@ -727,6 +764,7 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
             }
         }
     }
+    // This is not the bottleneck
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 }
 
