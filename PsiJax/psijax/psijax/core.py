@@ -6,11 +6,12 @@ config.enable_omnistaging()
 import jax.numpy as np
 import psi4
 import numpy as onp
+import os
 
 from .integrals.basis_utils import build_basis_set
 from .methods.energy_utils import nuclear_repulsion, cholesky_orthogonalization
 from .methods.hartree_fock import restricted_hartree_fock
-from .methods.mp2 import restricted_mp2, restricted_mp2_lowmem
+from .methods.mp2 import restricted_mp2
 from .methods.ccsd import rccsd
 from .methods.ccsd_t import rccsd_t
 
@@ -49,35 +50,39 @@ def energy(molecule, basis_name, method='scf'):
         A string representing a quantum chemistry method supported in PsiJax
         method = 'scf', method = 'mp2', method = 'ccd'
 
-
     Returns
     -------
     The electronic energy in a.u.
     """
-    geom = np.asarray(onp.asarray(molecule.geometry()))
+    geom2d = onp.asarray(molecule.geometry())
+    geom = np.asarray(geom2d.flatten())
+    xyz_file_name = "geom.xyz"
+    # Save xyz file, get path
+    molecule.save_xyz_file(xyz_file_name, True)
+    xyz_path = os.path.abspath(os.getcwd()) + "/" + xyz_file_name
     mult = molecule.multiplicity()
     charge = molecule.molecular_charge()
-    nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
-    basis_dict = build_basis_set(molecule, basis_name)
+    nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom2d.shape[0])])
+    #basis_dict = build_basis_set(molecule, basis_name)
     # TODO when integrals are exported, switch to mints args, flatten geometry
     # also adjust arguments of energy, gradient, partial gradient functions
     #basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
     #mints = psi4.core.MintsHelper(basis_set)
 
     if method == 'scf' or method == 'hf' or method == 'rhf':
-        E_scf = restricted_hartree_fock(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)  
+        E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)  
         return E_scf
 
     if method == 'mp2':
-        E_mp2 = restricted_mp2(geom, basis_dict, nuclear_charges, charge)
+        E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
         return E_mp2
 
     if method == 'ccsd':
-        E_ccsd = rccsd(geom, basis_dict, nuclear_charges, charge) 
+        E_ccsd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge) 
         return E_ccsd
 
     if method == 'ccsd(t)':
-        E_ccsd_t = rccsd_t(geom, basis_dict, nuclear_charges, charge) 
+        E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge) 
         return E_ccsd_t
 
 def derivative(molecule, basis_name, method, order=1):
@@ -88,11 +93,17 @@ def derivative(molecule, basis_name, method, order=1):
     For gradients, choose order=1, hessian order=2, cubic derivative tensor order=3, quartic order = 4.
     Anything higher order derivatives should use the partial derivative utility.
     """
-    geom = np.asarray(onp.asarray(molecule.geometry()))
+    #geom = np.asarray(onp.asarray(molecule.geometry()))
+    geom2d = onp.asarray(molecule.geometry())
+    geom = np.asarray(geom2d.flatten())
     mult = molecule.multiplicity()
     charge = molecule.molecular_charge()
-    nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
-    basis_dict = build_basis_set(molecule, basis_name)
+    nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom2d.shape[0])])
+    xyz_file_name = "geom.xyz"
+    # Save xyz file, get path
+    molecule.save_xyz_file(xyz_file_name, True)
+    xyz_path = os.path.abspath(os.getcwd()) + "/" + xyz_file_name
+    #basis_dict = build_basis_set(molecule, basis_name)
     dim = geom.reshape(-1).shape[0]
     #TODO TODO TODO: support internal coordinate wrapper function.
     # This will take in internal coordinates, transform them into cartesians, and then compute integrals, energy
@@ -100,58 +111,58 @@ def derivative(molecule, basis_name, method, order=1):
 
     if method == 'scf' or method == 'hf' or method == 'rhf':
         if order == 1:
-            grad = jacfwd(restricted_hartree_fock, 0)(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
+            grad = jacfwd(restricted_hartree_fock, 0)(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
             return np.round(grad, 10)
         if order == 2:
-            hess = jacfwd(jacfwd(restricted_hartree_fock, 0))(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
+            hess = jacfwd(jacfwd(restricted_hartree_fock, 0))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
             return np.round(hess.reshape(dim,dim), 10)
         if order == 3:
-            cubic = jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0)))(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
+            cubic = jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
             return np.round(cubic.reshape(dim,dim,dim), 10)
         if order == 4:
-            quartic = jacfwd(jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0))))(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
+            quartic = jacfwd(jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
             return np.round(quartic.reshape(dim,dim,dim,dim), 10)
 
     if method =='mp2':
         if order == 1:
-            grad = jacfwd(restricted_mp2, 0)(geom, basis_dict, nuclear_charges, charge)
+            grad = jacfwd(restricted_mp2, 0)(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(grad, 10)
         if order == 2:
-            hess = jacfwd(jacfwd(restricted_mp2, 0))(geom, basis_dict, nuclear_charges, charge)
+            hess = jacfwd(jacfwd(restricted_mp2, 0))(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(hess.reshape(dim,dim), 10)
         if order == 3:
-            cubic = jacfwd(jacfwd(jacfwd(restricted_mp2, 0)))(geom, basis_dict, nuclear_charges, charge)
+            cubic = jacfwd(jacfwd(jacfwd(restricted_mp2, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(cubic.reshape(dim,dim,dim), 10)
         if order == 4:
-            quartic = jacfwd(jacfwd(jacfwd(jacfwd(restricted_mp2, 0))))(geom, basis_dict, nuclear_charges, charge)
+            quartic = jacfwd(jacfwd(jacfwd(jacfwd(restricted_mp2, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(quartic.reshape(dim,dim,dim,dim), 10)
 
     if method =='ccsd':
         if order == 1:
-            grad = jacfwd(rccsd, 0)(geom, basis_dict, nuclear_charges, charge)
+            grad = jacfwd(rccsd, 0)(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(grad, 10)
         if order == 2:
-            hess = jacfwd(jacfwd(rccsd, 0))(geom, basis_dict, nuclear_charges, charge)
+            hess = jacfwd(jacfwd(rccsd, 0))(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(hess.reshape(dim,dim), 10)
         if order == 3:
-            cubic = jacfwd(jacfwd(jacfwd(rccsd, 0)))(geom, basis_dict, nuclear_charges, charge)
+            cubic = jacfwd(jacfwd(jacfwd(rccsd, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(cubic.reshape(dim,dim,dim), 10)
         if order == 4:
-            quartic = jacfwd(jacfwd(jacfwd(jacfwd(rccsd, 0))))(geom, basis_dict, nuclear_charges, charge)
+            quartic = jacfwd(jacfwd(jacfwd(jacfwd(rccsd, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(quartic.reshape(dim,dim,dim,dim), 10)
 
     if method =='ccsd(t)':
         if order == 1:
-            grad = jacfwd(rccsd_t, 0)(geom, basis_dict, nuclear_charges, charge)
+            grad = jacfwd(rccsd_t, 0)(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(grad, 10)
         if order == 2:
-            hess = jacfwd(jacfwd(rccsd_t, 0))(geom, basis_dict, nuclear_charges, charge)
+            hess = jacfwd(jacfwd(rccsd_t, 0))(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(hess.reshape(dim,dim), 10)
         if order == 3:
-            cubic = jacfwd(jacfwd(jacfwd(rccsd_t, 0)))(geom, basis_dict, nuclear_charges, charge)
+            cubic = jacfwd(jacfwd(jacfwd(rccsd_t, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(cubic.reshape(dim,dim,dim), 10)
         if order == 4:
-            quartic = jacfwd(jacfwd(jacfwd(jacfwd(rccsd_t, 0))))(geom, basis_dict, nuclear_charges, charge)
+            quartic = jacfwd(jacfwd(jacfwd(jacfwd(rccsd_t, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge)
             return np.round(quartic.reshape(dim,dim,dim,dim), 10)
     return 0
 
@@ -217,7 +228,14 @@ def partial_derivative(molecule, basis_name, method, order, address):
     mult = molecule.multiplicity()
     charge = molecule.molecular_charge()
     nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
-    basis_dict = build_basis_set(molecule, basis_name)
+
+    # Save xyz file, get path
+    xyz_file_name = "geom.xyz"
+    molecule.save_xyz_file(xyz_file_name, True)
+    xyz_path = os.path.abspath(os.getcwd()) + "/" + xyz_file_name
+
+    #basis_dict = build_basis_set(molecule, basis_name
+    kwargs = {"basis_name":basis_name,"xyz_path":xyz_path, "nuclear_charges":nuclear_charges, "charge":charge}
 
     #TODO TODO TODO: support internal coordinate wrapper function.
     # This will take in internal coordinates, transform them into cartesians, and then compute integrals, energy
@@ -226,37 +244,39 @@ def partial_derivative(molecule, basis_name, method, order, address):
     if method == 'scf' or method == 'hf' or method == 'rhf':
         # Unpack the geometry as a list of single coordinates so we can differentiate w.r.t. single coords
         def scf_partial_wrapper(*args, **kwargs):
-            geom = np.asarray(args).reshape(-1,3)
-            basis_dict = kwargs['basis_dict']
+            geom = np.asarray(args)
+            #basis_dict = kwargs['basis_dict']
+            basis_name = kwargs['basis_name']
+            xyz_path = kwargs['xyz_path']
             nuclear_charges = kwargs['nuclear_charges']
             charge = kwargs['charge']
-            E_scf = restricted_hartree_fock(geom, basis_dict, nuclear_charges, charge, return_aux_data=False)
+            E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
             return E_scf
 
         if order == 1:
             i = address[0]
-            partial_grad = jacfwd(scf_partial_wrapper, i)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_grad = jacfwd(scf_partial_wrapper, i)(*geom_list, **kwargs)
             return partial_grad
         if order == 2:
             i,j = address[0], address[1]
-            partial_hess = jacfwd(jacfwd(scf_partial_wrapper, i), j)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_hess = jacfwd(jacfwd(scf_partial_wrapper, i), j)(*geom_list, **kwargs)
             return partial_hess
         if order == 3:
             i,j,k = address[0], address[1], address[2]
-            partial_cubic = jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_cubic = jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k)(*geom_list, **kwargs)
             return partial_cubic
         if order == 4:
             i,j,k,l = address[0], address[1], address[2], address[3]
-            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
             return partial_quartic
-        if order == 5:
-            i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
-            partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
-            return partial_quintic
-        if order == 6:
-            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
-            partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m), n)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
-            return partial_sextic
+        #if order == 5:
+        #    i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
+        #    partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
+        #    return partial_quintic
+        #if order == 6:
+        #    i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+        #    partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
+        #    return partial_sextic
         else:
             print("Error: Order {} partial derivatives are not implemented nor recommended for Hartree-Fock.".format(order))
             return 0
@@ -264,106 +284,111 @@ def partial_derivative(molecule, basis_name, method, order, address):
     if method =='mp2':
         # Unpack the geometry as a list of single coordinates so we can differentiate w.r.t. single coords
         def mp2_partial_wrapper(*args, **kwargs):
-            geom = np.asarray(args).reshape(-1,3)
-            basis_dict = kwargs['basis_dict']
+            geom = np.asarray(args)
+            #basis_dict = kwargs['basis_dict']
+            basis_name = kwargs['basis_name']
+            xyz_path = kwargs['xyz_path']
             nuclear_charges = kwargs['nuclear_charges']
             charge = kwargs['charge']
-            E_mp2 = restricted_mp2(geom, basis_dict, nuclear_charges, charge)
+            E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
             return E_mp2
         if order == 1:
             i = address[0]
-            partial_grad = jacfwd(mp2_partial_wrapper, i)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_grad = jacfwd(mp2_partial_wrapper, i)(*geom_list, **kwargs)
             return partial_grad
         if order == 2:
             i,j = address[0], address[1]
-            partial_hess = jacfwd(jacfwd(mp2_partial_wrapper, i), j)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_hess = jacfwd(jacfwd(mp2_partial_wrapper, i), j)(*geom_list, **kwargs)
             return partial_hess
         if order == 3:
             i,j,k = address[0], address[1], address[2]
-            partial_cubic = jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_cubic = jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k)(*geom_list, **kwargs)
             return partial_cubic
         if order == 4:
             i,j,k,l = address[0], address[1], address[2], address[3]
-            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
             return partial_quartic
-        if order == 5:
-            i,j,k,l,m = address[0], address[1], address[2], address[3],address[4]
-            partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l),m)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
-            return partial_quintic
-        if order == 6:
-            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
-            partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l), m), n)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
-            return partial_sextic
+        #if order == 5:
+        #    i,j,k,l,m = address[0], address[1], address[2], address[3],address[4]
+        #    partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l),m)(*geom_list, **kwargs)
+        #    return partial_quintic
+        #if order == 6:
+        #    i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+        #    partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
+        #    return partial_sextic
         else:
             print("Error: Order {} partial derivatives are not implemented nor recommended for MP2.".format(order))
 
     if method =='ccsd':
         def ccsd_partial_wrapper(*args, **kwargs):
-            geom = np.asarray(args).reshape(-1,3)
-            basis_dict = kwargs['basis_dict']
+            geom = np.asarray(args)
+            #basis_dict = kwargs['basis_dict']
+            basis_name = kwargs['basis_name']
+            xyz_path = kwargs['xyz_path']
             nuclear_charges = kwargs['nuclear_charges']
             charge = kwargs['charge']
-            E_ccsd = rccsd(geom, basis_dict, nuclear_charges, charge)
+            E_ccsd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge)
             return E_ccsd
         if order == 1:
             i = address[0]
-            partial_grad = jacfwd(ccsd_partial_wrapper, i)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_grad = jacfwd(ccsd_partial_wrapper, i)(*geom_list, **kwargs)
             return partial_grad
         if order == 2:
             i,j = address[0], address[1]
-            partial_hess = jacfwd(jacfwd(ccsd_partial_wrapper, i), j)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_hess = jacfwd(jacfwd(ccsd_partial_wrapper, i), j)(*geom_list, **kwargs)
             return partial_hess
         if order == 3:
             i,j,k = address[0], address[1], address[2]
-            partial_cubic = jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_cubic = jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k)(*geom_list, **kwargs)
             return partial_cubic
         if order == 4:
             i,j,k,l = address[0], address[1], address[2], address[3]
-            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
             return partial_quartic
-        if order == 5:
-            i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
-            partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l), m)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
-            return partial_quintic
-        if order == 6:
-            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
-            partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l), m), n)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
-            return partial_sextic
+        #if order == 5:
+        #    i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
+        #    partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
+        #    return partial_quintic
+        #if order == 6:
+        #    i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+        #    partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
+        #    return partial_sextic
         else:
             print("Error: Order {} partial derivatives are not implemented nor recommended for CCSD.".format(order))
 
     if method =='ccsd(t)':
         def ccsd_t_partial_wrapper(*args, **kwargs):
-            geom = np.asarray(args).reshape(-1,3)
-            basis_dict = kwargs['basis_dict']
+            geom = np.asarray(args)
+            basis_name = kwargs['basis_name']
+            xyz_path = kwargs['xyz_path']
             nuclear_charges = kwargs['nuclear_charges']
             charge = kwargs['charge']
-            E_ccsd_t = rccsd_t(geom, basis_dict, nuclear_charges, charge)
+            E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge)
             return E_ccsd_t
         if order == 1:
             i = address[0]
-            partial_grad = jacfwd(ccsd_t_partial_wrapper, i)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_grad = jacfwd(ccsd_t_partial_wrapper, i)(*geom_list, **kwargs)
             return partial_grad
         if order == 2:
             i,j = address[0], address[1]
-            partial_hess = jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_hess = jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j)(*geom_list, **kwargs)
             return partial_hess
         if order == 3:
             i,j,k = address[0], address[1], address[2]
-            partial_cubic = jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_cubic = jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k)(*geom_list, **kwargs)
             return partial_cubic
         if order == 4:
             i,j,k,l = address[0], address[1], address[2], address[3]
-            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
+            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
             return partial_quartic
-        if order == 5:
-            i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
-            partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l), m)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
-            return partial_quintic
-        if order == 6:
-            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
-            partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l), m), n)(*geom_list, basis_dict=basis_dict, nuclear_charges=nuclear_charges, charge=charge)
-            return partial_sextic
+        #if order == 5:
+        #    i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
+        #    partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
+        #    return partial_quintic
+        #if order == 6:
+        #    i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+        #    partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs) 
+        #    return partial_sextic
         else:
             print("Error: Order {} partial derivatives are not implemented nor recommended for CCSD(T).".format(order))
 
