@@ -57,15 +57,11 @@ void finalize() {
     libint2::finalize();
 }
 
-// TODO re formulate all functions in terms of global var's
 // TODO get rid of cartesian gaussians
 // TODO test third, fourth derivs
-// TODO move static const buffer index lookups to global variable at top of file, give unique names for each integral type
-// TODO consider changing overlap, kinetic deriv algos to cartesian product algo used by eri and potential derivs, for consistency
 // TODO parallelization with openmp?
 // TODO dedicated ERI_DERIV function for computing full ERI deriv tensor and saving to disk, and corresponding jax functions to access it.
 // This would work great for full derivative comps. Current implementation is great for partial derivatives.
-// TODO add check to see if atoms are in desired atoms, much faster!
 
 // Cartesian product of arbitrary number of vectors, given a vector of vectors
 // Used to find all possible combinations of indices which correspond to desired nuclear derivatives
