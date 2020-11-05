@@ -2,16 +2,17 @@ import jax
 from jax.config import config; config.update("jax_enable_x64", True)
 config.enable_omnistaging()
 import jax.numpy as np
-import psi4
 import numpy as onp
-import time
-np.set_printoptions(linewidth=500)
 
-from ..integrals import tei
+#from ..integrals import tei
+#from ..integrals import oei 
+from ..external_integrals import overlap
+from ..external_integrals import kinetic
+from ..external_integrals import potential
+from ..external_integrals import tei
+from ..external_integrals import libint_initialize
+from ..external_integrals import libint_finalize
 
-from ..external_integrals import external_tei
-from ..external_integrals import external_oei
-from ..integrals import oei 
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 from functools import partial
 
@@ -25,17 +26,17 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     #G = tei.tei_array(geom,basis_dict)
 
     # Use Libint2 directly
-    external_oei.libint_init(xyz_path, basis_name)
-    S = external_oei.psi_overlap(geom)
-    T = external_oei.psi_kinetic(geom) 
-    V = external_oei.psi_potential(geom) 
-    G = external_tei.psi_tei(geom)
-    external_oei.libint_finalize()
+    libint_initialize(xyz_path, basis_name)
+    S = overlap(geom)
+    T = kinetic(geom) 
+    V = potential(geom) 
+    G = tei(geom)
+    libint_finalize()
 
     # Canonical orthogonalization via cholesky decomposition
     A = cholesky_orthogonalization(S)
 
-    # For slightly shifting eigenspectrum of Fp for degenerate eigenvalues 
+    # For slightly shifting eigenspectrum of transformed Fock for degenerate eigenvalues 
     # (JAX cannot differentiate degenerate eigenvalue eigh) 
     seed = jax.random.PRNGKey(0)
     epsilon = 1e-9
@@ -65,8 +66,8 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     E_scf = 1.0
     E_old = 0.0
     #TODO make epsilon fudge factor relate to energy convergence criteria.
-    # Not sure how, but they should probably depend on each other. 
-    # TODO maybe noise could be reduced if you subsequently add and subtract fudge factor
+    #Not sure how, but they should probably depend on each other. 
+    #TODO maybe noise could be reduced if you subsequently add and subtract fudge factor
     while abs(E_scf - E_old) > 1e-12:
         E_old = E_scf * 1
         E_scf, D, C, eps = rhf_iter(H,A,G,D,Enuc)

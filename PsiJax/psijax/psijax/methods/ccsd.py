@@ -9,9 +9,9 @@ import numpy as onp
 from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation
 from .hartree_fock import restricted_hartree_fock
 
-def rccsd(geom, basis, mints, nuclear_charges, charge, return_aux_data=False):
+def rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False):
     # Do HF
-    E_scf, C, eps, V = restricted_hartree_fock(geom, basis, mints, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
 
     nelectrons = int(np.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
