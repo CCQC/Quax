@@ -19,7 +19,7 @@ def restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge):
     e_denom = 1 / (eps_occ.reshape(-1, 1, 1, 1) - eps_vir.reshape(-1, 1, 1) + eps_occ.reshape(-1, 1) - eps_vir)
 
     # MO basis integrals
-    G = partial_tei_transformation(G, C[:,ndocc:], C[:,:ndocc], C[:,ndocc:], C[:,:ndocc])
+    G = partial_tei_transformation(G, C[:,:ndocc], C[:,ndocc:], C[:,:ndocc], C[:,ndocc:])
 
     mp2_correlation = np.einsum('iajb,iajb,iajb->', G, G, e_denom) +\
                       np.einsum('iajb,iajb,iajb->', G - np.transpose(G, (0,3,2,1)), G, e_denom)
