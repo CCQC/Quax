@@ -9,10 +9,6 @@ from jax.experimental import loops
 from ..integrals.integrals_utils import boys, binomial_prefactor, gaussian_product, boys, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
 from ..integrals.basis_utils import flatten_basis_data, get_nbf
 
-#from integrals_utils import boys, binomial_prefactor, gaussian_product, boys, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
-#from basis_utils import flatten_basis_data, get_nbf
-
-
 def A_array(l1,l2,PA,PB,CP,g,A_vals):
     with loops.Scope() as s:
       # Hard code only up to f functions (fxxx | fxxx) => l1 + l2 + 1 = 7
