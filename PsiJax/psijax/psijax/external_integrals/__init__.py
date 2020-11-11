@@ -7,6 +7,8 @@ from .oei import overlap
 from .oei import kinetic
 from .oei import potential
 
+from .tmp_potential import tmp_potential
+
 def libint_initialize(xyz_path, basis_name):
     libint_interface.initialize(xyz_path, basis_name) 
     return 0
