@@ -40,11 +40,11 @@ def generate_buffer_lookup(dim_size, ndim):
 
 # Create array which is of size [buffer, multi_indices]
 # which maps 1d buffer index to multi_index tuple. 
-# This is the inverse mapping of above function, generate_buffer_lookup
-# for 4center  deriv1 it is (12, 1)
-# for 4center  deriv2 it is (78, 2)
-# for 4center  deriv3 it is (364, 3)
-# for 4center  deriv4 it is (1365, 4)
+# This is the inverse mapping of above function
+# for deriv1 it is (12, 1)
+# for deriv2 it is (78, 2)
+# for deriv3 it is (364, 3)
+# for deriv4 it is (1365, 4)
 def generate_multi_index_lookup(dim_size, ndim, nderivs):
     # dim_size=total differentiable parameters, ndim=deriv_order
     if ndim == 1:
@@ -85,23 +85,26 @@ def generate_multi_index_lookup(dim_size, ndim, nderivs):
               idx += 1
     return lookup
 
+switch = np.array([0,1])
+possibilities = cartesian_product(switch,)
+print(possibilities)
+
 def generate_eri_deriv_index(deriv_order):
-    ncenters = 4
+    ncenters = 3
+    dimensions = 9
     nderivs = how_many_derivs(ncenters, deriv_order) # 12, 78, 364
     
-    # all possiblities of swap_braket, swap_bra, and swap_ket 
-    # gathered into an array of indices 0 or 1
-    switch = np.array([0,1])
-    possibilities = cartesian_product(switch, switch, switch)
+    # swap_ket on (1) or off (0)
+    possibilities = [0,1]
     
     # Get lookup which maps flattened upper triangle index to multi-index in terms of full array axes 
-    lookup_forward = generate_multi_index_lookup(12, deriv_order, nderivs)
+    lookup_forward = generate_multi_index_lookup(dimensions, deriv_order, nderivs)
     # Get lookup which maps multi-index back to flattened upper triangle index
-    lookup_backward = generate_buffer_lookup(12, deriv_order)
-    mapDerivIndex_xxxx= np.zeros((2,2,2, nderivs), dtype=int)
+    lookup_backward = generate_buffer_lookup(dimensions, deriv_order)
+    mapDerivIndex_xsxx= np.zeros((2, nderivs), dtype=int)
     
     for case in possibilities:
-        swap_braket, swap_bra, swap_ket = case # each is 0 or 1 for swapping braket, bra centers, or ket centers
+        swap_ket = case # either 0 or 1 for swapping ket centers
     
         # For every single derivative index 0-11, 0-78, 0-364, etc,
         # lookup its multi_idx, then apply the permutation rules for this BraKet::xx_xx
@@ -110,23 +113,14 @@ def generate_eri_deriv_index(deriv_order):
             multi_idx = lookup_forward[i]
             new_indices = []
             for idx in multi_idx:
-                # If braket swap is on, all indices (0,1,2,3,4,5) ---> (6,7,8,9,10,11) and vice versa
-                if swap_braket == 1: 
-                    perm = [6,7,8,9,10,11,0,1,2,3,4,5]
-                    idx = perm[idx]
-                # If bra swap is on, all indices (0,1,2,3,4,5) ---> (3,4,5,0,1,2) and vice versa
-                if swap_bra == 1: 
-                    if idx < 6:
-                        perm = [3,4,5,0,1,2,6,7,8,9,10,11]
-                        idx = perm[idx]
-                # If ket swap is on, all indices (6,7,8,9,10,11) ---> (9,10,11,6,7,8) and vice versa
+                # If ket swap is on, all indices (0,1,2, 3,4,5,6,7,8) ---> (0,1,2, 6,7,8,3,4,5) and vice versa
                 if swap_ket == 1: 
-                    if idx > 5:
-                        perm = [0,1,2,3,4,5,9,10,11,6,7,8]
+                    if idx > 2:
+                        perm = [0,1,2, 6,7,8,3,4,5]
                         idx = perm[idx]
                 new_indices.append(idx)
             # Now lookup the other direction and determine flattened single index from this new multi index
-            # and assign it to mapDerivIndex_xxxx
+            # and assign it to mapDerivIndex_xsxx
             if deriv_order == 1:
                 idx1, = new_indices
                 new_idx = lookup_backward[idx1]
@@ -140,18 +134,20 @@ def generate_eri_deriv_index(deriv_order):
                 idx1, idx2, idx3, idx4 = new_indices
                 new_idx = lookup_backward[idx1, idx2, idx3, idx4]
 
-            mapDerivIndex_xxxx[swap_braket, swap_bra, swap_ket, i] = new_idx
-    return mapDerivIndex_xxxx
+            mapDerivIndex_xsxx[swap_ket, i] = new_idx
+    return mapDerivIndex_xsxx
 
-#mapDerivIndex1_xxxx = generate_eri_deriv_index(1)
-#mapDerivIndex2_xxxx = generate_eri_deriv_index(2)
-#mapDerivIndex3_xxxx = generate_eri_deriv_index(3)
-mapDerivIndex4_xxxx = generate_eri_deriv_index(4)
+
+mapDerivIndex1_xsxx = generate_eri_deriv_index(1)
+mapDerivIndex2_xsxx = generate_eri_deriv_index(2)
+mapDerivIndex3_xsxx = generate_eri_deriv_index(3)
+mapDerivIndex4_xsxx = generate_eri_deriv_index(4)
 
 # All you needs to do is take these are repalce [] with {}
-#print(repr(mapDerivIndex1_xxxx))
-#print(repr(mapDerivIndex2_xxxx))
-#print(repr(mapDerivIndex3_xxxx))
-print(repr(mapDerivIndex4_xxxx))
+#print(repr(mapDerivIndex1_xsxx))
+#print(repr(mapDerivIndex2_xsxx))
+#print(repr(mapDerivIndex3_xsxx))
+print(repr(mapDerivIndex4_xsxx))
+
 
 
