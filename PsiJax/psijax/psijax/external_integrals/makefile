@@ -4,14 +4,24 @@
 # this is because Pybind11 requires -fPIC and -shared flags.
 # These paths currently use a version of Libint2 which only has up to 2 angular momentum and 4 orders of differentiation, and is edited to enable ERI derivatives
 CC      := g++
-INCL1   := /home/adabbott/anaconda3/envs/psijax/include/eigen3
-INCL2   := /home/adabbott/anaconda3/envs/psijax/include/python3.6m
-INCL3   := /home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include
-INCL4   := /home/adabbott/Git/libint_dev/libint-2.7.0-beta.6/PREFIX/include
-INCL5   := /home/adabbott/Git/libint_dev/libint-2.7.0-beta.6/PREFIX/include/libint2
-LIBS    := /home/adabbott/Git/libint_dev/libint-2.7.0-beta.6/PREFIX/lib
-RPATH   := -Wl,-rpath,"/home/adabbott/Git/libint_dev/libint-2.7.0-beta.6/PREFIX/lib"
+# Libint prefix location (where /include, /lib, /include/libint2 is) 
+LIBINT_PREFIX := /home/adabbott/Git/libint_test2/libint/BUILD/libint-2.7.0-beta.6/PREFIX
+I1 := $(LIBINT_PREFIX)/include
+I2 := $(LIBINT_PREFIX)/include/libint2
+L1 := $(LIBINT_PREFIX)/lib
+# Eigen headers location 
+I3 := /home/adabbott/anaconda3/envs/psijax/include/eigen3
+# Python headers location 
+I4 := /home/adabbott/anaconda3/envs/psijax/include/python3.6m
+# Pybind11 headers location 
+I5 := /home/adabbott/anaconda3/envs/psijax/lib/python3.6/site-packages/pybind11/include
+# HDF5 headers, static and shared libraries 
+I6 := /home/adabbott/Git/hdf5/hdf5-1.12.0/PREFIX/include
+L2 := /home/adabbott/Git/hdf5/hdf5-1.12.0/PREFIX/lib
+RPATH := -Wl,-rpath,"/home/adabbott/Git/hdf5/hdf5-1.12.0/PREFIX/lib"
 
+# This 'TARGETS' suffix should be set to whatever is returned by the command `python3-config --extension-suffix` entered on command line
+# and it should match the same python version referenced in the above includes I4 (3.6 in this case)
 TARGETS := libint_interface.cpython-36m-x86_64-linux-gnu.so
 OBJ     := libint_interface.o
 DEPS    := 
@@ -22,12 +32,8 @@ all: $(TARGETS)
 
 clean: rm -f $(OBJ)
 
-# To have libint2 play nice with Pybind11, we need it compiled with shared libraries *.so, and we need to point to them 
-# and encode where they are in the compiled executable with -Wl,-rpath
-# We also need fPIC, shared flags, the usual libint includes, pybind11 includes, and library paths, and library name -lint2
-# TODO make -Wl,-rpath string a VARIALBE listed above next to includes,libs
 $(OBJ): %.o : %.cc $(DEPS)
-	$(CC) -c $< -o $@ -O3 -fPIC -shared -std=c++11 -I $(INCL1) -I $(INCL2) -I $(INCL3) -I $(INCL4) -I $(INCL5) -lint2 -L $(LIBS) $(RPATH)
-
+	$(CC) -c $< -o $@ -O3 -fPIC -std=c++11 -I $(I1) -I $(I2) -I $(I3) -I $(I4) -I $(I5) -I $(I6) -lint2 -L $(L1) -lhdf5 -lhdf5_cpp -L $(L2) $(RPATH)
 $(TARGETS): $(OBJ)
-	$(CC)  $^ -o $@ -O3 -fPIC -shared -std=c++11 -I $(INCL1) -I $(INCL2) -I $(INCL3) -I $(INCL4) -I $(INCL5) -lint2 -L $(LIBS) $(RPATH) 
+	$(CC) $^ -o $@ -O3 -fPIC -shared -std=c++11 -I $(I1) -I $(I2) -I $(I3) -I $(I4) -I $(I5) -I $(I6) -lint2 -L $(L1) -lhdf5 -lhdf5_cpp -L $(L2) $(RPATH)
+
