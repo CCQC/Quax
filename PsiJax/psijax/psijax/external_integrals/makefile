@@ -5,7 +5,7 @@
 # These paths currently use a version of Libint2 which only has up to 2 angular momentum and 4 orders of differentiation, and is edited to enable ERI derivatives
 CC      := g++
 # Libint prefix location (where /include, /lib, /include/libint2 is) 
-LIBINT_PREFIX := /home/adabbott/Git/libint_test2/libint/BUILD/libint-2.7.0-beta.6/PREFIX
+LIBINT_PREFIX := /home/adabbott/Git/libint_test1/libint/build/libint-2.7.0-beta.6/PREFIX
 I1 := $(LIBINT_PREFIX)/include
 I2 := $(LIBINT_PREFIX)/include/libint2
 L1 := $(LIBINT_PREFIX)/lib
@@ -32,6 +32,7 @@ all: $(TARGETS)
 
 clean: rm -f $(OBJ)
 
+#TODO add -O3
 $(OBJ): %.o : %.cc $(DEPS)
 	$(CC) -c $< -o $@ -O3 -fPIC -std=c++11 -I $(I1) -I $(I2) -I $(I3) -I $(I4) -I $(I5) -I $(I6) -lint2 -L $(L1) -lhdf5 -lhdf5_cpp -L $(L2) $(RPATH)
 $(TARGETS): $(OBJ)

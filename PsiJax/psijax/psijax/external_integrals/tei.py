@@ -1,8 +1,33 @@
 import jax 
 import jax.numpy as np
 import numpy as onp
+import h5py
+import itertools
 from . import libint_interface
 jax.config.update("jax_enable_x64", True)
+
+def get_deriv_vec_idx(deriv_vec):
+    """
+    Used to lookup appropriate slice of disk-saved ERI derivative tensor 
+    which corresponds to a particular derivative vector.
+    Given a derivative vector of shape NCART, 
+    find the flattened generalized upper triangle index of 
+    the cartesian derivative tensor. 
+    """
+    dim = deriv_vec.shape[0]
+    vals = onp.arange(dim, dtype=int)
+    deriv_order = onp.sum(deriv_vec)
+
+    deriv_vecs = []
+    for c in itertools.combinations_with_replacement(vals, deriv_order):
+        tmp_deriv_vec = onp.zeros_like(deriv_vec, dtype=int)
+        for i in c:
+            tmp_deriv_vec[i] += 1
+        deriv_vecs.append(tmp_deriv_vec)
+
+    deriv_vecs = onp.asarray(deriv_vecs)
+    idx = onp.argwhere(onp.all(deriv_vecs==deriv_vec,axis=1)).reshape(-1)[0]
+    return idx
 
 # Create new JAX primitives for TEI evaluation and derivative evaluation
 tei_p = jax.core.Primitive("tei")
@@ -23,10 +48,19 @@ def tei_impl(geom):
     return np.asarray(G)
 
 def tei_deriv_impl(geom, deriv_vec):
+    #deriv_vec = onp.asarray(deriv_vec, int)
+    ##print("calling libint eri deriv with deriv vec ", deriv_vec)
+    #G = libint_interface.eri_deriv(deriv_vec)
+    #d = int(onp.sqrt(onp.sqrt(G.shape[0])))
+    #G = G.reshape(d,d,d,d)
+
+    # New disk-based implementation
     deriv_vec = onp.asarray(deriv_vec, int)
-    G = libint_interface.eri_deriv(deriv_vec)
-    d = int(onp.sqrt(onp.sqrt(G.shape[0])))
-    G = G.reshape(d,d,d,d)
+    deriv_order = onp.sum(deriv_vec)
+    idx = get_deriv_vec_idx(deriv_vec)
+    with h5py.File('eri_deriv' + str(deriv_order) + '.h5', 'r') as f:
+        data_set = f['eri_deriv']
+        G = data_set[:,:,:,:,idx] 
     return np.asarray(G)
     
 # Register primitive evaluation rules
@@ -44,10 +78,6 @@ def tei_jvp(primals, tangents):
 
 def tei_deriv_jvp(primals, tangents):
     geom, deriv_vec = primals
-    # Here we add the current value of deriv_vec to the incoming tangent vector, 
-    # so that nested higher order differentiation works
-    #tangents_out = tei_deriv(geom, deriv_vec + tangents[0], mints=mints)
-
     primals_out = tei_deriv(geom, deriv_vec)
     # Here we add the current value of deriv_vec to the incoming tangent vector, 
     # so that nested higher order differentiation works

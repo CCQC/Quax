@@ -8,6 +8,8 @@ import psi4
 import numpy as onp
 import os
 
+from .external_integrals import libint_initialize, libint_finalize
+
 from .integrals.basis_utils import build_basis_set
 from .methods.energy_utils import nuclear_repulsion, cholesky_orthogonalization
 from .methods.hartree_fock import restricted_hartree_fock
@@ -108,6 +110,10 @@ def derivative(molecule, basis_name, method, order=1):
     #TODO TODO TODO: support internal coordinate wrapper function.
     # This will take in internal coordinates, transform them into cartesians, and then compute integrals, energy
     # JAX will then collect the internal coordinate derivative tensor instead. 
+
+    # Initialize libint here and precompute ERI derivatives, then finalize
+    libint_initialize(xyz_path, basis_name, order)
+    libint_finalize()
 
     if method == 'scf' or method == 'hf' or method == 'rhf':
         if order == 1:
