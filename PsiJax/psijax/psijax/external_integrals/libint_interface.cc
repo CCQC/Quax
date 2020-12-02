@@ -743,28 +743,8 @@ void eri_deriv_disk(int deriv_order) {
     // Number of unique shell derivatives output by libint (number of indices in buffer)
     int nshell_derivs = how_many_derivs(4, deriv_order);
 
-    // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
-    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
-
     // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
     const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(natom * 3, deriv_order);
-
-    // Create mapping from buffer indices to shell atom index 0,1,2,3  and cartesian component index 0,1,2==x,y,z
-    std::vector<std::vector<int>> buffer_center_map;
-    std::vector<std::vector<int>> buffer_comp_map;
-    for (int i=0; i < nshell_derivs; i++) {
-        std::vector<int> tmp_centers;
-        std::vector<int> tmp_comps;
-        auto multi_shell_indices = buffer_multidim_lookup[i];
-        for (auto shell_idx : multi_shell_indices) {
-            // Quotient is shell center 0,1,2,or 3; remainder is 0,1,2 <--> x,y,z
-            div_t tmp = std::div(shell_idx, 3); 
-            tmp_centers.push_back(tmp.quot);
-            tmp_comps.push_back(tmp.rem);
-        }
-        buffer_center_map.push_back(tmp_centers);
-        buffer_comp_map.push_back(tmp_comps);
-    }
 
     // Libint engine for computing shell quartet derivatives
     libint2::Engine eri_engine(libint2::Operator::coulomb,obs.max_nprim(),obs.max_l(), deriv_order);
@@ -816,41 +796,58 @@ void eri_deriv_disk(int deriv_order) {
                     // Define shell set slab, with extra dimension for unique derivatives, initialized with 0.0's
                     double shellset_slab [n1][n2][n3][n4][nderivs_triu] = {};
 
-                    // For every unique shell set derivative in buffer represented by a flattened upper triangle index,
-                    // map the index to its multi-dim shell derivative index, then to its multi-dim cartesian derivative indices, 
-                    // then its flattened 1d cartesian derivative index which is the address in 'nderivs_triu' dimension of shellset_slab
-                    for(auto i=0; i<nshell_derivs; ++i) {
-                        auto ints_shellset = buf_vec[i]; // Location of the computed integrals
-                        if (ints_shellset == nullptr)
-                            continue;  // nullptr returned if the entire shell-set was screened out
+                    // Loop over every possible unique nuclear cartesian derivative index
+                    for(int nuc_idx=0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                        // Look up multidimensional cartesian derivative index
+                        auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
 
-                        // Convert all shell center indices 0,1,2,3 --> cartesian atom index, multiply by 3, add cartesian component offset
-                        // result is multidimensional cartesian nuclear derivative index
-                        std::vector<int> multi_cart_idx;
-                        for (int j=0; j<deriv_order; j++) {
-                            multi_cart_idx.push_back(3 * shell_atom_index_list[buffer_center_map[i][j]] + buffer_comp_map[i][j]);
+                        std::vector<std::vector<int>> indices;
+                        for (int i=0;i<deriv_order; i++){
+                            std::vector<int> new_vec;
+                            indices.push_back(new_vec);
                         }
-                        // Sort such that i <= j <= k ... so it corresponds to the upper triangle of totally symmetric nuclear derivative tensor
-                        std::sort(multi_cart_idx.begin(), multi_cart_idx.end());
 
-                        // Find flattened upper triangle nuclear derivative index
-                        // Since the vector of vectors "cart_multidim_lookup" is sorted such that each vector is elementwise <= next vector, we can
-                        // use binary search to find the flattened upper triangle 1d index that is in range of nderivs_triu 
-                        int nuc_idx = 0;
-                        auto it = lower_bound(cart_multidim_lookup.begin(), cart_multidim_lookup.end(), multi_cart_idx);
-                        if (it != cart_multidim_lookup.end()) nuc_idx = it - cart_multidim_lookup.begin();
+                        // Find out which 
+                        for (int j=0; j < multi_cart_idx.size(); j++){
+                            int desired_atom_idx = multi_cart_idx[j] / 3;
+                            int desired_coord = multi_cart_idx[j] % 3;
+                            for (int i=0; i<4; i++){
+                                int atom_idx = shell_atom_index_list[i];
+                                if (atom_idx == desired_atom_idx) {
+                                    int tmp = 3 * i + desired_coord;
+                                    indices[j].push_back(tmp);
+                                }
+                            }
+                        }
 
-                        // Loop over shell block, keeping a total count idx for the size of shell set
-                        for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                            for(auto f2=0; f2!=n2; ++f2) {
-                                for(auto f3=0; f3!=n3; ++f3) {
-                                    for(auto f4=0; f4!=n4; ++f4, ++idx) {
-                                        shellset_slab[f1][f2][f3][f4][nuc_idx] += ints_shellset[idx];
+                        // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                        // and the total number of subvectors is the order of differentiation
+                        // Now we want all combinations where we pick exactly one index from each subvector.
+                        // This is achievable through a cartesian product 
+                        std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                        // For every index combo, find the 1d buffer index, collect in a vector, then loop
+                        std::vector<int> buffer_indices;
+                        for (auto vec : index_combos)  {
+                            // TODO  eventually stop using lookup arrays? 
+                            if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
+                            else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
+                            else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
+                            else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                        }
+
+                        for(auto i=0; i<buffer_indices.size(); ++i) {
+                            auto ints_shellset = buf_vec[buffer_indices[i]];
+                            for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                                for(auto f2=0; f2!=n2; ++f2) {
+                                    for(auto f3=0; f3!=n3; ++f3) {
+                                        for(auto f4=0; f4!=n4; ++f4, ++idx) {
+                                            shellset_slab[f1][f2][f3][f4][nuc_idx] += ints_shellset[idx];
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
+                    } // For every nuc_idx 0, nderivs_triu
                     // Now write this shell set slab to HDF5 file
                     hsize_t count[5] = {n1, n2, n3, n4, nderivs_triu};
                     hsize_t start[5] = {bf1, bf2, bf3, bf4, 0};
@@ -887,6 +884,7 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("potential_deriv", &potential_deriv, "Computes potential integral nuclear derivatives with libint");
     m.def("eri_deriv", &eri_deriv, "Computes electron repulsion integral nuclear derivatives with libint");
     m.def("eri_deriv_disk", &eri_deriv_disk, "Computes the full coulomb integral nuclear derivative tensor and writes them to disk with HDF5");
+    m.def("oei_deriv_disk", &eri_deriv_disk, "Computes overlap, kinetic, and potential integral derivative tensors from 1st order up to nth order and writes them to dsik with HDF5");
     //TODO
     //m.def("eri_partial_deriv_disk", &eri_partial_deriv_disk, "Computes a subset of the full coulomb integral nuclear derivative tensor and writes them to disk with HDF5");
 }
