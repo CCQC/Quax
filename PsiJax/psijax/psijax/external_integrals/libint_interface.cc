@@ -107,12 +107,16 @@ void process_deriv_vec(std::vector<int> deriv_vec,
     }
 }
 
-// how many unique nth order derivatives wrt k objects which have 3 differentiable coordinates each
-int how_many_derivs(int k, int n) {
+// Returns total size of the libint integral derivative buffer, which is how many unique nth order derivatives
+// wrt k objects which have 3 differentiable coordinates each
+// k: how many centers
+// n: order of differentiation
+// l: how many atoms (needed for potential integrals only!)
+int how_many_derivs(int k, int n, int l = 0) {
     int val = 1;
     int factorial = 1;
     for (int i=0; i < n; i++) {
-        val *= (3 * k + i);
+        val *= (3 * (k + l) + i);
         factorial *= i + 1;
     }
     val /= factorial;
@@ -732,15 +736,215 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 }
 
-// Writes all ERI derivative up to `max_deriv_order` to disk.
+// New approach: create a single file, save many datasets to it. 
+// Each dataset will be a derivative tensor.
+// Demo with overlap and kinetic
+// Algo: Create a file. loop over every deriv order from 1 to max_deriv_order.
+// Note this algo is techinically incorrect but works fine for overlap and kinetic since there is only two centers and they cannot be the same atom  
+void oei_deriv_disk(int max_deriv_order) {
+    // Create H5 File and prepare to fill with 0.0's
+    const H5std_string file_name("oei_derivs.h5");
+    H5File* file = new H5File(file_name,H5F_ACC_TRUNC);
+    double fillvalue = 0.0;
+    DSetCreatPropList plist;
+    plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
+
+    for (int deriv_order = 1; deriv_order <= max_deriv_order; deriv_order++){
+        // how many shell derivatives in the Libint buffer for overlap/kinetic integrals
+        // how many shell and operator derivatives for potential integrals 
+        int nshell_derivs = how_many_derivs(2, deriv_order);
+        int nshell_derivs_potential = how_many_derivs(2, deriv_order, natom);
+        // how many unique cartesian nuclear derivatives (e.g., so we only save one of d^2/dx1dx2 and d^2/dx2dx1, etc)
+        unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+        // Create mappings from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+        // Overlap and kinetic have different mappings than potential since potential has more elements in the buffer 
+        const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
+        // Potential integrals buffer is flattened upper triangle of (6 + NCART + NCART) dimensional deriv_order tensor
+        // TODO if libint ever fixes the erroneous NCART + NCART buffer dimension size, this needs to be changed (remove *2)
+        int dimensions = 6 + 2 * 3 * natom;
+        const std::vector<std::vector<int>> potential_buffer_multidim_lookup = generate_multi_index_lookup(dimensions, deriv_order);
+
+        // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+        const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(natom * 3, deriv_order);
+
+        // Define engines and buffers
+        libint2::Engine overlap_engine(libint2::Operator::overlap,obs.max_nprim(),obs.max_l(),deriv_order);
+        const auto& overlap_buffer = overlap_engine.results(); 
+        libint2::Engine kinetic_engine(libint2::Operator::kinetic,obs.max_nprim(),obs.max_l(),deriv_order);
+        const auto& kinetic_buffer = kinetic_engine.results(); 
+        libint2::Engine potential_engine(libint2::Operator::nuclear,obs.max_nprim(),obs.max_l(),deriv_order);
+        potential_engine.set_params(libint2::make_point_charges(atoms));
+        const auto& potential_buffer = potential_engine.results(); 
+
+        // Define HDF5 dataset names
+        const H5std_string overlap_dset_name("overlap_deriv" + std::to_string(deriv_order));
+        const H5std_string kinetic_dset_name("kinetic_deriv" + std::to_string(deriv_order));
+        const H5std_string potential_dset_name("potential_deriv" + std::to_string(deriv_order));
+
+        // Define rank and dimensions of data that will be written to the file
+        hsize_t file_dims[] = {nbf, nbf, nderivs_triu};
+        DataSpace fspace(3, file_dims);
+        // Create dataset for each integral type and write 0.0's into the file 
+        DataSet* overlap_dataset = new DataSet(file->createDataSet(overlap_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        DataSet* kinetic_dataset = new DataSet(file->createDataSet(kinetic_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        DataSet* potential_dataset = new DataSet(file->createDataSet(potential_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        hsize_t stride[3] = {1,1,1}; // stride and block can be used to 
+        hsize_t block[3] = {1,1,1};  // add values to multiple places, useful if symmetry ever used.
+        hsize_t zerostart[3] = {0,0,0};
+
+        for(auto s1=0; s1!=obs.size(); ++s1) {
+            auto bf1 = shell2bf[s1];  // first basis function in first shell
+            auto atom1 = shell2atom[s1]; // Atom index of shell 1
+            auto n1 = obs[s1].size(); // number of basis functions in first shell
+            for(auto s2=0; s2!=obs.size(); ++s2) {
+                auto bf2 = shell2bf[s2];  // first basis function in second shell
+                auto atom2 = shell2atom[s2]; // Atom index of shell 2
+                auto n2 = obs[s2].size(); // number of basis functions in second shell
+                //if (atom1 == atom2) continue;
+                std::vector<long> shell_atom_index_list{atom1,atom2};
+
+                overlap_engine.compute(obs[s1], obs[s2]);
+                kinetic_engine.compute(obs[s1], obs[s2]);
+                potential_engine.compute(obs[s1], obs[s2]);
+
+                // Define shell set slabs
+                double overlap_shellset_slab [n1][n2][nderivs_triu] = {};
+                double kinetic_shellset_slab [n1][n2][nderivs_triu] = {};
+                double potential_shellset_slab [n1][n2][nderivs_triu] = {};
+                
+                // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+                // For 1st derivatives of 2 atom system, this is 6. 2nd derivatives of 2 atom system: 21, etc
+                for(int nuc_idx=0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                    // Look up multidimensional cartesian derivative index
+                    auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+                    // For overlap/kinetic and potential sepearately, create a vector of vectors called `indices`, where each subvector
+                    // is your possible choices for the first derivative operator, second, third, etc and the total number of subvectors is order of differentiation
+                    // What follows fills these indices
+                    std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+                    std::vector<std::vector<int>> potential_indices(deriv_order, std::vector<int> (0,0));
+                
+                    // Loop over each cartesian coordinate index which we are differentiating wrt for this nuclear cartesian derivative index
+                    // and check to see if it is present in the shell duet, and where it is present in the potential operator 
+                    for (int j=0; j < multi_cart_idx.size(); j++){
+                        int desired_atom_idx = multi_cart_idx[j] / 3;
+                        int desired_coord = multi_cart_idx[j] % 3;
+                        // Loop over shell indices
+                        for (int i=0; i<2; i++){
+                            int atom_idx = shell_atom_index_list[i];
+                            if (atom_idx == desired_atom_idx) {
+                                int tmp = 3 * i + desired_coord;
+                                indices[j].push_back(tmp);
+                                potential_indices[j].push_back(tmp);
+                            }
+                        }
+                        // Now for potentials only, loop over each atom in molecule, and if this derivative
+                        // differentiates wrt that atom, we also need to collect that index.
+                        // If libint ever removes that extra NCART dimension, remove the `+ natom`
+                        for (int i=0; i<natom; i++){
+                            if (i == desired_atom_idx) {
+                                int offset_i = i + 2 + natom;
+                                int tmp = 3 * offset_i + desired_coord;
+                                potential_indices[j].push_back(tmp);
+                            }
+                        }
+                    }
+                    // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                    // and the total number of subvectors is the order of differentiation
+                    // Now we want all combinations where we pick exactly one index from each subvector.
+                    // This is achievable through a cartesian product 
+                    std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                    std::vector<std::vector<int>> potential_index_combos = cartesian_product(potential_indices);
+                    std::vector<int> buffer_indices;
+                    std::vector<int> potential_buffer_indices;
+                    // Overlap/Kinetic integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+                    for (auto vec : index_combos)  {
+                        std::sort(vec.begin(), vec.end());
+                        int buf_idx = 0;
+                        auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                        if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                        buffer_indices.push_back(buf_idx);
+                    }
+                    // Potential integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+                    for (auto vec : potential_index_combos)  {
+                        std::sort(vec.begin(), vec.end());
+                        int buf_idx = 0;
+                        auto it = lower_bound(potential_buffer_multidim_lookup.begin(), potential_buffer_multidim_lookup.end(), vec);
+                        if (it != potential_buffer_multidim_lookup.end()) buf_idx = it - potential_buffer_multidim_lookup.begin();
+                        potential_buffer_indices.push_back(buf_idx);
+                    }
+
+                    // Loop over shell block for each buffer index which contributes to this derivative
+                    // Overlap and Kinetic
+                    for(auto i=0; i<buffer_indices.size(); ++i) {
+                        auto overlap_shellset = overlap_buffer[buffer_indices[i]];
+                        auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
+                        for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                            for(auto f2=0; f2!=n2; ++f2, ++idx) {
+                                overlap_shellset_slab[f1][f2][nuc_idx] += overlap_shellset[idx];
+                                kinetic_shellset_slab[f1][f2][nuc_idx] += kinetic_shellset[idx];
+                            }
+                        }
+                    }
+                    // Potential
+                    for(auto i=0; i<potential_buffer_indices.size(); ++i) {
+                        auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
+                        for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                            for(auto f2=0; f2!=n2; ++f2, ++idx) {
+                                potential_shellset_slab[f1][f2][nuc_idx] += potential_shellset[idx];
+                            }
+                        }
+                    }
+                } // Unique nuclear cartesian derivative indices loop
+
+                // Now write this shell set slab to HDF5 file
+                // Create file space hyperslab, defining where to write data to in file
+                hsize_t count[3] = {n1, n2, nderivs_triu};
+                hsize_t start[3] = {bf1, bf2, 0};
+                fspace.selectHyperslab(H5S_SELECT_SET, count, start, stride, block);
+                // Create dataspace defining for memory dataset to write to file
+                hsize_t mem_dims[] = {n1, n2, nderivs_triu};
+                DataSpace mspace(3, mem_dims);
+                mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
+                // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
+                overlap_dataset->write(overlap_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+                kinetic_dataset->write(kinetic_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+                potential_dataset->write(potential_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+            }
+        } // shell duet loops
+    // Delete datasets for this derivative order
+    delete overlap_dataset;
+    delete kinetic_dataset;
+    delete potential_dataset;
+    } // deriv order loop
+// close the file
+delete file;
+}
+
+// Writes all overlap, kinetic, and potential derivatives up to `max_deriv_order` to disk
+
+// Writes all ERI's up to `max_deriv_order` to disk.
+// In file structure:
+// eri_derivs
+//      eri_deriv1 
+//          shape (nbf,nbf,nbf,nbf,n_unique_1st_derivs)
+//      eri_deriv2
+//          shape (nbf,nbf,nbf,nbf,n_unique_2nd_derivs)
+//      eri_deriv3
+//          shape (nbf,nbf,nbf,nbf,n_unique_3rd_derivs)
 void eri_deriv_disk(int max_deriv_order) { 
     std::cout << "Writing two-electron integral derivative tensors up to order " << max_deriv_order << " to disk...";
-    //printf("\nWriting two-electron integral derivative tensors up to order %d to disk...", max_deriv_order);
     const H5std_string file_name("eri_derivs.h5");
     H5File* file = new H5File(file_name,H5F_ACC_TRUNC);
     double fillvalue = 0.0;
     DSetCreatPropList plist;
     plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
+
+    long total_deriv_slices = 0;
+    for (int i=1; i<= max_deriv_order; i++){
+        total_deriv_slices += how_many_derivs(natom, deriv_order);
+        }
+    double check = (nbf * nbf * nbf * nbf * total_deriv_slices * 8) * (1e-9);
+    assert(check < 2 && "Total disk space required for ERI's exceeds 2 GB. Increase threshold and recompile to proceed.");
 
     for (int deriv_order = 1; deriv_order <= max_deriv_order; deriv_order++){
         // Number of unique shell derivatives output by libint (number of indices in buffer)
@@ -748,8 +952,8 @@ void eri_deriv_disk(int max_deriv_order) {
         // Number of unique nuclear derivatives of ERI's
         unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
         // Check to make sure you are not flooding the disk.
-        double check = (nbf * nbf * nbf * nbf * nderivs_triu * 8) * (1e-9);
-        assert(check < 2 && "Disk space required for ERI's exceeds 2 GB. Are you sure you know what you are doing?");
+        //double check = (nbf * nbf * nbf * nbf * nderivs_triu * 8) * (1e-9);
+        //assert(check < 2 && "Disk space required for ERI's exceeds 2 GB. Are you sure you know what you are doing?");
 
         // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
         const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
@@ -892,7 +1096,7 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("potential_deriv", &potential_deriv, "Computes potential integral nuclear derivatives with libint");
     m.def("eri_deriv", &eri_deriv, "Computes electron repulsion integral nuclear derivatives with libint");
     m.def("eri_deriv_disk", &eri_deriv_disk, "Computes the full coulomb integral nuclear derivative tensor and writes them to disk with HDF5");
-    //m.def("oei_deriv_disk", &eri_deriv_disk, "Computes overlap, kinetic, and potential integral derivative tensors from 1st order up to nth order and writes them to dsik with HDF5");
+    m.def("oei_deriv_disk", &eri_deriv_disk, "Computes overlap, kinetic, and potential integral derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
     //TODO
     //m.def("eri_partial_deriv_disk", &eri_partial_deriv_disk, "Computes a subset of the full coulomb integral nuclear derivative tensor and writes them to disk with HDF5");
 }
