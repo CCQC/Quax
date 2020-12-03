@@ -118,59 +118,84 @@ def derivative(molecule, basis_name, method, order=1):
     if method == 'scf' or method == 'hf' or method == 'rhf':
         if order == 1:
             grad = jacfwd(restricted_hartree_fock, 0)(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
-            return np.round(grad, 10)
-        if order == 2:
+            #return np.round(grad, 10)
+            deriv = np.round(grad, 10)
+        elif order == 2:
             hess = jacfwd(jacfwd(restricted_hartree_fock, 0))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
-            return np.round(hess.reshape(dim,dim), 10)
-        if order == 3:
+            #return np.round(hess.reshape(dim,dim), 10)
+            deriv = np.round(hess.reshape(dim,dim), 10)
+        elif order == 3:
             cubic = jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
-            return np.round(cubic.reshape(dim,dim,dim), 10)
-        if order == 4:
+            #return np.round(cubic.reshape(dim,dim,dim), 10)
+            deriv = np.round(cubic.reshape(dim,dim,dim), 10)
+        elif order == 4:
             quartic = jacfwd(jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
-            return np.round(quartic.reshape(dim,dim,dim,dim), 10)
+            #return np.round(quartic.reshape(dim,dim,dim,dim), 10)
+            deriv = np.round(quartic.reshape(dim,dim,dim,dim), 10)
 
-    if method =='mp2':
+    elif method =='mp2':
         if order == 1:
             grad = jacfwd(restricted_mp2, 0)(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(grad, 10)
-        if order == 2:
+            #return np.round(grad, 10)
+            deriv = np.round(grad, 10)
+        elif order == 2:
             hess = jacfwd(jacfwd(restricted_mp2, 0))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(hess.reshape(dim,dim), 10)
-        if order == 3:
+            #return np.round(hess.reshape(dim,dim), 10)
+            deriv = np.round(hess.reshape(dim,dim), 10)
+        elif order == 3:
             cubic = jacfwd(jacfwd(jacfwd(restricted_mp2, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(cubic.reshape(dim,dim,dim), 10)
-        if order == 4:
+            #return np.round(cubic.reshape(dim,dim,dim), 10)
+            deriv = np.round(cubic.reshape(dim,dim,dim), 10)
+        elif order == 4:
             quartic = jacfwd(jacfwd(jacfwd(jacfwd(restricted_mp2, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(quartic.reshape(dim,dim,dim,dim), 10)
+            #return np.round(quartic.reshape(dim,dim,dim,dim), 10)
+            deriv =np.round(quartic.reshape(dim,dim,dim,dim), 10)
 
-    if method =='ccsd':
+    elif method =='ccsd':
         if order == 1:
             grad = jacfwd(rccsd, 0)(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(grad, 10)
-        if order == 2:
+            #return np.round(grad, 10)
+            deriv = np.round(grad, 10)
+        elif order == 2:
             hess = jacfwd(jacfwd(rccsd, 0))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(hess.reshape(dim,dim), 10)
-        if order == 3:
+            #return np.round(hess.reshape(dim,dim), 10)
+            deriv = np.round(hess.reshape(dim,dim), 10)
+        elif order == 3:
             cubic = jacfwd(jacfwd(jacfwd(rccsd, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(cubic.reshape(dim,dim,dim), 10)
-        if order == 4:
+            #return np.round(cubic.reshape(dim,dim,dim), 10)
+            deriv = np.round(cubic.reshape(dim,dim,dim), 10)
+        elif order == 4:
             quartic = jacfwd(jacfwd(jacfwd(jacfwd(rccsd, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(quartic.reshape(dim,dim,dim,dim), 10)
+            #return np.round(quartic.reshape(dim,dim,dim,dim), 10)
+            deriv = np.round(quartic.reshape(dim,dim,dim,dim), 10)
 
-    if method =='ccsd(t)':
+    elif method =='ccsd(t)':
         if order == 1:
             grad = jacfwd(rccsd_t, 0)(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(grad, 10)
-        if order == 2:
+            #return np.round(grad, 10)
+            deriv = np.round(grad, 10)
+        elif order == 2:
             hess = jacfwd(jacfwd(rccsd_t, 0))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(hess.reshape(dim,dim), 10)
-        if order == 3:
+            #return np.round(hess.reshape(dim,dim), 10)
+            deriv = np.round(hess.reshape(dim,dim), 10)
+        elif order == 3:
             cubic = jacfwd(jacfwd(jacfwd(rccsd_t, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(cubic.reshape(dim,dim,dim), 10)
-        if order == 4:
+            #return np.round(cubic.reshape(dim,dim,dim), 10)
+            deriv = np.round(cubic.reshape(dim,dim,dim), 10)
+        elif order == 4:
             quartic = jacfwd(jacfwd(jacfwd(jacfwd(rccsd_t, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            return np.round(quartic.reshape(dim,dim,dim,dim), 10)
-    return 0
+            #return np.round(quartic.reshape(dim,dim,dim,dim), 10)
+            deriv = np.round(quartic.reshape(dim,dim,dim,dim), 10)
+    else:
+        print("Desired electronic structure method not understood. Use 'scf' 'hf' 'mp2' 'ccsd' or 'ccsd(t)' ")
+
+    if os.path.exists("eri_derivs.h5"):
+        print("Deleting two electron integral derivatives...")
+        os.remove("eri_derivs.h5")
+    if os.path.exists("oei_derivs.h5"):
+        print("Deleting one electron integral derivatives...")
+        os.remove("oei_derivs.h5")
+    return deriv 
 
 def partial_derivative(molecule, basis_name, method, order, address):
     """

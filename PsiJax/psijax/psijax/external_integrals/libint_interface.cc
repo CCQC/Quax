@@ -760,12 +760,13 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
 //      potential_deriv3 
 //          shape (nbf,nbf,n_unique_3rd_derivs)
 void oei_deriv_disk(int max_deriv_order) {
+    std::cout << "Writing one-electron integral derivative tensors up to order " << max_deriv_order << " to disk...";
     long total_deriv_slices = 0;
     for (int i=1; i<= max_deriv_order; i++){
-        total_deriv_slices += how_many_derivs(natom, deriv_order);
+        total_deriv_slices += how_many_derivs(natom, i);
         }
     double check = (3 * nbf * nbf * total_deriv_slices * 8) * (1e-9);
-    assert(check < 2 && "Total disk space required for one electron integrals exceeds 2 GB. Increase threshold and recompile to proceed.");
+    assert(check < 10 && "Total disk space required for one electron integrals exceeds 10 GB. Increase threshold and recompile to proceed.");
 
     // Create H5 File and prepare to fill with 0.0's
     const H5std_string file_name("oei_derivs.h5");
@@ -943,6 +944,7 @@ void oei_deriv_disk(int max_deriv_order) {
     } // deriv order loop
 // close the file
 delete file;
+std::cout << " done" << std::endl;
 } //oei_deriv_disk 
 
 
@@ -966,10 +968,10 @@ void eri_deriv_disk(int max_deriv_order) {
 
     long total_deriv_slices = 0;
     for (int i=1; i<= max_deriv_order; i++){
-        total_deriv_slices += how_many_derivs(natom, deriv_order);
+        total_deriv_slices += how_many_derivs(natom, i);
         }
     double check = (nbf * nbf * nbf * nbf * total_deriv_slices * 8) * (1e-9);
-    assert(check < 2 && "Total disk space required for ERI's exceeds 2 GB. Increase threshold and recompile to proceed.");
+    assert(check < 10 && "Total disk space required for ERI's exceeds 10 GB. Increase threshold and recompile to proceed.");
 
     for (int deriv_order = 1; deriv_order <= max_deriv_order; deriv_order++){
         // Number of unique shell derivatives output by libint (number of indices in buffer)

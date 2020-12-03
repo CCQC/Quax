@@ -1,7 +1,9 @@
 import jax 
 import jax.numpy as np
 import numpy as onp
+import h5py
 from . import libint_interface
+from . import utils
 jax.config.update("jax_enable_x64", True)
 
 # Create new JAX primitives for overlap, kinetic, potential evaluation and their derivatives 
@@ -53,19 +55,44 @@ def potential_impl(geom):
     return np.asarray(V)
 
 def overlap_deriv_impl(geom, deriv_vec):
-    dS = libint_interface.overlap_deriv(onp.asarray(deriv_vec, int))
-    dim = int(onp.sqrt(dS.shape[0]))
-    return np.asarray(dS).reshape(dim,dim)
+    #dS = libint_interface.overlap_deriv(onp.asarray(deriv_vec, int))
+    #dim = int(onp.sqrt(dS.shape[0]))
+    #return np.asarray(dS).reshape(dim,dim)
+    # New disk-based implementation
+    deriv_vec = onp.asarray(deriv_vec, int)
+    deriv_order = onp.sum(deriv_vec)
+    idx = utils.get_deriv_vec_idx(deriv_vec)
+    dataset_name = "overlap_deriv" + str(deriv_order)
+    with h5py.File('oei_derivs.h5', 'r') as f:
+        data_set = f[dataset_name]
+        S = data_set[:,:,idx]
+    return np.asarray(S)
 
 def kinetic_deriv_impl(geom, deriv_vec):
-    dT = libint_interface.kinetic_deriv(onp.asarray(deriv_vec, int))
-    dim = int(onp.sqrt(dT.shape[0]))
-    return np.asarray(dT).reshape(dim,dim)
+    #dT = libint_interface.kinetic_deriv(onp.asarray(deriv_vec, int))
+    #dim = int(onp.sqrt(dT.shape[0]))
+    #return np.asarray(dT).reshape(dim,dim)
+    deriv_vec = onp.asarray(deriv_vec, int)
+    deriv_order = onp.sum(deriv_vec)
+    idx = utils.get_deriv_vec_idx(deriv_vec)
+    dataset_name = "kinetic_deriv" + str(deriv_order)
+    with h5py.File('oei_derivs.h5', 'r') as f:
+        data_set = f[dataset_name]
+        T = data_set[:,:,idx]
+    return np.asarray(T)
 
 def potential_deriv_impl(geom, deriv_vec):
-    dV = libint_interface.potential_deriv(onp.asarray(deriv_vec,int))
-    dim = int(onp.sqrt(dV.shape[0]))
-    return np.asarray(dV).reshape(dim,dim)
+    #dV = libint_interface.potential_deriv(onp.asarray(deriv_vec,int))
+    #dim = int(onp.sqrt(dV.shape[0]))
+    #return np.asarray(dV).reshape(dim,dim)
+    deriv_vec = onp.asarray(deriv_vec, int)
+    deriv_order = onp.sum(deriv_vec)
+    idx = utils.get_deriv_vec_idx(deriv_vec)
+    dataset_name = "potential_deriv" + str(deriv_order)
+    with h5py.File('oei_derivs.h5', 'r') as f:
+        data_set = f[dataset_name]
+        V = data_set[:,:,idx]
+    return np.asarray(V)
 
 # Register primitive evaluation rules
 overlap_p.def_impl(overlap_impl)
@@ -79,6 +106,7 @@ potential_deriv_p.def_impl(potential_deriv_impl)
 # and a tangent std basis vector (tangent), returns the function evaluated at that point (primals_out)
 # and the slice of the Jacobian (tangents_out)
 def overlap_jvp(primals, tangents):
+    #print('calling overlap jvp')
     geom, = primals
     primals_out = overlap(geom) 
     tangents_out = overlap_deriv(geom, tangents[0])
@@ -91,6 +119,7 @@ def overlap_deriv_jvp(primals, tangents):
     return primals_out, tangents_out
 
 def kinetic_jvp(primals, tangents):
+    #print('calling kinetic jvp')
     geom, = primals
     primals_out = kinetic(geom) 
     tangents_out = kinetic_deriv(geom, tangents[0])
