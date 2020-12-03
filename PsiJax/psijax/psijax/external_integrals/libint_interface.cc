@@ -736,12 +736,37 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 }
 
-// New approach: create a single file, save many datasets to it. 
-// Each dataset will be a derivative tensor.
-// Demo with overlap and kinetic
-// Algo: Create a file. loop over every deriv order from 1 to max_deriv_order.
-// Note this algo is techinically incorrect but works fine for overlap and kinetic since there is only two centers and they cannot be the same atom  
+// Writes all overlap, kinetic, and potential derivatives up to `max_deriv_order` to disk
+// HDF5 File Name: oei_derivs.h5 
+//      HDF5 Dataset names within the file:
+//      overlap_deriv1 
+//          shape (nbf,nbf,n_unique_1st_derivs)
+//      overlap_deriv2 
+//          shape (nbf,nbf,n_unique_2nd_derivs)
+//      overlap_deriv3 
+//          shape (nbf,nbf,n_unique_3rd_derivs)
+//      ...
+//      kinetic_deriv1 
+//          shape (nbf,nbf,n_unique_1st_derivs)
+//      kinetic_deriv2 
+//          shape (nbf,nbf,n_unique_2nd_derivs)
+//      kinetic_deriv3 
+//          shape (nbf,nbf,n_unique_3rd_derivs)
+//      ...
+//      potential_deriv1 
+//          shape (nbf,nbf,n_unique_1st_derivs)
+//      potential_deriv2 
+//          shape (nbf,nbf,n_unique_2nd_derivs)
+//      potential_deriv3 
+//          shape (nbf,nbf,n_unique_3rd_derivs)
 void oei_deriv_disk(int max_deriv_order) {
+    long total_deriv_slices = 0;
+    for (int i=1; i<= max_deriv_order; i++){
+        total_deriv_slices += how_many_derivs(natom, deriv_order);
+        }
+    double check = (3 * nbf * nbf * total_deriv_slices * 8) * (1e-9);
+    assert(check < 2 && "Total disk space required for one electron integrals exceeds 2 GB. Increase threshold and recompile to proceed.");
+
     // Create H5 File and prepare to fill with 0.0's
     const H5std_string file_name("oei_derivs.h5");
     H5File* file = new H5File(file_name,H5F_ACC_TRUNC);
@@ -918,19 +943,19 @@ void oei_deriv_disk(int max_deriv_order) {
     } // deriv order loop
 // close the file
 delete file;
-}
+} //oei_deriv_disk 
 
-// Writes all overlap, kinetic, and potential derivatives up to `max_deriv_order` to disk
 
 // Writes all ERI's up to `max_deriv_order` to disk.
-// In file structure:
-// eri_derivs
+// HDF5 File Name: eri_derivs.h5 
+//      HDF5 Dataset names within the file:
 //      eri_deriv1 
 //          shape (nbf,nbf,nbf,nbf,n_unique_1st_derivs)
 //      eri_deriv2
 //          shape (nbf,nbf,nbf,nbf,n_unique_2nd_derivs)
 //      eri_deriv3
 //          shape (nbf,nbf,nbf,nbf,n_unique_3rd_derivs)
+//      ...
 void eri_deriv_disk(int max_deriv_order) { 
     std::cout << "Writing two-electron integral derivative tensors up to order " << max_deriv_order << " to disk...";
     const H5std_string file_name("eri_derivs.h5");
@@ -1095,9 +1120,9 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("kinetic_deriv", &kinetic_deriv, "Computes kinetic integral nuclear derivatives with libint");
     m.def("potential_deriv", &potential_deriv, "Computes potential integral nuclear derivatives with libint");
     m.def("eri_deriv", &eri_deriv, "Computes electron repulsion integral nuclear derivatives with libint");
-    m.def("eri_deriv_disk", &eri_deriv_disk, "Computes the full coulomb integral nuclear derivative tensor and writes them to disk with HDF5");
-    m.def("oei_deriv_disk", &eri_deriv_disk, "Computes overlap, kinetic, and potential integral derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
-    //TODO
+    m.def("eri_deriv_disk", &eri_deriv_disk, "Computes coulomb integral nuclea derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
+    m.def("oei_deriv_disk", &oei_deriv_disk, "Computes overlap, kinetic, and potential integral derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
+    //TODO partial derivative impl's
     //m.def("eri_partial_deriv_disk", &eri_partial_deriv_disk, "Computes a subset of the full coulomb integral nuclear derivative tensor and writes them to disk with HDF5");
 }
 
