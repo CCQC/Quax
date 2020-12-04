@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import psi4
 import numpy as np
 import os
+import h5py
 
 from .external_integrals import libint_initialize, libint_finalize
 
@@ -102,13 +103,42 @@ def derivative(molecule, basis_name, method, order=1):
     xyz_path = os.path.abspath(os.getcwd()) + "/" + xyz_file_name
     #basis_dict = build_basis_set(molecule, basis_name)
     dim = geom.reshape(-1).shape[0]
+
+    # Get number of basis functions
+    basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
+    nbf = basis_set.nbf()
+
     #TODO TODO TODO: support internal coordinate wrapper function.
     # This will take in internal coordinates, transform them into cartesians, and then compute integrals, energy
     # JAX will then collect the internal coordinate derivative tensor instead. 
 
-    # Initialize libint here and precompute ERI derivatives, then finalize
-    libint_initialize(xyz_path, basis_name, order)
-    libint_finalize()
+    # TODO Can make this safer by including info HDF5 file with rounded geometry, atom labels, etc.
+    if ((os.path.exists("eri_derivs.h5") and os.path.exists("oei_derivs.h5"))):
+        print("Found currently existing integral derivatives in your working directory. Trying to use them.")
+        oeifile = h5py.File('oei_derivs.h5', 'r')
+        erifile = h5py.File('eri_derivs.h5', 'r')
+        # Check if there are `deriv_order` datatsets in the eri file
+        correct_deriv_order = len(erifile) == order
+        # Check nbf dimension of integral arrays
+        sample_dataset_name = list(oeifile.keys())[0]
+        correct_nbf = oeifile[sample_dataset_name].shape[0] == nbf
+        oeifile.close()
+        erifile.close()
+        if correct_deriv_order and correct_nbf:
+            print("Integral derivatives appear to be correct. Avoiding recomputation.")
+        else:
+            print("Integral derivatives dimensions do not match requested derivative order and/or basis set. Recomputing integral derivatives")
+            if os.path.exists("eri_derivs.h5"):
+                print("Deleting two electron integral derivatives...")
+                os.remove("eri_derivs.h5")
+            if os.path.exists("oei_derivs.h5"):
+                print("Deleting one electron integral derivatives...")
+                os.remove("oei_derivs.h5")
+            libint_initialize(xyz_path, basis_name, order)
+            libint_finalize()
+    else:
+        libint_initialize(xyz_path, basis_name, order)
+        libint_finalize()
 
     # Define function 'energy' depending on requested method
     if method == 'scf' or method == 'hf' or method == 'rhf':
@@ -140,12 +170,6 @@ def derivative(molecule, basis_name, method, order=1):
         quartic = jacfwd(jacfwd(jacfwd(jacfwd(electronic_energy, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
         deriv = jnp.round(quartic.reshape(dim,dim,dim,dim), 10)
 
-    if os.path.exists("eri_derivs.h5"):
-        print("Deleting two electron integral derivatives...")
-        os.remove("eri_derivs.h5")
-    if os.path.exists("oei_derivs.h5"):
-        print("Deleting one electron integral derivatives...")
-        os.remove("oei_derivs.h5")
     return np.asarray(deriv)
 
 def partial_derivative(molecule, basis_name, method, order, address):
@@ -211,6 +235,10 @@ def partial_derivative(molecule, basis_name, method, order, address):
     charge = molecule.molecular_charge()
     nuclear_charges = jnp.asarray([molecule.charge(i) for i in range(geom.shape[0])])
 
+    # Get number of basis functions
+    basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
+    nbf = basis_set.nbf()
+
     # Save xyz file, get path
     xyz_file_name = "geom.xyz"
     molecule.save_xyz_file(xyz_file_name, True)
@@ -224,9 +252,30 @@ def partial_derivative(molecule, basis_name, method, order, address):
     # JAX will then collect the internal coordinate partial derivative instead. 
 
     # If integrals already exist in the working directory and they are correct shape, reuse them.
+    # TODO Can make this safer by including info HDF5 file with rounded geometry, atom labels, etc.
     if ((os.path.exists("eri_derivs.h5") and os.path.exists("oei_derivs.h5"))):
-        # TODO add logic to check proper number of datasets for deriv order, and nbf dim is right.
-        print("Found currently existing integrals in your working directory. Trying to use them.")
+        print("Found currently existing integral derivatives in your working directory. Trying to use them.")
+        oeifile = h5py.File('oei_derivs.h5', 'r')
+        erifile = h5py.File('eri_derivs.h5', 'r')
+        # Check if there are `deriv_order` datatsets in the eri file
+        correct_deriv_order = len(erifile) == order
+        # Check nbf dimension of integral arrays
+        sample_dataset_name = list(oeifile.keys())[0]
+        correct_nbf = oeifile[sample_dataset_name].shape[0] == nbf
+        oeifile.close()
+        erifile.close()
+        if correct_deriv_order and correct_nbf:
+            print("Integral derivatives appear to be correct. Avoiding recomputation.")
+        else:
+            print("Integral derivatives dimensions do not match requested derivative order and/or basis set. Recomputing integral derivatives")
+            if os.path.exists("eri_derivs.h5"):
+                print("Deleting two electron integral derivatives...")
+                os.remove("eri_derivs.h5")
+            if os.path.exists("oei_derivs.h5"):
+                print("Deleting one electron integral derivatives...")
+                os.remove("oei_derivs.h5")
+            libint_initialize(xyz_path, basis_name, order)
+            libint_finalize()
     else:
         libint_initialize(xyz_path, basis_name, order)
         libint_finalize()
@@ -292,12 +341,6 @@ def partial_derivative(molecule, basis_name, method, order, address):
     else:
         print("Error: Order {} partial derivatives are not exposed to the API.".format(order))
 
-    #if os.path.exists("eri_derivs.h5"):
-    #    print("Deleting two electron integral derivatives...")
-    #    os.remove("eri_derivs.h5")
-    #if os.path.exists("oei_derivs.h5"):
-    #    print("Deleting one electron integral derivatives...")
-    #    os.remove("oei_derivs.h5")
     return partial_deriv
 
 
