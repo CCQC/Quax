@@ -1,4 +1,3 @@
-
 h2 scf/cc-pvdz partial gradient
 0.055870913194660865
 34.28user 0.38system 0:34.07elapsed 101%CPU (0avgtext+0avgdata 490840maxresident)k
@@ -72,22 +71,10 @@ h2 ccsd(t)/cc-pvdz partial hessian
 108.33user 0.57system 1:48.09elapsed 100%CPU (0avgtext+0avgdata 724364maxresident)k
 0inputs+8outputs (0major+164504minor)pagefaults 0swaps
 h2 ccsd(t)/cc-pvdz partial cubic
-2020-08-17 17:53:33.769944: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
-********************************
-Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-********************************
 -0.7468217482746511
 367.24user 0.61system 6:06.85elapsed 100%CPU (0avgtext+0avgdata 1309080maxresident)k
 0inputs+8outputs (0major+340468minor)pagefaults 0swaps
 h2 ccsd(t)/cc-pvdz partial quartic
-2020-08-17 18:02:18.375913: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
-********************************
-Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-********************************
-2020-08-17 18:05:06.964974: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
-********************************
-Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-********************************
 2.1908959661299168
 741.79user 1.45system 12:21.99elapsed 100%CPU (0avgtext+0avgdata 4337616maxresident)k
 0inputs+8outputs (0major+1158285minor)pagefaults 0swaps
@@ -104,14 +91,6 @@ h2 ccsd(t)/cc-pvtz partial cubic
 260.03user 1.03system 4:17.31elapsed 101%CPU (0avgtext+0avgdata 1462084maxresident)k
 0inputs+8outputs (0major+575256minor)pagefaults 0swaps
 h2 ccsd(t)/cc-pvtz partial quartic
-2020-08-17 18:21:50.050444: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
-********************************
-Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-********************************
-2020-08-17 18:25:03.919791: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
-********************************
-Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-********************************
 2.092279123499218
 837.09user 1.82system 13:52.73elapsed 100%CPU (0avgtext+0avgdata 4636200maxresident)k
 0inputs+8outputs (0major+1869250minor)pagefaults 0swaps
@@ -192,14 +171,6 @@ n2 ccsd(t)/cc-pvdz partial cubic
 423.86user 3.51system 6:42.84elapsed 106%CPU (0avgtext+0avgdata 1882308maxresident)k
 0inputs+8outputs (0major+2157174minor)pagefaults 0swaps
 n2 ccsd(t)/cc-pvdz partial quartic
-2020-08-17 21:02:05.438305: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
-********************************
-Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-********************************
-2020-08-17 21:05:30.590085: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
-********************************
-Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-********************************
 84.15581536071556
 1194.85user 8.92system 18:56.46elapsed 105%CPU (0avgtext+0avgdata 3964648maxresident)k
 0inputs+16outputs (0major+5965079minor)pagefaults 0swaps
@@ -216,10 +187,6 @@ n2 ccsd(t)/cc-pvtz partial cubic
 1621.76user 36.13system 16:21.30elapsed 168%CPU (0avgtext+0avgdata 7599464maxresident)k
 0inputs+8outputs (0major+29960164minor)pagefaults 0swaps
 n2 ccsd(t)/cc-pvtz partial quartic
-2020-08-17 22:11:09.268280: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
-********************************
-Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-********************************
 84.22626588158026
 4619.25user 88.41system 42:34.46elapsed 184%CPU (0avgtext+0avgdata 17144056maxresident)k
 0inputs+8outputs (0major+70620497minor)pagefaults 0swaps
@@ -300,14 +267,6 @@ h2o ccsd(t)/cc-pvdz partial cubic
 297.43user 1.91system 4:50.81elapsed 102%CPU (0avgtext+0avgdata 1484404maxresident)k
 0inputs+8outputs (0major+1111800minor)pagefaults 0swaps
 h2o ccsd(t)/cc-pvdz partial quartic
-2020-08-17 23:51:31.307930: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
-********************************
-Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-********************************
-2020-08-17 23:54:50.207082: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
-********************************
-Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
-********************************
 -0.4083631000371536
 905.15user 5.02system 14:49.18elapsed 102%CPU (0avgtext+0avgdata 3115772maxresident)k
 0inputs+8outputs (0major+3213619minor)pagefaults 0swaps

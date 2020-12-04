@@ -1,0 +1,2072 @@
+h2 scf/cc-pvdz partial gradient
+11  RHF iterations performed
+0.05587091291322738
+7.43user 0.37system 0:07.25elapsed 107%CPU (0avgtext+0avgdata 638200maxresident)k
+0inputs+16outputs (0major+51844minor)pagefaults 0swaps
+h2 scf/cc-pvdz partial hessian
+11  RHF iterations performed
+0.21625401168253844
+12.94user 0.42system 0:12.77elapsed 104%CPU (0avgtext+0avgdata 668796maxresident)k
+0inputs+16outputs (0major+59509minor)pagefaults 0swaps
+h2 scf/cc-pvdz partial cubic
+11  RHF iterations performed
+-0.7290588831410137
+22.75user 0.53system 0:22.55elapsed 103%CPU (0avgtext+0avgdata 728844maxresident)k
+0inputs+16outputs (0major+76406minor)pagefaults 0swaps
+h2 scf/cc-pvdz partial quartic
+11  RHF iterations performed
+2.204542622068508
+54.72user 0.68system 0:54.41elapsed 101%CPU (0avgtext+0avgdata 873220maxresident)k
+0inputs+16outputs (0major+114410minor)pagefaults 0swaps
+h2 scf/cc-pvtz partial gradient
+12  RHF iterations performed
+0.06099091212530461
+12.76user 0.64system 0:12.03elapsed 111%CPU (0avgtext+0avgdata 670736maxresident)k
+0inputs+8outputs (0major+64970minor)pagefaults 0swaps
+h2 scf/cc-pvtz partial hessian
+12  RHF iterations performed
+0.19667756447770324
+22.06user 0.76system 0:21.03elapsed 108%CPU (0avgtext+0avgdata 742676maxresident)k
+0inputs+16outputs (0major+84959minor)pagefaults 0swaps
+h2 scf/cc-pvtz partial cubic
+12  RHF iterations performed
+-0.6736201258189185
+58.32user 1.22system 0:57.14elapsed 104%CPU (0avgtext+0avgdata 911012maxresident)k
+0inputs+16outputs (0major+226553minor)pagefaults 0swaps
+h2 scf/cc-pvtz partial quartic
+12  RHF iterations performed
+2.0882829619516716
+221.76user 1.74system 3:39.68elapsed 101%CPU (0avgtext+0avgdata 1237056maxresident)k
+0inputs+16outputs (0major+511892minor)pagefaults 0swaps
+h2 mp2/cc-pvdz partial gradient
+11  RHF iterations performed
+0.051219854621652544
+7.63user 0.36system 0:07.38elapsed 108%CPU (0avgtext+0avgdata 646352maxresident)k
+0inputs+8outputs (0major+53959minor)pagefaults 0swaps
+h2 mp2/cc-pvdz partial hessian
+11  RHF iterations performed
+0.21614597636576677
+13.09user 0.53system 0:12.93elapsed 105%CPU (0avgtext+0avgdata 681696maxresident)k
+0inputs+8outputs (0major+63677minor)pagefaults 0swaps
+h2 mp2/cc-pvdz partial cubic
+^[^[^[11  RHF iterations performed
+-0.7376406167628817
+23.78user 0.48system 0:23.46elapsed 103%CPU (0avgtext+0avgdata 742068maxresident)k
+0inputs+24outputs (0major+81995minor)pagefaults 0swaps
+h2 mp2/cc-pvdz partial quartic
+11  RHF iterations performed
+2.1997155865682987
+55.80user 0.66system 0:55.34elapsed 102%CPU (0avgtext+0avgdata 875156maxresident)k
+0inputs+16outputs (0major+117054minor)pagefaults 0swaps
+h2 mp2/cc-pvtz partial gradient
+12  RHF iterations performed
+0.058099534353936944
+13.02user 0.55system 0:12.15elapsed 111%CPU (0avgtext+0avgdata 671604maxresident)k
+0inputs+8outputs (0major+61897minor)pagefaults 0swaps
+h2 mp2/cc-pvtz partial hessian
+12  RHF iterations performed
+0.19197642672876866
+23.00user 0.78system 0:21.92elapsed 108%CPU (0avgtext+0avgdata 767684maxresident)k
+0inputs+16outputs (0major+115185minor)pagefaults 0swaps
+h2 mp2/cc-pvtz partial cubic
+12  RHF iterations performed
+-0.6737492154836021
+58.98user 1.06system 0:57.43elapsed 104%CPU (0avgtext+0avgdata 904344maxresident)k
+0inputs+16outputs (0major+237882minor)pagefaults 0swaps
+h2 mp2/cc-pvtz partial quartic
+12  RHF iterations performed
+2.0928153542348373
+227.55user 1.73system 3:44.98elapsed 101%CPU (0avgtext+0avgdata 1275416maxresident)k
+0inputs+16outputs (0major+528151minor)pagefaults 0swaps
+h2 ccsd(t)/cc-pvdz partial gradient
+11  RHF iterations performed
+19  CCSD iterations performed
+0.04566883199836716
+20.92user 0.45system 0:20.76elapsed 102%CPU (0avgtext+0avgdata 739896maxresident)k
+0inputs+8outputs (0major+77484minor)pagefaults 0swaps
+h2 ccsd(t)/cc-pvdz partial hessian
+11  RHF iterations performed
+19  CCSD iterations performed
+0.21002898923615287
+56.30user 0.58system 0:56.16elapsed 101%CPU (0avgtext+0avgdata 869496maxresident)k
+0inputs+16outputs (0major+119611minor)pagefaults 0swaps
+h2 ccsd(t)/cc-pvdz partial cubic
+11  RHF iterations performed
+19  CCSD iterations performed
+-0.7468217476923532
+210.69user 0.81system 3:30.57elapsed 100%CPU (0avgtext+0avgdata 1312908maxresident)k
+0inputs+16outputs (0major+254375minor)pagefaults 0swaps
+h2 ccsd(t)/cc-pvdz partial quartic
+11  RHF iterations performed
+2020-11-11 16:38:11.275888: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+2020-11-11 16:41:22.378378: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+19  CCSD iterations performed
+2020-11-11 16:46:23.466939: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+2.1908959638517738
+796.88user 1.55system 13:17.01elapsed 100%CPU (0avgtext+0avgdata 3833296maxresident)k
+0inputs+24outputs (0major+1015970minor)pagefaults 0swaps
+h2 ccsd(t)/cc-pvtz partial gradient
+12  RHF iterations performed
+20  CCSD iterations performed
+0.052715241934564304
+30.34user 0.72system 0:29.23elapsed 106%CPU (0avgtext+0avgdata 757416maxresident)k
+0inputs+8outputs (0major+83677minor)pagefaults 0swaps
+h2 ccsd(t)/cc-pvtz partial hessian
+12  RHF iterations performed
+20  CCSD iterations performed
+0.18505383469677275
+78.29user 0.85system 1:16.68elapsed 103%CPU (0avgtext+0avgdata 930332maxresident)k
+0inputs+16outputs (0major+148786minor)pagefaults 0swaps
+h2 ccsd(t)/cc-pvtz partial cubic
+12  RHF iterations performed
+20  CCSD iterations performed
+-0.6779282034680676
+259.40user 1.36system 4:16.36elapsed 101%CPU (0avgtext+0avgdata 1425380maxresident)k
+0inputs+16outputs (0major+399074minor)pagefaults 0swaps
+h2 ccsd(t)/cc-pvtz partial quartic
+12  RHF iterations performed
+2020-11-11 17:00:20.227504: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+2020-11-11 17:04:19.057843: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+20  CCSD iterations performed
+2020-11-11 17:10:14.445160: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+2.0922791170894457
+996.50user 2.68system 16:30.77elapsed 100%CPU (0avgtext+0avgdata 4064188maxresident)k
+0inputs+16outputs (0major+1382911minor)pagefaults 0swaps
+n2 scf/cc-pvdz partial gradient
+16  RHF iterations performed
+-1.9970538630396213
+29.06user 1.52system 0:26.33elapsed 116%CPU (0avgtext+0avgdata 700636maxresident)k
+0inputs+8outputs (0major+83329minor)pagefaults 0swaps
+n2 scf/cc-pvdz partial hessian
+16  RHF iterations performed
+8.54009798311656
+61.22user 2.14system 0:57.74elapsed 109%CPU (0avgtext+0avgdata 767684maxresident)k
+0inputs+16outputs (0major+161184minor)pagefaults 0swaps
+n2 scf/cc-pvdz partial cubic
+16  RHF iterations performed
+-27.062169321964316
+247.27user 2.90system 4:02.33elapsed 103%CPU (0avgtext+0avgdata 903368maxresident)k
+0inputs+16outputs (0major+365106minor)pagefaults 0swaps
+n2 scf/cc-pvdz partial quartic
+16  RHF iterations performed
+84.26005609292254
+1365.40user 4.69system 22:37.35elapsed 100%CPU (0avgtext+0avgdata 1277100maxresident)k
+0inputs+16outputs (0major+801414minor)pagefaults 0swaps
+n2 scf/cc-pvtz partial gradient
+Traceback (most recent call last):
+  File "1_n2_scf_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'scf', order=1,address=(5,))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 258, in partial_derivative
+    partial_grad = jacfwd(scf_partial_wrapper, i)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 253, in scf_partial_wrapper
+    E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.05user 0.31system 0:00.95elapsed 143%CPU (0avgtext+0avgdata 560556maxresident)k
+0inputs+16outputs (0major+33991minor)pagefaults 0swaps
+n2 scf/cc-pvtz partial hessian
+Traceback (most recent call last):
+  File "2_n2_scf_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'scf', order=2,address=(5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 262, in partial_derivative
+    partial_hess = jacfwd(jacfwd(scf_partial_wrapper, i), j)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 253, in scf_partial_wrapper
+    E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.02user 0.30system 0:00.91elapsed 146%CPU (0avgtext+0avgdata 561192maxresident)k
+0inputs+8outputs (0major+34001minor)pagefaults 0swaps
+n2 scf/cc-pvtz partial cubic
+Traceback (most recent call last):
+  File "3_n2_scf_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'scf', order=3,address=(5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 266, in partial_derivative
+    partial_cubic = jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 253, in scf_partial_wrapper
+    E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.03user 0.31system 0:00.95elapsed 140%CPU (0avgtext+0avgdata 560320maxresident)k
+0inputs+8outputs (0major+34019minor)pagefaults 0swaps
+n2 scf/cc-pvtz partial quartic
+Traceback (most recent call last):
+  File "4_n2_scf_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'scf', order=4,address=(5,5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 270, in partial_derivative
+    partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 253, in scf_partial_wrapper
+    E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.05user 0.31system 0:00.95elapsed 143%CPU (0avgtext+0avgdata 561408maxresident)k
+0inputs+8outputs (0major+34015minor)pagefaults 0swaps
+n2 mp2/cc-pvdz partial gradient
+16  RHF iterations performed
+-2.105132032255128
+30.15user 1.68system 0:27.75elapsed 114%CPU (0avgtext+0avgdata 700928maxresident)k
+0inputs+8outputs (0major+84832minor)pagefaults 0swaps
+n2 mp2/cc-pvdz partial hessian
+16  RHF iterations performed
+8.480085298088893
+63.51user 2.20system 1:00.06elapsed 109%CPU (0avgtext+0avgdata 755180maxresident)k
+0inputs+16outputs (0major+149291minor)pagefaults 0swaps
+n2 mp2/cc-pvdz partial cubic
+16  RHF iterations performed
+-27.20958719845951
+248.50user 2.93system 4:03.22elapsed 103%CPU (0avgtext+0avgdata 902840maxresident)k
+0inputs+16outputs (0major+374503minor)pagefaults 0swaps
+n2 mp2/cc-pvdz partial quartic
+16  RHF iterations performed
+84.0685706430965
+1364.06user 4.60system 22:35.71elapsed 100%CPU (0avgtext+0avgdata 1258472maxresident)k
+0inputs+16outputs (0major+838089minor)pagefaults 0swaps
+n2 mp2/cc-pvtz partial gradient
+Traceback (most recent call last):
+  File "1_n2_mp2_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'mp2', order=1,address=(5,))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 297, in partial_derivative
+    partial_grad = jacfwd(mp2_partial_wrapper, i)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 293, in mp2_partial_wrapper
+    E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/mp2.py", line 16, in restricted_mp2
+    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.05user 0.27system 0:00.95elapsed 138%CPU (0avgtext+0avgdata 560256maxresident)k
+0inputs+8outputs (0major+34037minor)pagefaults 0swaps
+n2 mp2/cc-pvtz partial hessian
+Traceback (most recent call last):
+  File "2_n2_mp2_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'mp2', order=2,address=(5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 301, in partial_derivative
+    partial_hess = jacfwd(jacfwd(mp2_partial_wrapper, i), j)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 293, in mp2_partial_wrapper
+    E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/mp2.py", line 16, in restricted_mp2
+    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.01user 0.34system 0:00.93elapsed 144%CPU (0avgtext+0avgdata 561312maxresident)k
+0inputs+16outputs (0major+34017minor)pagefaults 0swaps
+n2 mp2/cc-pvtz partial cubic
+Traceback (most recent call last):
+  File "3_n2_mp2_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'mp2', order=3,address=(5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 305, in partial_derivative
+    partial_cubic = jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 293, in mp2_partial_wrapper
+    E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/mp2.py", line 16, in restricted_mp2
+    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.04user 0.28system 0:00.91elapsed 145%CPU (0avgtext+0avgdata 560368maxresident)k
+0inputs+8outputs (0major+34042minor)pagefaults 0swaps
+n2 mp2/cc-pvtz partial quartic
+Traceback (most recent call last):
+  File "4_n2_mp2_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'mp2', order=4,address=(5,5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 309, in partial_derivative
+    partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 293, in mp2_partial_wrapper
+    E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/mp2.py", line 16, in restricted_mp2
+    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.02user 0.29system 0:00.93elapsed 140%CPU (0avgtext+0avgdata 560880maxresident)k
+0inputs+8outputs (0major+34062minor)pagefaults 0swaps
+n2 ccsd(t)/cc-pvdz partial gradient
+16  RHF iterations performed
+19  CCSD iterations performed
+-2.103189576921038
+54.14user 2.04system 0:49.36elapsed 113%CPU (0avgtext+0avgdata 784876maxresident)k
+0inputs+16outputs (0major+292900minor)pagefaults 0swaps
+n2 ccsd(t)/cc-pvdz partial hessian
+16  RHF iterations performed
+19  CCSD iterations performed
+8.503205343812711
+135.17user 3.17system 2:05.42elapsed 110%CPU (0avgtext+0avgdata 1050600maxresident)k
+0inputs+16outputs (0major+727314minor)pagefaults 0swaps
+n2 ccsd(t)/cc-pvdz partial cubic
+16  RHF iterations performed
+19  CCSD iterations performed
+-27.13341563621341
+467.70user 5.72system 7:24.82elapsed 106%CPU (0avgtext+0avgdata 1702808maxresident)k
+0inputs+16outputs (0major+2081170minor)pagefaults 0swaps
+n2 ccsd(t)/cc-pvdz partial quartic
+16  RHF iterations performed
+2020-11-11 18:42:12.136298: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+2020-11-11 18:46:42.651542: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+19  CCSD iterations performed
+84.15585747696163
+2213.90user 12.89system 35:52.33elapsed 103%CPU (0avgtext+0avgdata 3680640maxresident)k
+0inputs+16outputs (0major+5827439minor)pagefaults 0swaps
+n2 ccsd(t)/cc-pvtz partial gradient
+Traceback (most recent call last):
+  File "1_n2_ccsd_t_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'ccsd(t)', order=1,address=(5,))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 370, in partial_derivative
+    partial_grad = jacfwd(ccsd_t_partial_wrapper, i)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 366, in ccsd_t_partial_wrapper
+    E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd_t.py", line 162, in rccsd_t
+    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd.py", line 14, in rccsd
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.04user 0.35system 0:00.97elapsed 143%CPU (0avgtext+0avgdata 560732maxresident)k
+0inputs+8outputs (0major+34109minor)pagefaults 0swaps
+n2 ccsd(t)/cc-pvtz partial hessian
+Traceback (most recent call last):
+  File "2_n2_ccsd_t_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'ccsd(t)', order=2,address=(5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 374, in partial_derivative
+    partial_hess = jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 366, in ccsd_t_partial_wrapper
+    E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd_t.py", line 162, in rccsd_t
+    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd.py", line 14, in rccsd
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.07user 0.29system 0:00.94elapsed 145%CPU (0avgtext+0avgdata 561388maxresident)k
+0inputs+16outputs (0major+34129minor)pagefaults 0swaps
+n2 ccsd(t)/cc-pvtz partial cubic
+Traceback (most recent call last):
+  File "3_n2_ccsd_t_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'ccsd(t)', order=3,address=(5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 378, in partial_derivative
+    partial_cubic = jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 366, in ccsd_t_partial_wrapper
+    E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd_t.py", line 162, in rccsd_t
+    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd.py", line 14, in rccsd
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.05user 0.30system 0:00.98elapsed 138%CPU (0avgtext+0avgdata 561316maxresident)k
+0inputs+8outputs (0major+34120minor)pagefaults 0swaps
+n2 ccsd(t)/cc-pvtz partial quartic
+Traceback (most recent call last):
+  File "4_n2_ccsd_t_tz.py", line 15, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'ccsd(t)', order=4,address=(5,5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 382, in partial_derivative
+    partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 366, in ccsd_t_partial_wrapper
+    E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd_t.py", line 162, in rccsd_t
+    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd.py", line 14, in rccsd
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.30user 0.26system 0:01.28elapsed 121%CPU (0avgtext+0avgdata 561412maxresident)k
+0inputs+8outputs (0major+34078minor)pagefaults 0swaps
+h2o scf/cc-pvdz partial gradient
+35  RHF iterations performed
+0.0295897995651484
+16.04user 0.90system 0:14.82elapsed 114%CPU (0avgtext+0avgdata 687904maxresident)k
+0inputs+8outputs (0major+98688minor)pagefaults 0swaps
+h2o scf/cc-pvdz partial hessian
+35  RHF iterations performed
+0.19684787277262
+25.78user 1.19system 0:24.04elapsed 112%CPU (0avgtext+0avgdata 720220maxresident)k
+0inputs+16outputs (0major+130468minor)pagefaults 0swaps
+h2o scf/cc-pvdz partial cubic
+35  RHF iterations performed
+-0.17828898004422
+62.05user 1.47system 0:59.41elapsed 106%CPU (0avgtext+0avgdata 806860maxresident)k
+0inputs+16outputs (0major+194276minor)pagefaults 0swaps
+h2o scf/cc-pvdz partial quartic
+35  RHF iterations performed
+-0.5919564260516199
+297.45user 3.00system 4:53.60elapsed 102%CPU (0avgtext+0avgdata 1050184maxresident)k
+3176inputs+16outputs (10major+816343minor)pagefaults 0swaps
+h2o scf/cc-pvtz partial gradient
+Traceback (most recent call last):
+  File "1_h2o_scf_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'scf', order=1,address=(5,))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 258, in partial_derivative
+    partial_grad = jacfwd(scf_partial_wrapper, i)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 253, in scf_partial_wrapper
+    E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.11user 0.31system 0:04.43elapsed 32%CPU (0avgtext+0avgdata 560248maxresident)k
+39704inputs+8outputs (196major+33894minor)pagefaults 0swaps
+h2o scf/cc-pvtz partial hessian
+Traceback (most recent call last):
+  File "2_h2o_scf_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'scf', order=2,address=(5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 262, in partial_derivative
+    partial_hess = jacfwd(jacfwd(scf_partial_wrapper, i), j)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 253, in scf_partial_wrapper
+    E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.12user 0.26system 0:01.03elapsed 134%CPU (0avgtext+0avgdata 560488maxresident)k
+8inputs+8outputs (0major+34039minor)pagefaults 0swaps
+h2o scf/cc-pvtz partial cubic
+Traceback (most recent call last):
+  File "3_h2o_scf_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'scf', order=3,address=(5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 266, in partial_derivative
+    partial_cubic = jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 253, in scf_partial_wrapper
+    E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.13user 0.25system 0:01.00elapsed 139%CPU (0avgtext+0avgdata 560616maxresident)k
+8inputs+16outputs (0major+34085minor)pagefaults 0swaps
+h2o scf/cc-pvtz partial quartic
+Traceback (most recent call last):
+  File "4_h2o_scf_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'scf', order=4,address=(5,5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 270, in partial_derivative
+    partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 253, in scf_partial_wrapper
+    E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.06user 0.32system 0:01.01elapsed 136%CPU (0avgtext+0avgdata 558780maxresident)k
+8inputs+8outputs (0major+34082minor)pagefaults 0swaps
+h2o mp2/cc-pvdz partial gradient
+35  RHF iterations performed
+0.015643699769865273
+19.90user 0.98system 0:18.83elapsed 110%CPU (0avgtext+0avgdata 687552maxresident)k
+784inputs+8outputs (6major+81587minor)pagefaults 0swaps
+h2o mp2/cc-pvdz partial hessian
+35  RHF iterations performed
+0.1872688419064511
+33.67user 1.29system 0:32.16elapsed 108%CPU (0avgtext+0avgdata 720532maxresident)k
+8inputs+16outputs (0major+144620minor)pagefaults 0swaps
+h2o mp2/cc-pvdz partial cubic
+35  RHF iterations performed
+-0.1650031866604248
+79.93user 1.63system 1:17.64elapsed 105%CPU (0avgtext+0avgdata 811524maxresident)k
+8inputs+16outputs (0major+206425minor)pagefaults 0swaps
+h2o mp2/cc-pvdz partial quartic
+35  RHF iterations performed
+-0.5833192391409034
+310.23user 3.21system 5:06.93elapsed 102%CPU (0avgtext+0avgdata 1044684maxresident)k
+8inputs+16outputs (0major+815033minor)pagefaults 0swaps
+h2o mp2/cc-pvtz partial gradient
+Traceback (most recent call last):
+  File "1_h2o_mp2_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'mp2', order=1,address=(5,))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 297, in partial_derivative
+    partial_grad = jacfwd(mp2_partial_wrapper, i)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 293, in mp2_partial_wrapper
+    E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/mp2.py", line 16, in restricted_mp2
+    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.15user 0.23system 0:01.02elapsed 135%CPU (0avgtext+0avgdata 560324maxresident)k
+8inputs+8outputs (0major+34090minor)pagefaults 0swaps
+h2o mp2/cc-pvtz partial hessian
+Traceback (most recent call last):
+  File "2_h2o_mp2_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'mp2', order=2,address=(5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 301, in partial_derivative
+    partial_hess = jacfwd(jacfwd(mp2_partial_wrapper, i), j)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 293, in mp2_partial_wrapper
+    E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/mp2.py", line 16, in restricted_mp2
+    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.12user 0.32system 0:01.01elapsed 143%CPU (0avgtext+0avgdata 558984maxresident)k
+8inputs+8outputs (0major+34086minor)pagefaults 0swaps
+h2o mp2/cc-pvtz partial cubic
+Traceback (most recent call last):
+  File "3_h2o_mp2_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'mp2', order=3,address=(5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 305, in partial_derivative
+    partial_cubic = jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 293, in mp2_partial_wrapper
+    E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/mp2.py", line 16, in restricted_mp2
+    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.08user 0.32system 0:01.01elapsed 139%CPU (0avgtext+0avgdata 558120maxresident)k
+8inputs+8outputs (0major+34050minor)pagefaults 0swaps
+h2o mp2/cc-pvtz partial quartic
+Traceback (most recent call last):
+  File "4_h2o_mp2_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'mp2', order=4,address=(5,5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 309, in partial_derivative
+    partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 293, in mp2_partial_wrapper
+    E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/mp2.py", line 16, in restricted_mp2
+    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.15user 0.27system 0:01.03elapsed 138%CPU (0avgtext+0avgdata 558448maxresident)k
+8inputs+16outputs (0major+34079minor)pagefaults 0swaps
+h2o ccsd(t)/cc-pvdz partial gradient
+35  RHF iterations performed
+22  CCSD iterations performed
+0.014662824827970591
+40.99user 1.24system 0:39.33elapsed 107%CPU (0avgtext+0avgdata 762008maxresident)k
+136inputs+16outputs (1major+149270minor)pagefaults 0swaps
+h2o ccsd(t)/cc-pvdz partial hessian
+35  RHF iterations performed
+22  CCSD iterations performed
+0.18535549346066513
+99.53user 2.08system 1:36.64elapsed 105%CPU (0avgtext+0avgdata 941776maxresident)k
+8inputs+16outputs (0major+469852minor)pagefaults 0swaps
+h2o ccsd(t)/cc-pvdz partial cubic
+35  RHF iterations performed
+22  CCSD iterations performed
+-0.17254970656064336
+269.74user 3.14system 4:22.99elapsed 103%CPU (0avgtext+0avgdata 1448784maxresident)k
+8inputs+16outputs (0major+1070323minor)pagefaults 0swaps
+h2o ccsd(t)/cc-pvdz partial quartic
+35  RHF iterations performed
+2020-11-11 19:21:29.702062: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+2020-11-11 19:25:26.688492: E external/org_tensorflow/tensorflow/compiler/xla/service/slow_operation_alarm.cc:55] 
+********************************
+Very slow compile?  If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.
+********************************
+22  CCSD iterations performed
+-0.597787776393993
+885.87user 7.55system 14:43.92elapsed 101%CPU (0avgtext+0avgdata 2401620maxresident)k
+100376inputs+16outputs (515major+3411656minor)pagefaults 0swaps
+h2o ccsd(t)/cc-pvtz partial gradient
+Traceback (most recent call last):
+  File "1_h2o_ccsd_t_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'ccsd(t)', order=1,address=(5,))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 370, in partial_derivative
+    partial_grad = jacfwd(ccsd_t_partial_wrapper, i)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 366, in ccsd_t_partial_wrapper
+    E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd_t.py", line 162, in rccsd_t
+    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd.py", line 14, in rccsd
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+2.25user 0.72system 0:14.88elapsed 20%CPU (0avgtext+0avgdata 541408maxresident)k
+905080inputs+8outputs (3279major+34381minor)pagefaults 0swaps
+h2o ccsd(t)/cc-pvtz partial hessian
+Traceback (most recent call last):
+  File "2_h2o_ccsd_t_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'ccsd(t)', order=2,address=(5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 374, in partial_derivative
+    partial_hess = jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 366, in ccsd_t_partial_wrapper
+    E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd_t.py", line 162, in rccsd_t
+    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd.py", line 14, in rccsd
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.00user 0.36system 0:00.87elapsed 156%CPU (0avgtext+0avgdata 549076maxresident)k
+8inputs+8outputs (0major+34124minor)pagefaults 0swaps
+h2o ccsd(t)/cc-pvtz partial cubic
+Traceback (most recent call last):
+  File "3_h2o_ccsd_t_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'ccsd(t)', order=3,address=(5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 378, in partial_derivative
+    partial_cubic = jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 366, in ccsd_t_partial_wrapper
+    E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd_t.py", line 162, in rccsd_t
+    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd.py", line 14, in rccsd
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.02user 0.34system 0:00.86elapsed 158%CPU (0avgtext+0avgdata 548276maxresident)k
+8inputs+8outputs (0major+34097minor)pagefaults 0swaps
+h2o ccsd(t)/cc-pvtz partial quartic
+Traceback (most recent call last):
+  File "4_h2o_ccsd_t_tz.py", line 19, in <module>
+    a = psijax.core.partial_derivative(molecule, 'cc-pvtz', 'ccsd(t)', order=4,address=(5,5,5,5))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 382, in partial_derivative
+    partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 910, in jacfun
+    y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1233, in batched_fun
+    axis_name=axis_name)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/batching.py", line 36, in batch
+    return batched_fun.call_wrapped(*in_vals)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/jax/jax/jax/api.py", line 1683, in _jvp
+    out_primals, out_tangents = ad.jvp(flat_fun).call_wrapped(ps_flat, ts_flat)
+  File "/home/adabbott/Git/jax/jax/jax/linear_util.py", line 156, in call_wrapped
+    ans = self.f(*args, **dict(self.params, **kwargs))
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/core.py", line 366, in ccsd_t_partial_wrapper
+    E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd_t.py", line 162, in rccsd_t
+    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/ccsd.py", line 14, in rccsd
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/methods/hartree_fock.py", line 34, in restricted_hartree_fock
+    S = overlap(geom)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/interpreters/ad.py", line 271, in process_primitive
+    primal_out, tangent_out = jvp(primals_in, tangents_in, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 83, in overlap_jvp
+    primals_out = overlap(geom) 
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 19, in overlap
+    return overlap_p.bind(geom)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 263, in bind
+    out = top_trace.process_primitive(self, tracers, params)
+  File "/home/adabbott/Git/jax/jax/jax/core.py", line 572, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/home/adabbott/Git/PsiTorch/PsiJax/psijax/psijax/external_integrals/oei.py", line 38, in overlap_impl
+    S = libint_interface.overlap()
+RuntimeError: Engine::lmax_exceeded -- angular momentum limit exceeded
+Command exited with non-zero status 1
+1.01user 0.32system 0:00.86elapsed 156%CPU (0avgtext+0avgdata 548168maxresident)k
+8inputs+8outputs (0major+34109minor)pagefaults 0swaps
