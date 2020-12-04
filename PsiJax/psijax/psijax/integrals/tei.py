@@ -2,19 +2,17 @@ import jax
 from jax.config import config
 config.update("jax_enable_x64", True)
 config.enable_omnistaging()
-import jax.numpy as np
+import jax.numpy as jnp
 from jax.experimental import loops
 
 from .basis_utils import flatten_basis_data, get_nbf
 from .integrals_utils import gaussian_product, boys, binomial_prefactor, cartesian_product, am_leading_indices, angular_momentum_combinations, fact_ratio2, neg_one_pow
-#from integrals_utils import binomial_prefactor
 
 def B_array(l1,l2,l3,l4,pa_pow,pb_pow,qc_pow,qd_pow,qp_pow,g1_pow,g2_pow,oodelta_pow,B_vals):
     #TODO can you do some reduction magic to reduce the number of loops?
     # Can you split it into two Scopes?
     # Can you convert  all or part of this to a tensor contraction?  
     # It does not appear to help to pull out binomial prefactors and compute outside loop.
-    # 
     with loops.Scope() as s:
       s.B = B_vals
       s.i2 = 0
@@ -57,6 +55,7 @@ def B_array(l1,l2,l3,l4,pa_pow,pb_pow,qc_pow,qd_pow,qp_pow,g1_pow,g2_pow,oodelta
 
 def primitive_tei(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4): 
     """
+    TODO can define a jvp rule for this, have it increment arguments appropriately
     Computes a single contracted two electron integral. 
     given angular momentum vectors, centers, and single value exponents and contraction coefficients
     """
@@ -72,14 +71,14 @@ def primitive_tei(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4):
     xc,yc,zc = C 
     xd,yd,zd = D 
 
-    rab2 = np.dot(A-B,A-B)
-    rcd2 = np.dot(C-D,C-D)
+    rab2 = jnp.dot(A-B,A-B)
+    rcd2 = jnp.dot(C-D,C-D)
     coef = c1 * c2 * c3 * c4
     xyzp = gaussian_product(aa,A,bb,B)
     xyzq = gaussian_product(cc,C,dd,D)
     xp,yp,zp = xyzp
     xq,yq,zq = xyzq
-    rpq2 = np.dot(xyzp-xyzq,xyzp-xyzq)
+    rpq2 = jnp.dot(xyzp-xyzq,xyzp-xyzq)
     gamma1 = aa + bb
     gamma2 = cc + dd
     delta = 0.25*(1/gamma1+1/gamma2)
@@ -87,7 +86,7 @@ def primitive_tei(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4):
     By = B_array(ma,mb,mc,md,yp,ya,yb,yq,yc,yd,gamma1,gamma2,delta)
     Bz = B_array(na,nb,nc,nd,zp,za,zb,zq,zc,zd,gamma1,gamma2,delta)
     boys_arg = 0.25*rpq2/delta
-    boys_eval = boys(np.arange(13), boys_arg) # supports up to f functions
+    boys_eval = boys(jnp.arange(13), boys_arg) # supports up to f functions
 
     with loops.Scope() as s:
       s.I = 0
@@ -104,55 +103,55 @@ def primitive_tei(La,Lb,Lc,Ld, A, B, C, D, aa, bb, cc, dd, c1, c2, c3, c4):
             s.K += 1
           s.J += 1
         s.I += 1
-      value = 2*jax.lax.pow(np.pi,2.5)/(gamma1*gamma2*np.sqrt(gamma1+gamma2)) \
-              *np.exp(-aa*bb*rab2/gamma1) \
-              *np.exp(-cc*dd*rcd2/gamma2)*s.primitive*coef
+      value = 2*jax.lax.pow(jnp.pi,2.5)/(gamma1*gamma2*jnp.sqrt(gamma1+gamma2)) \
+              *jnp.exp(-aa*bb*rab2/gamma1) \
+              *jnp.exp(-cc*dd*rcd2/gamma2)*s.primitive*coef
       return value
 
 def tei_array(geom, basis):
     """
     Build two electron integral array from a jax.numpy array of the cartesian geometry in Bohr, 
     and a basis dictionary as defined by basis_utils.build_basis_set
+    We have to loop over primitives rather than shells because JAX needs intermediates to be consistent 
+    sizes in order to compile.
     """
     # Smush primitive data together into vectors
     coeffs, exps, atoms, ams, indices, dims = flatten_basis_data(basis)
     nbf = get_nbf(basis)
-    max_am = np.max(ams)
+    max_am = jnp.max(ams)
     max_am_idx = max_am * 4 + 1 
     #TODO add excpetion raise if angular momentum is too high
-    B_vals = np.zeros(4*max_am+1)  
+    B_vals = jnp.zeros(4*max_am+1)  
     nprim = coeffs.shape[0]
     # Obtain all possible primitive quartet index combinations 
-    primitive_quartets = cartesian_product(np.arange(nprim), np.arange(nprim), np.arange(nprim), np.arange(nprim))
+    primitive_quartets = cartesian_product(jnp.arange(nprim), jnp.arange(nprim), jnp.arange(nprim), jnp.arange(nprim))
 
     #print("Number of basis functions: ", nbf)
     #print("Number of primitve quartets: ", primitive_quartets.shape[0])
 
     #TODO Experimental: precompute quantities and lookup inside loop
     # Compute all possible Gaussian products for this basis set
-    aa_plus_bb = np.broadcast_to(exps, (nprim,nprim)) + np.transpose(np.broadcast_to(exps, (nprim,nprim)), (1,0))
-    aa_times_A = np.einsum('i,ij->ij', exps, geom[atoms])
+    aa_plus_bb = jnp.broadcast_to(exps, (nprim,nprim)) + jnp.transpose(jnp.broadcast_to(exps, (nprim,nprim)), (1,0))
+    aa_times_A = jnp.einsum('i,ij->ij', exps, geom[atoms])
     aaxA_plus_bbxB = aa_times_A[:,None,:] + aa_times_A[None,:,:]
-    gaussian_products = np.einsum('ijk,ij->ijk', aaxA_plus_bbxB, 1/aa_plus_bb)  
+    gaussian_products = jnp.einsum('ijk,ij->ijk', aaxA_plus_bbxB, 1/aa_plus_bb)  
 
-    # Compute all rab2 (rcd2), every possible np.dot(A-B,A-B)
+    # Compute all rab2 (rcd2), every possible jnp.dot(A-B,A-B)
     natom = geom.shape[0]
-    tmpA = np.broadcast_to(geom, (natom,natom,3))
-    AminusB = (tmpA - np.transpose(tmpA, (1,0,2)))
-    AmBdot = np.einsum('ijk,ijk->ij', AminusB, AminusB) # shape: (natom,natom)
+    tmpA = jnp.broadcast_to(geom, (natom,natom,3))
+    AminusB = (tmpA - jnp.transpose(tmpA, (1,0,2)))
+    AmBdot = jnp.einsum('ijk,ijk->ij', AminusB, AminusB) # shape: (natom,natom)
 
     # Compute all differences between gaussian product centers with all atom centers
-    tmpP = np.tile(gaussian_products, natom).reshape(nprim,nprim,natom,3)
-    PminusA = tmpP - np.broadcast_to(geom, tmpP.shape)
+    tmpP = jnp.tile(gaussian_products, natom).reshape(nprim,nprim,natom,3)
+    PminusA = tmpP - jnp.broadcast_to(geom, tmpP.shape)
 
     # Commpute all powers (up to max_am) of differences between gaussian product centers and atom centers
     # Shape: (nprim, nprim, natom, 3, max_am+1). In loop index PA_pow as [p1,p2,atoms[p1],:,:]
-    PminusA_pow = np.power(np.transpose(np.broadcast_to(PminusA, (max_am+1,nprim,nprim,natom,3)), (1,2,3,4,0)), np.arange(max_am+1))
-
-    #print("Starting TEI's ")
+    PminusA_pow = jnp.power(jnp.transpose(jnp.broadcast_to(PminusA, (max_am+1,nprim,nprim,natom,3)), (1,2,3,4,0)), jnp.arange(max_am+1))
 
     with loops.Scope() as s:
-      s.G = np.zeros((nbf,nbf,nbf,nbf))
+      s.G = jnp.zeros((nbf,nbf,nbf,nbf))
       s.a = 0  # center A angular momentum iterator 
       s.b = 0  # center B angular momentum iterator 
       s.c = 0  # center C angular momentum iterator 
@@ -172,8 +171,8 @@ def tei_array(geom, basis):
         # Avoids redundant recomputations/reassignment for all classes other than (ss|ss).
         #AB = A - B
         #CD = C - D
-        #rab2 = np.dot(AB,AB)
-        #rcd2 = np.dot(CD,CD)
+        #rab2 = jnp.dot(AB,AB)
+        #rcd2 = jnp.dot(CD,CD)
         #P = (aa * A + bb * B) / gamma1
         #Q = (cc * C + dd * D) / gamma2
         gamma1 = aa + bb
@@ -191,35 +190,35 @@ def tei_array(geom, basis):
         #TODO
 
         PQ = P - Q
-        rpq2 = np.dot(PQ,PQ)
+        rpq2 = jnp.dot(PQ,PQ)
         delta = 0.25*(1/gamma1+1/gamma2)
 
         boys_arg = 0.25 * rpq2 / delta
-        boys_eval = boys(np.arange(max_am_idx), boys_arg) 
+        boys_eval = boys(jnp.arange(max_am_idx), boys_arg) 
 
         # Need all powers of Pi-Ai,Pi-Bi,Qi-Ci,Qi-Di (i=x,y,z) up to max_am and Qi-Pi up to max_am_idx
         # note: this computes unncessary quantities for lower angular momentum, 
         # but avoids repeated computation of the same quantities in loops for higher angular momentum
 
-        #PA_pow = np.power(np.broadcast_to(P-A, (max_am+1,3)).T, np.arange(max_am+1))
-        #PB_pow = np.power(np.broadcast_to(P-B, (max_am+1,3)).T, np.arange(max_am+1))
-        #QC_pow = np.power(np.broadcast_to(Q-C, (max_am+1,3)).T, np.arange(max_am+1))
-        #QD_pow = np.power(np.broadcast_to(Q-D, (max_am+1,3)).T, np.arange(max_am+1))
+        #PA_pow = jnp.power(jnp.broadcast_to(P-A, (max_am+1,3)).T, jnp.arange(max_am+1))
+        #PB_pow = jnp.power(jnp.broadcast_to(P-B, (max_am+1,3)).T, jnp.arange(max_am+1))
+        #QC_pow = jnp.power(jnp.broadcast_to(Q-C, (max_am+1,3)).T, jnp.arange(max_am+1))
+        #QD_pow = jnp.power(jnp.broadcast_to(Q-D, (max_am+1,3)).T, jnp.arange(max_am+1))
 
         PA_pow = PminusA_pow[p1,p2,atoms[p1],:,:]
         PB_pow = PminusA_pow[p1,p2,atoms[p2],:,:]
         QC_pow = PminusA_pow[p3,p4,atoms[p3],:,:]
         QD_pow = PminusA_pow[p3,p4,atoms[p4],:,:]
 
-        QP_pow = np.power(np.broadcast_to(Q-P, (max_am_idx,3)).T, np.arange(max_am_idx))
+        QP_pow = jnp.power(jnp.broadcast_to(Q-P, (max_am_idx,3)).T, jnp.arange(max_am_idx))
         # Gamma powers are negative, up to -(l1+l2). 
         # Make array such that the given negative index returns the same negative power.
-        g1_pow = np.power(4*gamma1, -np.roll(np.flip(np.arange(2*max_am+1)),1)) 
-        g2_pow = np.power(4*gamma2, -np.roll(np.flip(np.arange(2*max_am+1)),1)) 
-        oodelta_pow = np.power(1 / delta, np.arange(max_am_idx))  # l1 + l2 + l3 + l4 + 1
+        g1_pow = jnp.power(4*gamma1, -jnp.roll(jnp.flip(jnp.arange(2*max_am+1)),1)) 
+        g2_pow = jnp.power(4*gamma2, -jnp.roll(jnp.flip(jnp.arange(2*max_am+1)),1)) 
+        oodelta_pow = jnp.power(1 / delta, jnp.arange(max_am_idx))  # l1 + l2 + l3 + l4 + 1
 
-        prefactor = 34.986836655249726 / (gamma1*gamma2*np.sqrt(gamma1+gamma2)) \
-                    * np.exp(-aa*bb*rab2/gamma1 + -cc*dd*rcd2/gamma2) * coef
+        prefactor = 34.986836655249726 / (gamma1*gamma2*jnp.sqrt(gamma1+gamma2)) \
+                    * jnp.exp(-aa*bb*rab2/gamma1 + -cc*dd*rcd2/gamma2) * coef
 
         # TODO is there symmetry here?
         s.a = 0
@@ -269,33 +268,4 @@ def tei_array(geom, basis):
             s.b += 1
           s.a += 1
       return s.G
-
-
-## Example evaluation and test against Psi4
-#import psi4
-#import numpy as onp
-#from basis_utils import build_basis_set,flatten_basis_data,get_nbf
-#from integrals_utils import gaussian_product, boys, binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations, fact_ratio2
-#molecule = psi4.geometry("""
-#                         0 1
-#                         H 0.0 0.0  0.849220457955
-#                         H 0.0 0.0  -0.849220457955
-#                         H 0.0 0.0  -1.849220457955
-#                         H 0.0 0.0   1.849220457955
-#                         units bohr
-#                         """)
-#geom = np.asarray(onp.asarray(molecule.geometry()))
-#basis_name = 'cc-pvdz'
-#basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
-#basis_dict = build_basis_set(molecule, basis_name)
-#from pprint import pprint
-#pprint(basis_dict)
-#G = tei_array(geom, basis_dict)
-#
-#mints = psi4.core.MintsHelper(basis_set)
-#psi_G = np.asarray(onp.asarray(mints.ao_eri()))
-#print("Matches Psi4: ", np.allclose(G, psi_G))
-###
-## 17 12 7 2
-#print(G[2:5,7:10,12:15,17:20])
 

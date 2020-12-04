@@ -29,6 +29,16 @@ def binomial_prefactor(k, l1, l2, PAx, PBx):
         L.q += 2
     return L.total
 
+#def factorial(n):
+#  '''Note: switch to float for high values (n>20) for stability'''
+#  with loops.Scope() as s:
+#    s.result = 1
+#    s.k = 1
+#    for _ in s.while_range(lambda: s.k < n + 1):
+#      s.result *= s.k
+#      s.k += 1
+#    return s.result
+
 def gaussian_product(alpha1,A,alpha2,B):
     '''Gaussian product theorem. Returns center.'''
     return (alpha1*A+alpha2*B)/(alpha1+alpha2)

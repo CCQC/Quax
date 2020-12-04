@@ -3,9 +3,9 @@ from jax import jacfwd
 from jax.config import config
 config.update("jax_enable_x64", True)
 config.enable_omnistaging()
-import jax.numpy as np
+import jax.numpy as jnp
 import psi4
-import numpy as onp
+import numpy as np
 import os
 
 from .external_integrals import libint_initialize, libint_finalize
@@ -56,15 +56,15 @@ def energy(molecule, basis_name, method='scf'):
     -------
     The electronic energy in a.u.
     """
-    geom2d = onp.asarray(molecule.geometry())
-    geom = np.asarray(geom2d.flatten())
+    geom2d = np.asarray(molecule.geometry())
+    geom = jnp.asarray(geom2d.flatten())
     xyz_file_name = "geom.xyz"
     # Save xyz file, get path
     molecule.save_xyz_file(xyz_file_name, True)
     xyz_path = os.path.abspath(os.getcwd()) + "/" + xyz_file_name
     mult = molecule.multiplicity()
     charge = molecule.molecular_charge()
-    nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom2d.shape[0])])
+    nuclear_charges = jnp.asarray([molecule.charge(i) for i in range(geom2d.shape[0])])
     #basis_dict = build_basis_set(molecule, basis_name)
     # TODO when integrals are exported, switch to mints args, flatten geometry
     # also adjust arguments of energy, gradient, partial gradient functions
@@ -95,12 +95,12 @@ def derivative(molecule, basis_name, method, order=1):
     For gradients, choose order=1, hessian order=2, cubic derivative tensor order=3, quartic order = 4.
     Anything higher order derivatives should use the partial derivative utility.
     """
-    #geom = np.asarray(onp.asarray(molecule.geometry()))
-    geom2d = onp.asarray(molecule.geometry())
-    geom = np.asarray(geom2d.flatten())
+    #geom = jnp.asarray(np.asarray(molecule.geometry()))
+    geom2d = np.asarray(molecule.geometry())
+    geom = jnp.asarray(geom2d.flatten())
     mult = molecule.multiplicity()
     charge = molecule.molecular_charge()
-    nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom2d.shape[0])])
+    nuclear_charges = jnp.asarray([molecule.charge(i) for i in range(geom2d.shape[0])])
     xyz_file_name = "geom.xyz"
     # Save xyz file, get path
     molecule.save_xyz_file(xyz_file_name, True)
@@ -118,74 +118,74 @@ def derivative(molecule, basis_name, method, order=1):
     if method == 'scf' or method == 'hf' or method == 'rhf':
         if order == 1:
             grad = jacfwd(restricted_hartree_fock, 0)(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
-            #return np.round(grad, 10)
-            deriv = np.round(grad, 10)
+            #return jnp.round(grad, 10)
+            deriv = jnp.round(grad, 10)
         elif order == 2:
             hess = jacfwd(jacfwd(restricted_hartree_fock, 0))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
-            #return np.round(hess.reshape(dim,dim), 10)
-            deriv = np.round(hess.reshape(dim,dim), 10)
+            #return jnp.round(hess.reshape(dim,dim), 10)
+            deriv = jnp.round(hess.reshape(dim,dim), 10)
         elif order == 3:
             cubic = jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
-            #return np.round(cubic.reshape(dim,dim,dim), 10)
-            deriv = np.round(cubic.reshape(dim,dim,dim), 10)
+            #return jnp.round(cubic.reshape(dim,dim,dim), 10)
+            deriv = jnp.round(cubic.reshape(dim,dim,dim), 10)
         elif order == 4:
             quartic = jacfwd(jacfwd(jacfwd(jacfwd(restricted_hartree_fock, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
-            #return np.round(quartic.reshape(dim,dim,dim,dim), 10)
-            deriv = np.round(quartic.reshape(dim,dim,dim,dim), 10)
+            #return jnp.round(quartic.reshape(dim,dim,dim,dim), 10)
+            deriv = jnp.round(quartic.reshape(dim,dim,dim,dim), 10)
 
     elif method =='mp2':
         if order == 1:
             grad = jacfwd(restricted_mp2, 0)(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(grad, 10)
-            deriv = np.round(grad, 10)
+            #return jnp.round(grad, 10)
+            deriv = jnp.round(grad, 10)
         elif order == 2:
             hess = jacfwd(jacfwd(restricted_mp2, 0))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(hess.reshape(dim,dim), 10)
-            deriv = np.round(hess.reshape(dim,dim), 10)
+            #return jnp.round(hess.reshape(dim,dim), 10)
+            deriv = jnp.round(hess.reshape(dim,dim), 10)
         elif order == 3:
             cubic = jacfwd(jacfwd(jacfwd(restricted_mp2, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(cubic.reshape(dim,dim,dim), 10)
-            deriv = np.round(cubic.reshape(dim,dim,dim), 10)
+            #return jnp.round(cubic.reshape(dim,dim,dim), 10)
+            deriv = jnp.round(cubic.reshape(dim,dim,dim), 10)
         elif order == 4:
             quartic = jacfwd(jacfwd(jacfwd(jacfwd(restricted_mp2, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(quartic.reshape(dim,dim,dim,dim), 10)
-            deriv =np.round(quartic.reshape(dim,dim,dim,dim), 10)
+            #return jnp.round(quartic.reshape(dim,dim,dim,dim), 10)
+            deriv =jnp.round(quartic.reshape(dim,dim,dim,dim), 10)
 
     elif method =='ccsd':
         if order == 1:
             grad = jacfwd(rccsd, 0)(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(grad, 10)
-            deriv = np.round(grad, 10)
+            #return jnp.round(grad, 10)
+            deriv = jnp.round(grad, 10)
         elif order == 2:
             hess = jacfwd(jacfwd(rccsd, 0))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(hess.reshape(dim,dim), 10)
-            deriv = np.round(hess.reshape(dim,dim), 10)
+            #return jnp.round(hess.reshape(dim,dim), 10)
+            deriv = jnp.round(hess.reshape(dim,dim), 10)
         elif order == 3:
             cubic = jacfwd(jacfwd(jacfwd(rccsd, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(cubic.reshape(dim,dim,dim), 10)
-            deriv = np.round(cubic.reshape(dim,dim,dim), 10)
+            #return jnp.round(cubic.reshape(dim,dim,dim), 10)
+            deriv = jnp.round(cubic.reshape(dim,dim,dim), 10)
         elif order == 4:
             quartic = jacfwd(jacfwd(jacfwd(jacfwd(rccsd, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(quartic.reshape(dim,dim,dim,dim), 10)
-            deriv = np.round(quartic.reshape(dim,dim,dim,dim), 10)
+            #return jnp.round(quartic.reshape(dim,dim,dim,dim), 10)
+            deriv = jnp.round(quartic.reshape(dim,dim,dim,dim), 10)
 
     elif method =='ccsd(t)':
         if order == 1:
             grad = jacfwd(rccsd_t, 0)(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(grad, 10)
-            deriv = np.round(grad, 10)
+            #return jnp.round(grad, 10)
+            deriv = jnp.round(grad, 10)
         elif order == 2:
             hess = jacfwd(jacfwd(rccsd_t, 0))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(hess.reshape(dim,dim), 10)
-            deriv = np.round(hess.reshape(dim,dim), 10)
+            #return jnp.round(hess.reshape(dim,dim), 10)
+            deriv = jnp.round(hess.reshape(dim,dim), 10)
         elif order == 3:
             cubic = jacfwd(jacfwd(jacfwd(rccsd_t, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(cubic.reshape(dim,dim,dim), 10)
-            deriv = np.round(cubic.reshape(dim,dim,dim), 10)
+            #return jnp.round(cubic.reshape(dim,dim,dim), 10)
+            deriv = jnp.round(cubic.reshape(dim,dim,dim), 10)
         elif order == 4:
             quartic = jacfwd(jacfwd(jacfwd(jacfwd(rccsd_t, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge)
-            #return np.round(quartic.reshape(dim,dim,dim,dim), 10)
-            deriv = np.round(quartic.reshape(dim,dim,dim,dim), 10)
+            #return jnp.round(quartic.reshape(dim,dim,dim,dim), 10)
+            deriv = jnp.round(quartic.reshape(dim,dim,dim,dim), 10)
     else:
         print("Desired electronic structure method not understood. Use 'scf' 'hf' 'mp2' 'ccsd' or 'ccsd(t)' ")
 
@@ -254,11 +254,11 @@ def partial_derivative(molecule, basis_name, method, order, address):
     """
     if len(address) != order:
         raise Exception("The length of the index coordinates given by 'address' arguments should be the same as the order of differentiation")
-    geom = np.asarray(onp.asarray(molecule.geometry()))
-    geom_list = onp.asarray(molecule.geometry()).reshape(-1).tolist()
+    geom = jnp.asarray(np.asarray(molecule.geometry()))
+    geom_list = np.asarray(molecule.geometry()).reshape(-1).tolist()
     mult = molecule.multiplicity()
     charge = molecule.molecular_charge()
-    nuclear_charges = np.asarray([molecule.charge(i) for i in range(geom.shape[0])])
+    nuclear_charges = jnp.asarray([molecule.charge(i) for i in range(geom.shape[0])])
 
     # Save xyz file, get path
     xyz_file_name = "geom.xyz"
@@ -272,10 +272,22 @@ def partial_derivative(molecule, basis_name, method, order, address):
     # This will take in internal coordinates, transform them into cartesians, and then compute integrals, energy
     # JAX will then collect the internal coordinate partial derivative instead. 
 
+    # Initialize libint here and precompute ERI derivatives, then finalize
+    # TODO this is temporary, eventually would like to only write to disk the needed partial derivs.
+    #libint_initialize(xyz_path, basis_name, order)
+    #libint_finalize()
+
+    # TODO use HDF5 to check the shape of the written integrals, if found.
+    if ((os.path.exists("eri_derivs.h5") and os.path.exists("oei_derivs.h5"))):
+        print("Found currently existing integrals in your working directory. Trying to use them.")
+    if not ((os.path.exists("eri_derivs.h5") and os.path.exists("oei_derivs.h5"))):
+        libint_initialize(xyz_path, basis_name, order)
+        libint_finalize()
+
     if method == 'scf' or method == 'hf' or method == 'rhf':
         # Unpack the geometry as a list of single coordinates so we can differentiate w.r.t. single coords
         def scf_partial_wrapper(*args, **kwargs):
-            geom = np.asarray(args)
+            geom = jnp.asarray(args)
             #basis_dict = kwargs['basis_dict']
             basis_name = kwargs['basis_name']
             xyz_path = kwargs['xyz_path']
@@ -286,36 +298,29 @@ def partial_derivative(molecule, basis_name, method, order, address):
 
         if order == 1:
             i = address[0]
-            partial_grad = jacfwd(scf_partial_wrapper, i)(*geom_list, **kwargs)
-            return partial_grad
-        if order == 2:
+            partial_deriv = jacfwd(scf_partial_wrapper, i)(*geom_list, **kwargs)
+        elif order == 2:
             i,j = address[0], address[1]
-            partial_hess = jacfwd(jacfwd(scf_partial_wrapper, i), j)(*geom_list, **kwargs)
-            return partial_hess
-        if order == 3:
+            partial_deriv = jacfwd(jacfwd(scf_partial_wrapper, i), j)(*geom_list, **kwargs)
+        elif order == 3:
             i,j,k = address[0], address[1], address[2]
-            partial_cubic = jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k)(*geom_list, **kwargs)
-            return partial_cubic
-        if order == 4:
+            partial_deriv = jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k)(*geom_list, **kwargs)
+        elif order == 4:
             i,j,k,l = address[0], address[1], address[2], address[3]
-            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
-            return partial_quartic
-        #if order == 5:
-        #    i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
-        #    partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
-        #    return partial_quintic
-        #if order == 6:
-        #    i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
-        #    partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
-        #    return partial_sextic
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
+        elif order == 5:
+            i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
+        elif order == 6:
+            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(scf_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
         else:
             print("Error: Order {} partial derivatives are not implemented nor recommended for Hartree-Fock.".format(order))
-            return 0
-
-    if method =='mp2':
+        
+    elif method =='mp2':
         # Unpack the geometry as a list of single coordinates so we can differentiate w.r.t. single coords
         def mp2_partial_wrapper(*args, **kwargs):
-            geom = np.asarray(args)
+            geom = jnp.asarray(args)
             #basis_dict = kwargs['basis_dict']
             basis_name = kwargs['basis_name']
             xyz_path = kwargs['xyz_path']
@@ -325,34 +330,28 @@ def partial_derivative(molecule, basis_name, method, order, address):
             return E_mp2
         if order == 1:
             i = address[0]
-            partial_grad = jacfwd(mp2_partial_wrapper, i)(*geom_list, **kwargs)
-            return partial_grad
-        if order == 2:
+            partial_deriv = jacfwd(mp2_partial_wrapper, i)(*geom_list, **kwargs)
+        elif order == 2:
             i,j = address[0], address[1]
-            partial_hess = jacfwd(jacfwd(mp2_partial_wrapper, i), j)(*geom_list, **kwargs)
-            return partial_hess
-        if order == 3:
+            partial_deriv = jacfwd(jacfwd(mp2_partial_wrapper, i), j)(*geom_list, **kwargs)
+        elif order == 3:
             i,j,k = address[0], address[1], address[2]
-            partial_cubic = jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k)(*geom_list, **kwargs)
-            return partial_cubic
-        if order == 4:
+            partial_deriv = jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k)(*geom_list, **kwargs)
+        elif order == 4:
             i,j,k,l = address[0], address[1], address[2], address[3]
-            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
-            return partial_quartic
-        #if order == 5:
-        #    i,j,k,l,m = address[0], address[1], address[2], address[3],address[4]
-        #    partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l),m)(*geom_list, **kwargs)
-        #    return partial_quintic
-        #if order == 6:
-        #    i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
-        #    partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
-        #    return partial_sextic
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
+        elif order == 5:
+            i,j,k,l,m = address[0], address[1], address[2], address[3],address[4]
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l),m)(*geom_list, **kwargs)
+        elif order == 6:
+            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(mp2_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
         else:
             print("Error: Order {} partial derivatives are not implemented nor recommended for MP2.".format(order))
 
-    if method =='ccsd':
+    elif method =='ccsd':
         def ccsd_partial_wrapper(*args, **kwargs):
-            geom = np.asarray(args)
+            geom = jnp.asarray(args)
             #basis_dict = kwargs['basis_dict']
             basis_name = kwargs['basis_name']
             xyz_path = kwargs['xyz_path']
@@ -362,34 +361,28 @@ def partial_derivative(molecule, basis_name, method, order, address):
             return E_ccsd
         if order == 1:
             i = address[0]
-            partial_grad = jacfwd(ccsd_partial_wrapper, i)(*geom_list, **kwargs)
-            return partial_grad
-        if order == 2:
+            partial_deriv = jacfwd(ccsd_partial_wrapper, i)(*geom_list, **kwargs)
+        elif order == 2:
             i,j = address[0], address[1]
-            partial_hess = jacfwd(jacfwd(ccsd_partial_wrapper, i), j)(*geom_list, **kwargs)
-            return partial_hess
-        if order == 3:
+            partial_deriv = jacfwd(jacfwd(ccsd_partial_wrapper, i), j)(*geom_list, **kwargs)
+        elif order == 3:
             i,j,k = address[0], address[1], address[2]
-            partial_cubic = jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k)(*geom_list, **kwargs)
-            return partial_cubic
-        if order == 4:
+            partial_deriv = jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k)(*geom_list, **kwargs)
+        elif order == 4:
             i,j,k,l = address[0], address[1], address[2], address[3]
-            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
-            return partial_quartic
-        #if order == 5:
-        #    i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
-        #    partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
-        #    return partial_quintic
-        #if order == 6:
-        #    i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
-        #    partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
-        #    return partial_sextic
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
+        elif order == 5:
+            i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
+        elif order == 6:
+            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
         else:
             print("Error: Order {} partial derivatives are not implemented nor recommended for CCSD.".format(order))
 
-    if method =='ccsd(t)':
+    elif method =='ccsd(t)':
         def ccsd_t_partial_wrapper(*args, **kwargs):
-            geom = np.asarray(args)
+            geom = jnp.asarray(args)
             basis_name = kwargs['basis_name']
             xyz_path = kwargs['xyz_path']
             nuclear_charges = kwargs['nuclear_charges']
@@ -398,32 +391,34 @@ def partial_derivative(molecule, basis_name, method, order, address):
             return E_ccsd_t
         if order == 1:
             i = address[0]
-            partial_grad = jacfwd(ccsd_t_partial_wrapper, i)(*geom_list, **kwargs)
-            return partial_grad
-        if order == 2:
+            partial_deriv = jacfwd(ccsd_t_partial_wrapper, i)(*geom_list, **kwargs)
+        elif order == 2:
             i,j = address[0], address[1]
-            partial_hess = jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j)(*geom_list, **kwargs)
-            return partial_hess
-        if order == 3:
+            partial_deriv  = jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j)(*geom_list, **kwargs)
+        elif order == 3:
             i,j,k = address[0], address[1], address[2]
-            partial_cubic = jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k)(*geom_list, **kwargs)
-            return partial_cubic
-        if order == 4:
+            partial_deriv = jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k)(*geom_list, **kwargs)
+        elif order == 4:
             i,j,k,l = address[0], address[1], address[2], address[3]
-            partial_quartic = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
-            return partial_quartic
-        #if order == 5:
-        #    i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
-        #    partial_quintic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
-        #    return partial_quintic
-        #if order == 6:
-        #    i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
-        #    partial_sextic = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs) 
-        #    return partial_sextic
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l)(*geom_list, **kwargs)
+        elif order == 5:
+            i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
+        elif order == 6:
+            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(ccsd_t_partial_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs) 
         else:
             print("Error: Order {} partial derivatives are not implemented nor recommended for CCSD(T).".format(order))
 
     else:
         print("Error: Method {} not supported.".format(method))
+
+    #if os.path.exists("eri_derivs.h5"):
+    #    print("Deleting two electron integral derivatives...")
+    #    os.remove("eri_derivs.h5")
+    #if os.path.exists("oei_derivs.h5"):
+    #    print("Deleting one electron integral derivatives...")
+    #    os.remove("oei_derivs.h5")
+    return partial_deriv
 
 

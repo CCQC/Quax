@@ -1,4 +1,4 @@
-import numpy as onp
+import numpy as np
 import itertools
 
 def get_deriv_vec_idx(deriv_vec):
@@ -10,18 +10,18 @@ def get_deriv_vec_idx(deriv_vec):
     the cartesian derivative tensor. 
     """
     dim = deriv_vec.shape[0]
-    vals = onp.arange(dim, dtype=int)
-    deriv_order = onp.sum(deriv_vec)
+    vals = np.arange(dim, dtype=int)
+    deriv_order = np.sum(deriv_vec)
 
     deriv_vecs = []
     for c in itertools.combinations_with_replacement(vals, deriv_order):
-        tmp_deriv_vec = onp.zeros_like(deriv_vec, dtype=int)
+        tmp_deriv_vec = np.zeros_like(deriv_vec, dtype=int)
         for i in c:
             tmp_deriv_vec[i] += 1
         deriv_vecs.append(tmp_deriv_vec)
 
-    deriv_vecs = onp.asarray(deriv_vecs)
-    idx = onp.argwhere(onp.all(deriv_vecs==deriv_vec,axis=1)).reshape(-1)[0]
+    deriv_vecs = np.asarray(deriv_vecs)
+    idx = np.argwhere(np.all(deriv_vecs==deriv_vec,axis=1)).reshape(-1)[0]
     return idx
 
 # Sum over all partitions of the set range(deriv_order)
@@ -73,7 +73,7 @@ def get_required_deriv_vecs(natoms, deriv_order, address):
             for i in sub:
                 deriv_vec[i] += 1
             deriv_vecs.append(deriv_vec)
-    partial_derivatives = onp.unique(onp.asarray(deriv_vecs), axis=0)
+    partial_derivatives = np.unique(np.asarray(deriv_vecs), axis=0)
     return partial_derivatives 
 
 

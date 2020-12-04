@@ -1,9 +1,8 @@
 import jax 
 from jax.config import config; config.update("jax_enable_x64", True)
 config.enable_omnistaging()
-import jax.numpy as np
+import jax.numpy as jnp
 from jax.experimental import loops
-import numpy as onp
 
 from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation
 from .ccsd import rccsd 
@@ -12,27 +11,27 @@ from ..integrals import integrals_utils
 def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
     Voooo, Vooov, Voovv, Vovov, Vovvv, Vvvvv = V
     o,v = T1.shape
-    delta_o = np.eye(o)
-    delta_v = np.eye(v)
+    delta_o = jnp.eye(o)
+    delta_v = jnp.eye(v)
 
     def inner_func(i,j,k):
         delta_ij = delta_o[i,j] 
         delta_jk = delta_o[j,k] 
-        W  = np.einsum('dab,cd', Vovvv[i,:,:,:], T2[k,j,:,:]) 
-        W += np.einsum('dac,bd', Vovvv[i,:,:,:], T2[j,k,:,:]) 
-        W += np.einsum('dca,bd', Vovvv[k,:,:,:], T2[j,i,:,:])  
-        W += np.einsum('dcb,ad', Vovvv[k,:,:,:], T2[i,j,:,:])
-        W += np.einsum('dbc,ad', Vovvv[j,:,:,:], T2[i,k,:,:])
-        W += np.einsum('dba,cd', Vovvv[j,:,:,:], T2[k,i,:,:])
-        W -= np.einsum('lc,lab', Vooov[:,k,j,:], T2[i,:,:,:])
-        W -= np.einsum('lb,lac', Vooov[:,j,k,:], T2[i,:,:,:]) 
-        W -= np.einsum('lb,lca', Vooov[:,j,i,:], T2[k,:,:,:])
-        W -= np.einsum('la,lcb', Vooov[:,i,j,:], T2[k,:,:,:])
-        W -= np.einsum('la,lbc', Vooov[:,i,k,:], T2[j,:,:,:])
-        W -= np.einsum('lc,lba', Vooov[:,k,i,:], T2[j,:,:,:])
-        V  = W + np.einsum('bc,a', Voovv[j,k,:,:], T1[i,:]) \
-               + np.einsum('ac,b', Voovv[i,k,:,:], T1[j,:]) \
-               + np.einsum('ab,c', Voovv[i,j,:,:], T1[k,:])
+        W  = jnp.einsum('dab,cd', Vovvv[i,:,:,:], T2[k,j,:,:]) 
+        W += jnp.einsum('dac,bd', Vovvv[i,:,:,:], T2[j,k,:,:]) 
+        W += jnp.einsum('dca,bd', Vovvv[k,:,:,:], T2[j,i,:,:])  
+        W += jnp.einsum('dcb,ad', Vovvv[k,:,:,:], T2[i,j,:,:])
+        W += jnp.einsum('dbc,ad', Vovvv[j,:,:,:], T2[i,k,:,:])
+        W += jnp.einsum('dba,cd', Vovvv[j,:,:,:], T2[k,i,:,:])
+        W -= jnp.einsum('lc,lab', Vooov[:,k,j,:], T2[i,:,:,:])
+        W -= jnp.einsum('lb,lac', Vooov[:,j,k,:], T2[i,:,:,:]) 
+        W -= jnp.einsum('lb,lca', Vooov[:,j,i,:], T2[k,:,:,:])
+        W -= jnp.einsum('la,lcb', Vooov[:,i,j,:], T2[k,:,:,:])
+        W -= jnp.einsum('la,lbc', Vooov[:,i,k,:], T2[j,:,:,:])
+        W -= jnp.einsum('lc,lba', Vooov[:,k,i,:], T2[j,:,:,:])
+        V  = W + jnp.einsum('bc,a', Voovv[j,k,:,:], T1[i,:]) \
+               + jnp.einsum('ac,b', Voovv[i,k,:,:], T1[j,:]) \
+               + jnp.einsum('ab,c', Voovv[i,j,:,:], T1[k,:])
 
 
         delta_occ = 2 - delta_ij - delta_jk
@@ -88,15 +87,15 @@ def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
 def vectorized_perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
     Voooo, Vooov, Voovv, Vovov, Vovvv, Vvvvv = V
     # below equations are in chemists, so transpose 
-    Vvvvo = np.transpose(Vovvv, (3,1,2,0))
-    Vvooo = np.transpose(Vooov, (3,1,0,2))
-    Vvovo = np.transpose(Voovv, (2,0,3,1))
+    Vvvvo = jnp.transpose(Vovvv, (3,1,2,0))
+    Vvooo = jnp.transpose(Vooov, (3,1,0,2))
+    Vvovo = jnp.transpose(Voovv, (2,0,3,1))
     o,v = T1.shape
-    delta_o = np.eye(o)
-    delta_v = np.eye(v)
+    delta_o = jnp.eye(o)
+    delta_v = jnp.eye(v)
     # IDEA: Build up index arrays which mimic loop structure TODO regular numpy probably better here, with int16's
-    occ_range = np.arange(o)
-    vir_range = np.arange(v)
+    occ_range = jnp.arange(o)
+    vir_range = jnp.arange(v)
     occ_indices = cartesian_product(occ_range,occ_range,occ_range)
     i,j,k = occ_indices[:,0], occ_indices[:,1], occ_indices[:,2]
     occ_cond = (i <= j) & (j <= k)
@@ -113,21 +112,21 @@ def vectorized_perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
     def inner_func(i,j,k):
         delta_ij = delta_o[i,j] 
         delta_jk = delta_o[j,k] 
-        W  = np.einsum('bda,cd', Vvvvo[:,:,:,i], T2[k,j,:,:])
-        W -= np.einsum('cl,lab', Vvooo[:,k,j,:], T2[i,:,:,:])
-        W += np.einsum('cda,bd', Vvvvo[:,:,:,i], T2[j,k,:,:])
-        W -= np.einsum('bl,lac', Vvooo[:,j,k,:], T2[i,:,:,:])
-        W += np.einsum('adc,bd', Vvvvo[:,:,:,k], T2[j,i,:,:])
-        W -= np.einsum('bl,lca', Vvooo[:,j,i,:], T2[k,:,:,:])
-        W += np.einsum('bdc,ad', Vvvvo[:,:,:,k], T2[i,j,:,:])
-        W -= np.einsum('al,lcb', Vvooo[:,i,j,:], T2[k,:,:,:])
-        W += np.einsum('cdb,ad', Vvvvo[:,:,:,j], T2[i,k,:,:])
-        W -= np.einsum('al,lbc', Vvooo[:,i,k,:], T2[j,:,:,:])
-        W += np.einsum('adb,cd', Vvvvo[:,:,:,j], T2[k,i,:,:])
-        W -= np.einsum('cl,lba', Vvooo[:,k,i,:], T2[j,:,:,:])
-        V  = W + np.einsum('bc,a', Vvovo[:,j,:,k], T1[i,:]) \
-               + np.einsum('ac,b', Vvovo[:,i,:,k], T1[j,:]) \
-               + np.einsum('ab,c', Vvovo[:,i,:,j], T1[k,:])
+        W  = jnp.einsum('bda,cd', Vvvvo[:,:,:,i], T2[k,j,:,:])
+        W -= jnp.einsum('cl,lab', Vvooo[:,k,j,:], T2[i,:,:,:])
+        W += jnp.einsum('cda,bd', Vvvvo[:,:,:,i], T2[j,k,:,:])
+        W -= jnp.einsum('bl,lac', Vvooo[:,j,k,:], T2[i,:,:,:])
+        W += jnp.einsum('adc,bd', Vvvvo[:,:,:,k], T2[j,i,:,:])
+        W -= jnp.einsum('bl,lca', Vvooo[:,j,i,:], T2[k,:,:,:])
+        W += jnp.einsum('bdc,ad', Vvvvo[:,:,:,k], T2[i,j,:,:])
+        W -= jnp.einsum('al,lcb', Vvooo[:,i,j,:], T2[k,:,:,:])
+        W += jnp.einsum('cdb,ad', Vvvvo[:,:,:,j], T2[i,k,:,:])
+        W -= jnp.einsum('al,lbc', Vvooo[:,i,k,:], T2[j,:,:,:])
+        W += jnp.einsum('adb,cd', Vvvvo[:,:,:,j], T2[k,i,:,:])
+        W -= jnp.einsum('cl,lba', Vvooo[:,k,i,:], T2[j,:,:,:])
+        V  = W + jnp.einsum('bc,a', Vvovo[:,j,:,k], T1[i,:]) \
+               + jnp.einsum('ac,b', Vvovo[:,i,:,k], T1[j,:]) \
+               + jnp.einsum('ab,c', Vvovo[:,i,:,j], T1[k,:])
 
         delta_occ = 2 - delta_ij - delta_jk
         Dd = fock_Od[i] + fock_Od[j] + fock_Od[k] 

@@ -2,8 +2,7 @@ import jax
 from jax.config import config; config.update("jax_enable_x64", True)
 config.enable_omnistaging()
 from jax.experimental import loops
-import jax.numpy as np
-import numpy as onp
+import jax.numpy as jnp
 from functools import partial
 
 def nuclear_repulsion(geom, nuclear_charges):
@@ -14,7 +13,7 @@ def nuclear_repulsion(geom, nuclear_charges):
     nuc = 0
     for i in range(natom):
         for j in range(i):
-            nuc += nuclear_charges[i] * nuclear_charges[j] / np.linalg.norm(geom[i] - geom[j])
+            nuc += nuclear_charges[i] * nuclear_charges[j] / jnp.linalg.norm(geom[i] - geom[j])
     return nuc
 
 def symmetric_orthogonalization(S):
@@ -23,12 +22,12 @@ def symmetric_orthogonalization(S):
     where S is the overlap matrix
     """
     # Warning: Higher order derivatives for some larger basis sets (TZ on) give NaNs for this algo 
-    eigval, eigvec = np.linalg.eigh(S)
+    eigval, eigvec = jnp.linalg.eigh(S)
     cutoff = 1.0e-12
-    above_cutoff = (abs(eigval) > cutoff * np.max(abs(eigval)))
-    val = 1 / np.sqrt(eigval[above_cutoff])
+    above_cutoff = (abs(eigval) > cutoff * jnp.max(abs(eigval)))
+    val = 1 / jnp.sqrt(eigval[above_cutoff])
     vec = eigvec[:, above_cutoff]
-    A = vec.dot(np.diag(val)).dot(vec.T)
+    A = vec.dot(jnp.diag(val)).dot(vec.T)
     return A
 
 def cholesky_orthogonalization(S):
@@ -38,19 +37,19 @@ def cholesky_orthogonalization(S):
     by way of cholesky decomposition
     Scharfenberg, Peter; A New Algorithm for the Symmetric (Lowdin) Orthonormalization; Int J. Quant. Chem. 1977
     """
-    return np.linalg.inv(np.linalg.cholesky(S)).T
+    return jnp.linalg.inv(jnp.linalg.cholesky(S)).T
 
 def old_tei_transformation(G, C):
     """
     Transform TEI's to MO basis.
     This algorithm is worse than below, since it creates intermediate arrays in memory.
     """
-    G = np.einsum('pqrs, pP, qQ, rR, sS -> PQRS', G, C, C, C, C, optimize='optimal')
+    G = jnp.einsum('pqrs, pP, qQ, rR, sS -> PQRS', G, C, C, C, C, optimize='optimal')
     return G
 
 @jax.jit
 def tmp_transform(G, C):
-    return np.tensordot(C, G, axes=(0,0))
+    return jnp.tensordot(C, G, axes=(0,0))
 
 def tei_transformation(G, C):
     """
@@ -58,15 +57,15 @@ def tei_transformation(G, C):
     It's faster than psi4.MintsHelper.mo_transform() for basis sets <~120.
     """
     G = tmp_transform(G,C)          # A b c d
-    G = np.transpose(G, (1,0,2,3))  # b A c d  1 transpose
+    G = jnp.transpose(G, (1,0,2,3))  # b A c d  1 transpose
     G = tmp_transform(G,C)          # B A c d 
-    G = np.transpose(G, (2,3,0,1))  # c d B A  2 transposes
+    G = jnp.transpose(G, (2,3,0,1))  # c d B A  2 transposes
     G = tmp_transform(G,C)          # C d B A
-    G = np.transpose(G, (1,0,2,3))  # d C B A  1 transpose
+    G = jnp.transpose(G, (1,0,2,3))  # d C B A  1 transpose
     G = tmp_transform(G,C)          # D C B A  (equivalent to A B C D)
     return G
 
 def partial_tei_transformation(G, Ci, Cj, Ck, Cl):
-    G = np.einsum('pqrs, pP, qQ, rR, sS -> PQRS', G, Ci, Cj, Ck, Cl, optimize='optimal')
+    G = jnp.einsum('pqrs, pP, qQ, rR, sS -> PQRS', G, Ci, Cj, Ck, Cl, optimize='optimal')
     return G
     

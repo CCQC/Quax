@@ -1,6 +1,6 @@
 import jax 
-import jax.numpy as np
-import numpy as onp
+import jax.numpy as jnp
+import numpy as np
 import h5py
 from . import libint_interface
 from . import utils
@@ -38,61 +38,62 @@ def potential_deriv(geom, deriv_vec):
 # Create primitive evaluation rules 
 def overlap_impl(geom):
     S = libint_interface.overlap()
-    d = int(onp.sqrt(S.shape[0]))
+    d = int(np.sqrt(S.shape[0]))
     S = S.reshape(d,d)
-    return np.asarray(S)
+    return jnp.asarray(S)
 
 def kinetic_impl(geom):
     T = libint_interface.kinetic() 
-    d = int(onp.sqrt(T.shape[0]))
+    d = int(np.sqrt(T.shape[0]))
     T = T.reshape(d,d)
-    return np.asarray(T) 
+    return jnp.asarray(T) 
 
 def potential_impl(geom):
     V = libint_interface.potential()
-    d = int(onp.sqrt(V.shape[0]))
+    d = int(np.sqrt(V.shape[0]))
     V = V.reshape(d,d)
-    return np.asarray(V)
+    return jnp.asarray(V)
 
 def overlap_deriv_impl(geom, deriv_vec):
-    #dS = libint_interface.overlap_deriv(onp.asarray(deriv_vec, int))
-    #dim = int(onp.sqrt(dS.shape[0]))
-    #return np.asarray(dS).reshape(dim,dim)
+    #dS = libint_interface.overlap_deriv(np.asarray(deriv_vec, int))
+    #dim = int(np.sqrt(dS.shape[0]))
+    #return jnp.asarray(dS).reshape(dim,dim)
+
     # New disk-based implementation
-    deriv_vec = onp.asarray(deriv_vec, int)
-    deriv_order = onp.sum(deriv_vec)
+    deriv_vec = np.asarray(deriv_vec, int)
+    deriv_order = np.sum(deriv_vec)
     idx = utils.get_deriv_vec_idx(deriv_vec)
     dataset_name = "overlap_deriv" + str(deriv_order)
     with h5py.File('oei_derivs.h5', 'r') as f:
         data_set = f[dataset_name]
         S = data_set[:,:,idx]
-    return np.asarray(S)
+    return jnp.asarray(S)
 
 def kinetic_deriv_impl(geom, deriv_vec):
-    #dT = libint_interface.kinetic_deriv(onp.asarray(deriv_vec, int))
-    #dim = int(onp.sqrt(dT.shape[0]))
-    #return np.asarray(dT).reshape(dim,dim)
-    deriv_vec = onp.asarray(deriv_vec, int)
-    deriv_order = onp.sum(deriv_vec)
+    #dT = libint_interface.kinetic_deriv(np.asarray(deriv_vec, int))
+    #dim = int(np.sqrt(dT.shape[0]))
+    #return jnp.asarray(dT).reshape(dim,dim)
+    deriv_vec = np.asarray(deriv_vec, int)
+    deriv_order = np.sum(deriv_vec)
     idx = utils.get_deriv_vec_idx(deriv_vec)
     dataset_name = "kinetic_deriv" + str(deriv_order)
     with h5py.File('oei_derivs.h5', 'r') as f:
         data_set = f[dataset_name]
         T = data_set[:,:,idx]
-    return np.asarray(T)
+    return jnp.asarray(T)
 
 def potential_deriv_impl(geom, deriv_vec):
-    #dV = libint_interface.potential_deriv(onp.asarray(deriv_vec,int))
-    #dim = int(onp.sqrt(dV.shape[0]))
-    #return np.asarray(dV).reshape(dim,dim)
-    deriv_vec = onp.asarray(deriv_vec, int)
-    deriv_order = onp.sum(deriv_vec)
+    #dV = libint_interface.potential_deriv(np.asarray(deriv_vec,int))
+    #dim = int(np.sqrt(dV.shape[0]))
+    #return jnp.asarray(dV).reshape(dim,dim)
+    deriv_vec = np.asarray(deriv_vec, int)
+    deriv_order = np.sum(deriv_vec)
     idx = utils.get_deriv_vec_idx(deriv_vec)
     dataset_name = "potential_deriv" + str(deriv_order)
     with h5py.File('oei_derivs.h5', 'r') as f:
         data_set = f[dataset_name]
         V = data_set[:,:,idx]
-    return np.asarray(V)
+    return jnp.asarray(V)
 
 # Register primitive evaluation rules
 overlap_p.def_impl(overlap_impl)
@@ -164,8 +165,8 @@ def overlap_deriv_batch(batched_args, batch_dims):
     results = []
     for i in deriv_batch:
         tmp = overlap_deriv(geom_batch, i)
-        results.append(np.expand_dims(tmp, axis=0))
-    results = np.concatenate(results, axis=0)
+        results.append(jnp.expand_dims(tmp, axis=0))
+    results = jnp.concatenate(results, axis=0)
     return results, 0
 
 def kinetic_deriv_batch(batched_args, batch_dims):
@@ -174,8 +175,8 @@ def kinetic_deriv_batch(batched_args, batch_dims):
     results = []
     for i in deriv_batch:
         tmp = kinetic_deriv(geom_batch, i)
-        results.append(np.expand_dims(tmp, axis=0))
-    results = np.concatenate(results, axis=0)
+        results.append(jnp.expand_dims(tmp, axis=0))
+    results = jnp.concatenate(results, axis=0)
     return results, 0
 
 def potential_deriv_batch(batched_args, batch_dims):
@@ -184,8 +185,8 @@ def potential_deriv_batch(batched_args, batch_dims):
     results = []
     for i in deriv_batch:
         tmp = potential_deriv(geom_batch, i)
-        results.append(np.expand_dims(tmp, axis=0))
-    results = np.concatenate(results, axis=0)
+        results.append(jnp.expand_dims(tmp, axis=0))
+    results = jnp.concatenate(results, axis=0)
     return results, 0
 
 # Register the batching rules with JAX

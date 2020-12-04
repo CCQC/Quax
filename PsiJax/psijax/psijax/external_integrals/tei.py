@@ -1,6 +1,6 @@
 import jax 
-import jax.numpy as np
-import numpy as onp
+import jax.numpy as jnp
+import numpy as np
 import h5py
 from . import libint_interface
 from . import utils
@@ -20,26 +20,26 @@ def tei_deriv(geom, deriv_vec):
 # Create primitive evaluation rules 
 def tei_impl(geom):
     G = libint_interface.eri()
-    d = int(onp.sqrt(onp.sqrt(G.shape[0])))
+    d = int(np.sqrt(np.sqrt(G.shape[0])))
     G = G.reshape(d,d,d,d)
-    return np.asarray(G)
+    return jnp.asarray(G)
 
 def tei_deriv_impl(geom, deriv_vec):
-#    deriv_vec = onp.asarray(deriv_vec, int)
+#    deriv_vec = np.asarray(deriv_vec, int)
 #    #print("calling libint eri deriv with deriv vec ", deriv_vec)
 #    G = libint_interface.eri_deriv(deriv_vec)
-#    d = int(onp.sqrt(onp.sqrt(G.shape[0])))
+#    d = int(np.sqrt(np.sqrt(G.shape[0])))
 #    G = G.reshape(d,d,d,d)
 
     # New disk-based implementation
-    deriv_vec = onp.asarray(deriv_vec, int)
-    deriv_order = onp.sum(deriv_vec)
+    deriv_vec = np.asarray(deriv_vec, int)
+    deriv_order = np.sum(deriv_vec)
     idx = utils.get_deriv_vec_idx(deriv_vec)
     dataset_name = "eri_deriv" + str(deriv_order)
     with h5py.File('eri_derivs.h5', 'r') as f:
         data_set = f[dataset_name]
         G = data_set[:,:,:,:,idx]
-    return np.asarray(G)
+    return jnp.asarray(G)
     
 # Register primitive evaluation rules
 tei_p.def_impl(tei_impl)
@@ -78,8 +78,8 @@ def tei_deriv_batch(batched_args, batch_dims):
     results = []
     for i in deriv_batch:
         tmp = tei_deriv(geom_batch, i)
-        results.append(np.expand_dims(tmp, axis=0))
-    results = np.concatenate(results, axis=0)
+        results.append(jnp.expand_dims(tmp, axis=0))
+    results = jnp.concatenate(results, axis=0)
     return results, 0
 
 # Register the batching rules with JAX

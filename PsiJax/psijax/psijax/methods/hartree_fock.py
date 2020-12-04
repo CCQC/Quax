@@ -1,8 +1,7 @@
 import jax 
 from jax.config import config; config.update("jax_enable_x64", True)
 config.enable_omnistaging()
-import jax.numpy as np
-import numpy as onp
+import jax.numpy as jnp
 import psi4
 
 from ..integrals.basis_utils import build_basis_set
@@ -23,7 +22,7 @@ from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 from functools import partial
 
 def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=50, return_aux_data=True):
-    nelectrons = int(np.sum(nuclear_charges)) - charge
+    nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
 
     ## Use local JAX implementation of integrals
@@ -49,7 +48,7 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     #    tmp = f.read()
     #molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
     #basis_dict = build_basis_set(molecule, basis_name)
-    #V = tmp_potential(np.asarray(geom.reshape(-1,3)), basis_dict, nuclear_charges)
+    #V = tmp_potential(jnp.asarray(geom.reshape(-1,3)), basis_dict, nuclear_charges)
     ## TEMP TODO
 
     # Canonical orthogonalization via cholesky decomposition
@@ -60,25 +59,25 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     seed = jax.random.PRNGKey(0)
     epsilon = 1e-9
     fudge = jax.random.uniform(seed, (S.shape[0],), minval=0.1, maxval=1.0) * epsilon
-    fudge_factor = np.diag(fudge)
+    fudge_factor = jnp.diag(fudge)
 
     H = T + V
     Enuc = nuclear_repulsion(geom.reshape(-1,3),nuclear_charges)
-    D = np.zeros_like(H)
+    D = jnp.zeros_like(H)
 
     @jax.jit
     def rhf_iter(H,A,G,D,Enuc):
-        J = np.einsum('pqrs,rs->pq', G, D)
-        K = np.einsum('prqs,rs->pq', G, D)
+        J = jnp.einsum('pqrs,rs->pq', G, D)
+        K = jnp.einsum('prqs,rs->pq', G, D)
         F = H + J * 2 - K
-        E_scf = np.einsum('pq,pq->', F + H, D) + Enuc
-        Fp = np.linalg.multi_dot((A.T, F, A))
+        E_scf = jnp.einsum('pq,pq->', F + H, D) + Enuc
+        Fp = jnp.linalg.multi_dot((A.T, F, A))
         Fp = Fp + fudge_factor
         
-        eps, C2 = np.linalg.eigh(Fp)
-        C = np.dot(A,C2)
+        eps, C2 = jnp.linalg.eigh(Fp)
+        C = jnp.dot(A,C2)
         Cocc = C[:, :ndocc]
-        D = np.einsum('pi,qi->pq', Cocc, Cocc)
+        D = jnp.einsum('pi,qi->pq', Cocc, Cocc)
         return E_scf, D, C, eps 
 
     iteration = 0
