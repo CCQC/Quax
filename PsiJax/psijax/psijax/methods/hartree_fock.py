@@ -1,12 +1,10 @@
 import jax 
-from jax.config import config; config.update("jax_enable_x64", True)
-config.enable_omnistaging()
+jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import numpy as np
 import psi4
 
 from ..integrals.basis_utils import build_basis_set
-
 from ..integrals import tei as og_tei
 from ..integrals import oei 
 
@@ -21,6 +19,21 @@ from ..external_integrals import libint_finalize
 
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 from functools import partial
+
+# Jitting any subfunction of this will double memory use... hrmm
+#def tmp(x,y):
+#    return jnp.tensordot(x, y, axes=[(0,1),(0,1)])
+# Memory efficient JK contraction
+#jk_build = jax.vmap(jax.vmap(tmp, in_axes=(0,None)), in_axes=(0,None))
+#jk_build = jax.jit(jax.vmap(jax.vmap(tmp, in_axes=(0,None)), in_axes=(0,None)))
+
+# Jitting any subfunction of this will double memory use... hrmm
+jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None)))
+
+#j_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None)))
+#k_build = jax.jit(jax.vmap(lambda x,y: jnp.tensordot(x,y, [(0,2),(0,1)]), (0,None)))
+#j_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None))
+#k_build = jax.vmap(lambda x,y: jnp.tensordot(x,y, [(0,2),(0,1)]), (0,None))
 
 def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=100, return_aux_data=True):
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
@@ -41,6 +54,7 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     V = potential(geom) 
     G = tei(geom)
     libint_finalize()
+
 
     # Use psi4 for integrals
     #with open(xyz_path, 'r') as f:
@@ -78,25 +92,59 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     Enuc = nuclear_repulsion(geom.reshape(-1,3),nuclear_charges)
     D = jnp.zeros_like(H)
     
+    # At high differentiation orders, jitting this increases memory by A LOT, but makes it much faster...
+    # N2 cc-pvtz Hartree fock partial quartic, preloaded ints: NO JIT: 3m31s, 5 GB ||  WITH JIT: 1m13s 10.3 GB
+    # Hope: recomp of JAX will fix?
+    # TODO Can possibly move JK build OUTSIDE of JIT. This is likely where the memory blow up occurs.
+    # If you move JK outside of jitted function, 3m37s, 5 GB 
+    # No omnistaging, with JIT, new version of JAX
 
-    @jax.jit
+    # No JIT's anywhere, double vmap algo: 2m24s, 4.7 GB
+
+    #@jax.jit
     def rhf_iter(H,A,G,D,Enuc):
-        #TODO Einsums + JIT + higher order autodiff = big memory footprint. Use tensordot whenever possible 
-        #J = jnp.einsum('pqrs,rs->pq', G, D)
-        #K = jnp.einsum('prqs,rs->pq', G, D)
-        #F = H + J * 2 - K
-        JK = 2 * jnp.tensordot(G, D, axes=[(2,3), (0,1)]) # 2 * J
-        JK -= jnp.tensordot(G, D, axes=[(1,3), (0,1)])    # - K
+        #JK = 2 * jnp.tensordot(G, D, axes=[(2,3), (0,1)]) - jnp.tensordot(G, D, axes=[(1,3), (0,1)]) # 2 * J
+
+        # This causes increased memory use
+        #JK = 2 * jnp.tensordot(G, D, axes=[(2,3), (0,1)]) # 2 * J
+        #JK -= jnp.tensordot(G, D, axes=[(1,3), (0,1)])  # - K
+        #F = H + JK
+
+        #JK = 2 * jk_build(G,D)
+
+        #JK = 2 * jnp.tensordot(G, D, axes=[(2,3), (0,1)]) # 2 * J
+        #JK = 2 * jax.lax.map(lambda x: jnp.sum(jnp.dot(x, D)), G.reshape(-1,nbf,nbf)).reshape(nbf,nbf)
+        #JK = 2 * jax.lax.map(lambda x: jnp.einsum('qrs,rs->q', x, D), G).reshape(nbf,nbf) # this works.
+
+        # Map over leading axis of TEI's and contract to reduce memory use
+        #JK = 2 * jax.lax.map(lambda x: jnp.tensordot(x, D, axes=[(1,2),(0,1)]), G)
+        #JK -= jax.lax.map(lambda x: jnp.tensordot(x, D, axes=[(0,2),(0,1)]), G)
+
+        # This part is the only expensive part that benefits from JIT
+        JK = 2 * jk_build(G, D)
+        JK -= jk_build(G.transpose((0,2,1,3)), D)
         F = H + JK
 
         E_scf = jnp.einsum('pq,pq->', F + H, D) + Enuc
-        Fp = jnp.linalg.multi_dot((A.T, F, A))
+        Fp = jnp.dot(A.T, jnp.dot(F, A))
         Fp = Fp + fudge_factor
         
         eps, C2 = jnp.linalg.eigh(Fp)
         C = jnp.dot(A,C2)
         Cocc = C[:, :ndocc]
-        D = jnp.einsum('pi,qi->pq', Cocc, Cocc)
+        D = jnp.dot(Cocc, Cocc.T)
+        return E_scf, D, C, eps
+
+    #@jax.jit
+    def new_rhf_iter(H,A,JK,D,Enuc):
+        F = H + JK
+        E_scf = jnp.einsum('pq,pq->', F + H, D) + Enuc
+        Fp = jnp.dot(A.T, jnp.dot(F, A))
+        Fp = Fp + fudge_factor
+        eps, C2 = jnp.linalg.eigh(Fp)
+        C = jnp.dot(A,C2)
+        Cocc = C[:, :ndocc]
+        D = jnp.dot(Cocc, Cocc.T)
         return E_scf, D, C, eps
 
     iteration = 0
@@ -104,7 +152,12 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     E_old = 0.0
     while abs(E_scf - E_old) > 1e-12:
         E_old = E_scf * 1
-        E_scf, D, C, eps = rhf_iter(H,A,G,D,Enuc)
+        #E_scf, D, C, eps = rhf_iter(H,A,G,D,Enuc)
+
+        JK = 2 * jk_build(G, D)
+        JK -= jk_build(G.transpose((0,2,1,3)), D)
+        E_scf, D, C, eps = new_rhf_iter(H,A,JK,D,Enuc)
+
         iteration += 1
         if iteration == SCF_MAX_ITER:
             break
