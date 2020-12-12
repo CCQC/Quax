@@ -10,6 +10,10 @@ import os
 import h5py
 
 from .external_integrals import libint_initialize, libint_finalize
+from .external_integrals.utils import get_deriv_vec_idx
+
+from .integrals import oei
+from .integrals import tei
 
 from .integrals.basis_utils import build_basis_set
 from .methods.energy_utils import nuclear_repulsion, cholesky_orthogonalization
@@ -17,6 +21,8 @@ from .methods.hartree_fock import restricted_hartree_fock
 from .methods.mp2 import restricted_mp2
 from .methods.ccsd import rccsd
 from .methods.ccsd_t import rccsd_t
+
+psi4.core.be_quiet()
 
 def energy(molecule, basis_name, method='scf'):
     """
@@ -276,6 +282,8 @@ def partial_derivative(molecule, basis_name, method, order, address):
                 os.remove("oei_derivs.h5")
             libint_initialize(xyz_path, basis_name, order)
             libint_finalize()
+    elif ((os.path.exists("eri_partials.h5") and os.path.exists("oei_partials.h5"))):
+        print("Found currently existing partial derivatives in working directory. I hope you know what you are doing!")
     else:
         libint_initialize(xyz_path, basis_name, order)
         libint_finalize()
@@ -342,5 +350,96 @@ def partial_derivative(molecule, basis_name, method, order, address):
         print("Error: Order {} partial derivatives are not exposed to the API.".format(order))
 
     return partial_deriv
+
+def write_integrals(molecule, basis_name, order, address):
+    """
+    Writes all required (TODO only for diagonal) partial of one and two electron derivatives to disk
+    using PsiJax integrals.
+    
+    Temporary function to write all needed integrals to disk.
+    Goal: Benchmark partial derivatives with address = (2,2,...,2)
+    up to quartic. only need derivative vectors
+    [0,0,1,0,0,0,...]
+    [0,0,2,0,0,0,...]
+    [0,0,3,0,0,0,...]
+    [0,0,4,0,0,0,...]
+    Eventually maybe do sextic
+    """
+
+    geom = jnp.asarray(np.asarray(molecule.geometry()))
+    geom_list = np.asarray(molecule.geometry()).reshape(-1).tolist()
+    mult = molecule.multiplicity()
+    charge = molecule.molecular_charge()
+    nuclear_charges = jnp.asarray([molecule.charge(i) for i in range(geom.shape[0])])
+
+    basis_dict = build_basis_set(molecule,basis_name)
+    kwargs = {"basis_dict":basis_dict,"nuclear_charges":nuclear_charges}
+
+    def oei_wrapper(*args, **kwargs):
+        geom = jnp.asarray(args)
+        basis_dict = kwargs['basis_dict']
+        nuclear_charges = kwargs['nuclear_charges']
+        S, T, V = oei.oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
+        return S, T, V
+
+    def tei_wrapper(*args, **kwargs):
+        geom = jnp.asarray(args)
+        basis_dict = kwargs['basis_dict']
+        nuclear_charges = kwargs['nuclear_charges']
+        G = tei.tei_array(geom.reshape(-1,3),basis_dict)
+        return G
+    
+    if order == 1:
+        i = address[0]
+        dS, dT, dV = jacfwd(oei_wrapper, i)(*geom_list, **kwargs)
+        dG = jacfwd(tei_wrapper, i)(*geom_list, **kwargs)
+    elif order == 2:
+        i,j = address[0], address[1]
+        dS, dT, dV = jacfwd(jacfwd(oei_wrapper, i), j)(*geom_list, **kwargs)
+        dG = jacfwd(jacfwd(tei_wrapper, i), j)(*geom_list, **kwargs)
+    elif order == 3:
+        i,j,k = address[0], address[1], address[2]
+        dS, dT, dV = jacfwd(jacfwd(jacfwd(oei_wrapper, i), j), k)(*geom_list, **kwargs)
+        dG = jacfwd(jacfwd(jacfwd(tei_wrapper, i), j), k)(*geom_list, **kwargs)
+    elif order == 4:
+        i,j,k,l = address[0], address[1], address[2], address[3]
+        dS, dT, dV= jacfwd(jacfwd(jacfwd(jacfwd(oei_wrapper, i), j), k), l)(*geom_list, **kwargs)
+        dG = jacfwd(jacfwd(jacfwd(jacfwd(tei_wrapper, i), j), k), l)(*geom_list, **kwargs)
+    elif order == 5:
+        i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
+        dS, dT, dV= jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(oei_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
+        dG = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(tei_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
+    elif order == 6:
+        i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
+        dS, dT, dV= jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(oei_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
+        dG = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(tei_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
+    else:
+        print("Error: Order {} partial derivatives are not exposed to the API.".format(order))
+
+    # Convert address tuple to (NCART,) derivative vector
+    deriv_vec = [0] * len(geom_list)
+    for i in address:
+        deriv_vec[i] += 1
+    deriv_vec = np.asarray(deriv_vec)
+    # Get flattened upper triangle index for this derivative vector
+    flat_idx = get_deriv_vec_idx(deriv_vec)
+
+    # Write to HDF5
+    # Open the h5py file without deleting all contents ('a' instead of 'a')
+    # and create a dataset
+    # Write this set of partial derivatives of integrals to disk.
+    f = h5py.File("oei_partials.h5","a")
+    f.create_dataset("overlap_deriv"+str(order)+"_"+str(flat_idx), data=dS)
+    f.create_dataset("kinetic_deriv"+str(order)+"_"+str(flat_idx), data=dT)
+    f.create_dataset("potential_deriv"+str(order)+"_"+str(flat_idx), data=dV)
+    f.close()
+
+    f = h5py.File("eri_partials.h5","a")
+    f.create_dataset("eri_deriv"+str(order)+"_"+str(flat_idx), data=dG)
+    f.close()
+
+    return 0
+
+    
 
 

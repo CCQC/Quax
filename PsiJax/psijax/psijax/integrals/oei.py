@@ -190,7 +190,7 @@ def oei_arrays(geom, basis, charges):
             overlap_int = overlap(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
             kinetic_int = kinetic(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
             potential_int = potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefactor,charges,A_vals) * coef
-            s.oei = jax.ops.index_add(s.oei, [[0,1,2],[i,i,i],[j,j,j]], (overlap_int, kinetic_int, potential_int))
+            s.oei = jax.ops.index_add(s.oei, ([0,1,2],[i,i,i],[j,j,j]), (overlap_int, kinetic_int, potential_int))
 
             s.b += 1
           s.a += 1
