@@ -47,10 +47,6 @@ def old_tei_transformation(G, C):
     return G
 
 @jax.jit
-def tmp_transform(G, C):
-    return jnp.tensordot(C, G, axes=(0,0))
-
-@jax.jit
 def transform(C, G):
     return jnp.tensordot(C, G, axes=[(0,),(3,)])
 
@@ -59,20 +55,6 @@ def tei_transformation(G, C):
     New algo for TEI transform
     It's faster than psi4.MintsHelper.mo_transform() for basis sets <~120.
     """
-    #G = tmp_transform(G,C)          # A b c d
-    #G = jnp.transpose(G, (1,0,2,3))  # b A c d  1 transpose
-    #G = tmp_transform(G,C)          # B A c d 
-    #G = jnp.transpose(G, (2,3,0,1))  # c d B A  2 transposes
-    #G = tmp_transform(G,C)          # C d B A
-    #G = jnp.transpose(G, (1,0,2,3))  # d C B A  1 transpose
-    #G = tmp_transform(G,C)          # D C B A  (equivalent to A B C D)
-
-    #G = tmp_transform(G,C)                      # A b c d
-    #G = tmp_transform(G.transpose((1,0,2,3)),C) # B A c d 
-    #G = tmp_transform(G.transpose((2,3,0,1)),C) # C d B A
-    #G = tmp_transform(G.transpose((1,0,2,3)),C) # D C B A  (equivalent to A B C D)
-
-    # this stages out transposes to XLA better i do believe
     G = transform(C,G)
     G = transform(C,G)
     G = transform(C,G)
