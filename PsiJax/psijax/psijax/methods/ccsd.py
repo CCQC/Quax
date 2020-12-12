@@ -21,8 +21,7 @@ def rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=F
 
     # Save slices of two-electron repulsion integrals in MO basis
     V = tei_transformation(V,C)
-
-    V = jnp.swapaxes(V, 1,2)
+    V = jnp.swapaxes(V,1,2)
     V = (V[o,o,o,o], V[o,o,o,v], V[o,o,v,v], V[o,v,o,v], V[o,v,v,v], V[v,v,v,v])
 
     fock_Od = eps[o]
@@ -43,14 +42,8 @@ def rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=F
     while abs(E_ccsd - E_old)  > 1e-9:
         E_old = E_ccsd * 1
 
-        # These two have some memory humps during each iter, probably during big contractions
-        #T1, T2 = rccsd_iter(T1, T2, V, d, D, ndocc, nvir)
-        #E_ccsd = rccsd_energy(T1,T2,V[2])
-
-        # TODO use these instead
-        # These use a consistently low amount of memory, and they are faster
-        T1, T2 = rccsd_iter2(T1, T2, V, d, D, ndocc, nvir)
-        E_ccsd = rccsd_energy2(T1,T2,V[2])
+        T1, T2 = rccsd_iter(T1, T2, V, d, D, ndocc, nvir)
+        E_ccsd = rccsd_energy(T1,T2,V[2])
 
         iteration += 1
         if iteration == CC_MAX_ITER:
@@ -64,115 +57,9 @@ def rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=F
     else:
         return E_scf + E_ccsd
 
-#TODO try removing energy jit. sus.
-#@jax.jit
-def rccsd_energy(T1, T2, Voovv):
-    E_ccsd = 0.0
-    E_ccsd -= jnp.einsum('lc, kd, klcd -> ', T1, T1, Voovv, optimize = 'optimal')
-    E_ccsd -= jnp.einsum('lkcd, klcd -> ', T2, Voovv, optimize = 'optimal')
-    E_ccsd += 2.0*jnp.einsum('klcd, klcd -> ', T2, Voovv, optimize = 'optimal')
-    E_ccsd += 2.0*jnp.einsum('lc, kd, lkcd -> ', T1, T1, Voovv, optimize = 'optimal')
-    return E_ccsd
-
-
-#@jax.jit
-def rccsd_iter(T1, T2, V, d, D, ndocc, nvir):
-    Voooo, Vooov, Voovv, Vovov, Vovvv, Vvvvv = V
-
-    newT1 = jnp.zeros(T1.shape)
-    newT2 = jnp.zeros(T2.shape)
-
-    # T1 equation
-    newT1 -= jnp.einsum('kc, icka -> ia', T1, Vovov, optimize = 'optimal')
-    newT1 += 2.0*jnp.einsum('kc, kica -> ia', T1, Voovv, optimize = 'optimal')
-    newT1 -= jnp.einsum('kicd, kadc -> ia', T2, Vovvv, optimize = 'optimal')
-    newT1 += 2.0*jnp.einsum('ikcd, kadc -> ia', T2, Vovvv, optimize = 'optimal')
-    newT1 += -2.0*jnp.einsum('klac, klic -> ia', T2, Vooov, optimize = 'optimal')
-    newT1 += jnp.einsum('lkac, klic -> ia', T2, Vooov, optimize = 'optimal')
-    newT1 += -2.0*jnp.einsum('kc, la, lkic -> ia', T1, T1, Vooov, optimize = 'optimal')
-    newT1 -= jnp.einsum('kc, id, kadc -> ia', T1, T1, Vovvv, optimize = 'optimal')
-    newT1 += 2.0*jnp.einsum('kc, id, kacd -> ia', T1, T1, Vovvv, optimize = 'optimal')
-    newT1 += jnp.einsum('kc, la, klic -> ia', T1, T1, Vooov, optimize = 'optimal')
-    newT1 += -2.0*jnp.einsum('kc, ilad, lkcd -> ia', T1, T2, Voovv, optimize = 'optimal')
-    newT1 += -2.0*jnp.einsum('kc, liad, klcd -> ia', T1, T2, Voovv, optimize = 'optimal')
-    newT1 += jnp.einsum('kc, liad, lkcd -> ia', T1, T2, Voovv, optimize = 'optimal')
-    newT1 += -2.0*jnp.einsum('ic, lkad, lkcd -> ia', T1, T2, Voovv, optimize = 'optimal')
-    newT1 += jnp.einsum('ic, lkad, klcd -> ia', T1, T2, Voovv, optimize = 'optimal')
-    newT1 += -2.0*jnp.einsum('la, ikdc, klcd -> ia', T1, T2, Voovv, optimize = 'optimal')
-    newT1 += jnp.einsum('la, ikcd, klcd -> ia', T1, T2, Voovv, optimize = 'optimal')
-    newT1 += jnp.einsum('kc, id, la, lkcd -> ia', T1, T1, T1, Voovv, optimize = 'optimal')
-    newT1 += -2.0*jnp.einsum('kc, id, la, klcd -> ia', T1, T1, T1, Voovv, optimize = 'optimal')
-    newT1 += 4.0*jnp.einsum('kc, ilad, klcd -> ia', T1, T2, Voovv, optimize = 'optimal')
-
-    # T2 equation
-    newT2 += Voovv
-    newT2 += jnp.einsum('ic, jd, cdab -> ijab', T1, T1, Vvvvv, optimize = 'optimal')
-    newT2 += jnp.einsum('ijcd, cdab -> ijab', T2, Vvvvv, optimize = 'optimal')
-    newT2 += jnp.einsum('ka, lb, ijkl -> ijab', T1, T1, Voooo, optimize = 'optimal')
-    newT2 += jnp.einsum('klab, ijkl -> ijab', T2, Voooo, optimize = 'optimal')
-    newT2 -= jnp.einsum('ic, jd, ka, kbcd -> ijab', T1, T1, T1, Vovvv, optimize = 'optimal')
-    newT2 -= jnp.einsum('ic, jd, kb, kadc -> ijab', T1, T1, T1, Vovvv, optimize = 'optimal')
-    newT2 += jnp.einsum('ic, ka, lb, lkjc -> ijab', T1, T1, T1, Vooov, optimize = 'optimal')
-    newT2 += jnp.einsum('jc, ka, lb, klic -> ijab', T1, T1, T1, Vooov, optimize = 'optimal')
-    newT2 += jnp.einsum('klac, ijdb, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += -2.0*jnp.einsum('ikac, ljbd, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += -2.0*jnp.einsum('lkac, ijdb, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += jnp.einsum('kiac, ljdb, lkcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += jnp.einsum('ikac, ljbd, lkcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += -2.0*jnp.einsum('ikac, jlbd, lkcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += jnp.einsum('kiac, ljbd, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += -2.0*jnp.einsum('kiac, jlbd, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += jnp.einsum('ijac, lkbd, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += -2.0*jnp.einsum('ijac, klbd, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += jnp.einsum('kjac, ildb, lkcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += 4.0*jnp.einsum('ikac, jlbd, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += jnp.einsum('ijdc, lkab, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    newT2 += jnp.einsum('ic, jd, ka, lb, klcd -> ijab', T1, T1, T1, T1, Voovv, optimize = 'optimal')
-    newT2 += jnp.einsum('ic, jd, lkab, lkcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
-    newT2 += jnp.einsum('ka, lb, ijdc, lkcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
-    P_OVVO = -jnp.einsum('kb, jika -> ijab', T1, Vooov, optimize = 'optimal')
-    P_OVVO += jnp.einsum('jc, icab -> ijab', T1, Vovvv, optimize = 'optimal')
-    P_OVVO -= jnp.einsum('kiac, kjcb -> ijab', T2, Voovv, optimize = 'optimal')
-    P_OVVO -= jnp.einsum('ic, ka, kjcb -> ijab', T1, T1, Voovv, optimize = 'optimal')
-    P_OVVO -= jnp.einsum('ic, kb, jcka -> ijab', T1, T1, Vovov, optimize = 'optimal')
-    P_OVVO += 2.0*jnp.einsum('ikac, kjcb -> ijab', T2, Voovv, optimize = 'optimal')
-    P_OVVO -= jnp.einsum('ikac, jckb -> ijab', T2, Vovov, optimize = 'optimal')
-    P_OVVO -= jnp.einsum('kjac, ickb -> ijab', T2, Vovov, optimize = 'optimal')
-    P_OVVO -= 2.0*jnp.einsum('lb, ikac, lkjc -> ijab', T1, T2, Vooov, optimize = 'optimal')
-    P_OVVO += jnp.einsum('lb, kiac, lkjc -> ijab', T1, T2, Vooov, optimize = 'optimal')
-    P_OVVO -= jnp.einsum('jc, ikdb, kacd -> ijab', T1, T2, Vovvv, optimize = 'optimal')
-    P_OVVO -= jnp.einsum('jc, kiad, kbdc -> ijab', T1, T2, Vovvv, optimize = 'optimal')
-    P_OVVO -= jnp.einsum('jc, ikad, kbcd -> ijab', T1, T2, Vovvv, optimize = 'optimal')
-    P_OVVO += jnp.einsum('jc, lkab, lkic -> ijab', T1, T2, Vooov, optimize = 'optimal')
-    P_OVVO += jnp.einsum('lb, ikac, kljc -> ijab', T1, T2, Vooov, optimize = 'optimal')
-    P_OVVO -= jnp.einsum('ka, ijdc, kbdc -> ijab', T1, T2, Vovvv, optimize = 'optimal')
-    P_OVVO += jnp.einsum('ka, ilcb, lkjc -> ijab', T1, T2, Vooov, optimize = 'optimal')
-    P_OVVO += 2.0*jnp.einsum('jc, ikad, kbdc -> ijab', T1, T2, Vovvv, optimize = 'optimal')
-    P_OVVO -= jnp.einsum('kc, ijad, kbdc -> ijab', T1, T2, Vovvv, optimize = 'optimal')
-    P_OVVO += 2.0*jnp.einsum('kc, ijad, kbcd -> ijab', T1, T2, Vovvv, optimize = 'optimal')
-    P_OVVO += jnp.einsum('kc, ilab, kljc -> ijab', T1, T2, Vooov, optimize = 'optimal')
-    P_OVVO -= 2.0*jnp.einsum('kc, ilab, lkjc -> ijab', T1, T2, Vooov, optimize = 'optimal')
-    P_OVVO += jnp.einsum('jkcd, ilab, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-    P_OVVO -= 2.0*jnp.einsum('kc, jd, ilab, klcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
-    P_OVVO += jnp.einsum('kc, jd, ilab, lkcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
-    P_OVVO += -2.0*jnp.einsum('kc, la, ijdb, klcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
-    P_OVVO += jnp.einsum('kc, la, ijdb, lkcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
-    P_OVVO += jnp.einsum('ic, ka, ljbd, klcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
-    P_OVVO += -2.0*jnp.einsum('ic, ka, jlbd, klcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
-    P_OVVO += jnp.einsum('ic, ka, ljdb, lkcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
-    P_OVVO += jnp.einsum('ic, lb, kjad, klcd -> ijab', T1, T1, T2, Voovv, optimize = 'optimal')
-    P_OVVO += -2.0*jnp.einsum('ikdc, ljab, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
-
-    newT2 += P_OVVO + jnp.transpose(P_OVVO, (1,0,3,2))
-
-    newT1 *= d
-    newT2 *= D
-    return newT1, newT2
-
-# Tensordot versions
 # Not a lot of memory use here compared to ccsd iterations, safe to jit-compile this.
 @jax.jit
-def rccsd_energy2(T1, T2, Voovv):
+def rccsd_energy(T1, T2, Voovv):
     E_ccsd = 0.0
     E_ccsd -= jnp.tensordot(T1, jnp.tensordot(T1, Voovv, [(0,1),(1,2)]), [(0,1),(0,1)])
     E_ccsd -= jnp.tensordot(T2, Voovv, [(0,1,2,3),(1,0,2,3)])
@@ -181,7 +68,8 @@ def rccsd_energy2(T1, T2, Voovv):
     return E_ccsd
 
 # Jit compiling ccsd is a BAD IDEA.
-def rccsd_iter2(T1, T2, V, d, D, ndocc, nvir):
+# TODO consider breaking up function and jit compiling those which do not use more memory than TEI transformation
+def rccsd_iter(T1, T2, V, d, D, ndocc, nvir):
     Voooo, Vooov, Voovv, Vovov, Vovvv, Vvvvv = V
 
     newT1 = jnp.zeros(T1.shape)
@@ -211,9 +99,7 @@ def rccsd_iter2(T1, T2, V, d, D, ndocc, nvir):
     newT1 += jnp.einsum('la, ikcd, klcd -> ia', T1, T2, Voovv, optimize = 'optimal')
     newT1 += jnp.einsum('kc, id, la, lkcd -> ia', T1, T1, T1, Voovv, optimize = 'optimal')
 
-   # T2 equation
-   #TODO write a script which converts all einsums to a series of tensordots/transposes
-   # OR just focus on einsums which involve multiple 4d terms. 
+    # T2 equation
     newT2 -= jnp.einsum('ikac, ljbd, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
     newT2 -= jnp.einsum('lkac, ijdb, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
     newT2 -= jnp.einsum('ikac, jlbd, lkcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
@@ -221,13 +107,11 @@ def rccsd_iter2(T1, T2, V, d, D, ndocc, nvir):
     newT2 -= jnp.einsum('ijac, klbd, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
     newT2 += 2.0*jnp.einsum('ikac, jlbd, klcd -> ijab', T2, T2, Voovv, optimize = 'optimal')
     newT2 *= 2.0
-    newT2 += Voovv
-    # Reducing Vvvvv contractions to tensordot is especially productive.
-    # TODO try reducing Vovvv as well. Also check if removing jit makes this optimization  moot...
-    #newT2 += jnp.einsum('ic, jd, cdab -> ijab', T1, T1, Vvvvv, optimize = 'optimal')
-    # jd, cdab -> jcab | ic, jcab --> ijab
-    newT2 += jnp.tensordot(T1, jnp.tensordot(T1, Vvvvv, [(1,),(1,)]), [(1,),(1,)])
 
+    # Reducing Vvvvv contractions to tensordot is especially productive.
+    # TODO try reducing Vovvv as well. Also check if removing jit makes this optimization moot...
+    newT2 += Voovv
+    newT2 += jnp.tensordot(T1, jnp.tensordot(T1, Vvvvv, [(1,),(1,)]), [(1,),(1,)])
     newT2 += jnp.tensordot(T2, Vvvvv, [(2,3),(0,1)])
     newT2 += jnp.einsum('ka, lb, ijkl -> ijab', T1, T1, Voooo, optimize = 'optimal')
     newT2 += jnp.tensordot(T2, Voooo, [(0,1),(2,3)]).transpose((2,3,0,1))
@@ -287,3 +171,4 @@ def rccsd_iter2(T1, T2, V, d, D, ndocc, nvir):
     newT1 *= d
     newT2 *= D
     return newT1, newT2
+

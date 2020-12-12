@@ -20,25 +20,10 @@ from ..external_integrals import libint_finalize
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 from functools import partial
 
-# Algos:
-# N2 cc-pvtz Hartree fock partial quartic, preloaded ints: 
-# Standard RHF iter function, NO JIT: 3m31s, 5 GB
-# Standard RHF iter function, WITH JIT: 1m13s 10.3 GB
-# JK-build separated out, no jit on jk build, no jit on reduced rhf iter function: 2m24s, 4.7 GB   <--best
-# JK-build separated out, with JIT on jk build, no jit on reduced rhf iter function: 1m1s, 7.5 GB  <--2nd best
-# JK-build separated out, with JIT on both jk build and reduced rhf iter function: 1m5s, 7.6 GB
-# Conclusion: separating out JK build and using vmaps instead of tensordot or einsum is always faster and more memory efficient.
-# This can provide insight on how to optimize CCSD as well.
-# To priortize memory use, remove all jits in HF. Some degree of compilation is happening when vmap is used, and that's enough.
-
 # Builds J if passed TEI's and density. Builds K if passed transpose of TEI, (0,2,1,3) and density
-# Jitting any subfunction of this will double memory use but reduce cost by 50%... hrmm
+# Jitting roughly doubles memory use, but this doesnt matter if you want mp2, ccsd(t). 
 jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None)))
 #jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None))
-
-# Map over leading axis of TEI's and contract to reduce memory use
-#JK = 2 * jax.lax.map(lambda x: jnp.tensordot(x, D, axes=[(1,2),(0,1)]), G)
-#JK -= jax.lax.map(lambda x: jnp.tensordot(x, D, axes=[(0,2),(0,1)]), G)
 
 def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=100, return_aux_data=True):
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
@@ -67,17 +52,6 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     G = tei(geom)
     libint_finalize()
 
-    # Use psi4 for integrals
-    #with open(xyz_path, 'r') as f:
-    #    tmp = f.read()
-    #molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-    #basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
-    #mints = psi4.core.MintsHelper(basis_set)
-    #S = jnp.round(jnp.asarray(mints.ao_overlap()), 12)
-    #T = jnp.round(jnp.asarray(mints.ao_kinetic()), 12)
-    #V = jnp.round(jnp.asarray(mints.ao_potential()), 12)
-    #G = jnp.round(jnp.asarray(mints.ao_eri()), 12)
-
     # TEMP TODO do not use libint for potential
     # Have to build Molecule object and basis dictionary
     #print("Using slow potential integrals")
@@ -103,10 +77,6 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     D = jnp.zeros_like(H)
     
     def rhf_iter(JK,D):
-        #NOTE Building JK in here causes increased memory use
-        #JK = 2 * jnp.tensordot(G, D, axes=[(2,3), (0,1)]) # 2 * J
-        #JK -= jnp.tensordot(G, D, axes=[(1,3), (0,1)])  # - K
-
         F = H + JK
         E_scf = jnp.einsum('pq,pq->', F + H, D) + Enuc
         Fp = jnp.dot(A.T, jnp.dot(F, A))
@@ -120,6 +90,7 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     iteration = 0
     E_scf = 1.0
     E_old = 0.0
+    # TODO add damping here
     while abs(E_scf - E_old) > 1e-12:
         E_old = E_scf * 1
         # Build JK matrix: 2 * J - K
