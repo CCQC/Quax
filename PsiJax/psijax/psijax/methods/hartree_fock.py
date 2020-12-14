@@ -90,9 +90,13 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     iteration = 0
     E_scf = 1.0
     E_old = 0.0
-    # TODO add damping here
+    Dold = jnp.zeros_like(D)
     while abs(E_scf - E_old) > 1e-12:
         E_old = E_scf * 1
+        # TODO expose damping options to user control
+        if iteration < 10:
+            D = Dold * 0.50 + D * 0.50
+        Dold = D * 1
         # Build JK matrix: 2 * J - K
         JK = 2 * jk_build(G, D)
         JK -= jk_build(G.transpose((0,2,1,3)), D)
@@ -102,6 +106,7 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
         if iteration == SCF_MAX_ITER:
             break
     print(iteration, " RHF iterations performed")
+
     # If many orbitals are degenerate, warn that higher order derivatives may be unstable 
     tmp = jnp.round(eps,8)
     ndegen_orbs = jnp.unique(tmp).shape[0] - tmp.shape[0]
