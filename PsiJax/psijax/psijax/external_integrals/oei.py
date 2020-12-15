@@ -2,6 +2,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import h5py
+import os 
+
 from . import libint_interface
 from . import utils
 jax.config.update("jax_enable_x64", True)
@@ -55,44 +57,90 @@ def potential_impl(geom):
     return jnp.asarray(V)
 
 def overlap_deriv_impl(geom, deriv_vec):
-    #dS = libint_interface.overlap_deriv(np.asarray(deriv_vec, int))
-    #dim = int(np.sqrt(dS.shape[0]))
-    #return jnp.asarray(dS).reshape(dim,dim)
-
-    # New disk-based implementation
     deriv_vec = np.asarray(deriv_vec, int)
     deriv_order = np.sum(deriv_vec)
     idx = utils.get_deriv_vec_idx(deriv_vec)
-    dataset_name = "overlap_deriv" + str(deriv_order)
-    with h5py.File('oei_derivs.h5', 'r') as f:
+
+    # By default, look for full derivative tensor file with datasets name (type)_deriv(order)
+    # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
+    # if that also is not found, compute derivative on-the-fly and return
+    if os.path.exists("oei_derivs.h5"):
+        file_name = "oei_derivs.h5"
+        dataset_name = "overlap_deriv" + str(deriv_order)
+    elif os.path.exists("oei_partials.h5"):
+        file_name = "oei_partials.h5"
+        dataset_name = "overlap_deriv" + str(deriv_order) + "_" + str(idx)
+    else:
+        S = libint_interface.overlap_deriv(np.asarray(deriv_vec, int))
+        dim = int(np.sqrt(S.shape[0]))
+        return jnp.asarray(S).reshape(dim,dim)
+
+    with h5py.File(file_name, 'r') as f:
         data_set = f[dataset_name]
-        S = data_set[:,:,idx]
+        if len(data_set.shape) == 3:
+            S = data_set[:,:,idx]
+        elif len(data_set.shape) == 2:
+            S = data_set[:,:]
+        else:
+            raise Exception("Something went wrong reading integral derivative file")
     return jnp.asarray(S)
 
 def kinetic_deriv_impl(geom, deriv_vec):
-    #dT = libint_interface.kinetic_deriv(np.asarray(deriv_vec, int))
-    #dim = int(np.sqrt(dT.shape[0]))
-    #return jnp.asarray(dT).reshape(dim,dim)
     deriv_vec = np.asarray(deriv_vec, int)
     deriv_order = np.sum(deriv_vec)
     idx = utils.get_deriv_vec_idx(deriv_vec)
-    dataset_name = "kinetic_deriv" + str(deriv_order)
-    with h5py.File('oei_derivs.h5', 'r') as f:
+
+    # By default, look for full derivative tensor file with datasets name (type)_deriv(order)
+    # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
+    # if that also is not found, compute derivative on-the-fly and return
+    if os.path.exists("oei_derivs.h5"):
+        file_name = "oei_derivs.h5"
+        dataset_name = "kinetic_deriv" + str(deriv_order)
+    elif os.path.exists("oei_partials.h5"):
+        file_name = "oei_partials.h5"
+        dataset_name = "kinetic_deriv" + str(deriv_order) + "_" + str(idx)
+    else:
+        T = libint_interface.kinetic_deriv(np.asarray(deriv_vec, int))
+        dim = int(np.sqrt(T.shape[0]))
+        return jnp.asarray(T).reshape(dim,dim)
+
+    with h5py.File(file_name, 'r') as f:
         data_set = f[dataset_name]
-        T = data_set[:,:,idx]
+        if len(data_set.shape) == 3:
+            T = data_set[:,:,idx]
+        elif len(data_set.shape) == 2:
+            T = data_set[:,:]
+        else:
+            raise Exception("Something went wrong reading integral derivative file")
     return jnp.asarray(T)
 
 def potential_deriv_impl(geom, deriv_vec):
-    #dV = libint_interface.potential_deriv(np.asarray(deriv_vec,int))
-    #dim = int(np.sqrt(dV.shape[0]))
-    #return jnp.asarray(dV).reshape(dim,dim)
     deriv_vec = np.asarray(deriv_vec, int)
     deriv_order = np.sum(deriv_vec)
     idx = utils.get_deriv_vec_idx(deriv_vec)
-    dataset_name = "potential_deriv" + str(deriv_order)
-    with h5py.File('oei_derivs.h5', 'r') as f:
+
+    # By default, look for full derivative tensor file with datasets name (type)_deriv(order)
+    # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
+    # if that also is not found, compute derivative on-the-fly and return
+    if os.path.exists("oei_derivs.h5"):
+        file_name = "oei_derivs.h5"
+        dataset_name = "potential_deriv" + str(deriv_order)
+    elif os.path.exists("oei_partials.h5"):
+        file_name = "oei_partials.h5"
+        dataset_name = "potential_deriv" + str(deriv_order) + "_" + str(idx)
+    else:
+        V = libint_interface.potential_deriv(np.asarray(deriv_vec, int))
+        dim = int(np.sqrt(V.shape[0]))
+        return jnp.asarray(V).reshape(dim,dim)
+
+    with h5py.File(file_name, 'r') as f:
         data_set = f[dataset_name]
-        V = data_set[:,:,idx]
+        if len(data_set.shape) == 3:
+            V = data_set[:,:,idx]
+        elif len(data_set.shape) == 2:
+            V = data_set[:,:]
+        else:
+            raise Exception("Something went wrong reading integral derivative file")
     return jnp.asarray(V)
 
 # Register primitive evaluation rules
@@ -107,7 +155,6 @@ potential_deriv_p.def_impl(potential_deriv_impl)
 # and a tangent std basis vector (tangent), returns the function evaluated at that point (primals_out)
 # and the slice of the Jacobian (tangents_out)
 def overlap_jvp(primals, tangents):
-    #print('calling overlap jvp')
     geom, = primals
     primals_out = overlap(geom) 
     tangents_out = overlap_deriv(geom, tangents[0])
@@ -120,7 +167,6 @@ def overlap_deriv_jvp(primals, tangents):
     return primals_out, tangents_out
 
 def kinetic_jvp(primals, tangents):
-    #print('calling kinetic jvp')
     geom, = primals
     primals_out = kinetic(geom) 
     tangents_out = kinetic_deriv(geom, tangents[0])

@@ -2,9 +2,11 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import h5py
+import os
 from . import libint_interface
 from . import utils
 jax.config.update("jax_enable_x64", True)
+jax.config.enable_omnistaging()
 
 # Create new JAX primitives for TEI evaluation and derivative evaluation
 tei_p = jax.core.Primitive("tei")
@@ -25,21 +27,35 @@ def tei_impl(geom):
     return jnp.asarray(G)
 
 def tei_deriv_impl(geom, deriv_vec):
-#    deriv_vec = np.asarray(deriv_vec, int)
-#    #print("calling libint eri deriv with deriv vec ", deriv_vec)
-#    G = libint_interface.eri_deriv(deriv_vec)
-#    d = int(np.sqrt(np.sqrt(G.shape[0])))
-#    G = G.reshape(d,d,d,d)
-
-    # New disk-based implementation
     deriv_vec = np.asarray(deriv_vec, int)
     deriv_order = np.sum(deriv_vec)
     idx = utils.get_deriv_vec_idx(deriv_vec)
-    dataset_name = "eri_deriv" + str(deriv_order)
-    with h5py.File('eri_derivs.h5', 'r') as f:
+
+    # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
+    # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
+    # if that also is not found, compute derivative on-the-fly and return
+    if os.path.exists("eri_derivs.h5"):
+        file_name = "eri_derivs.h5"
+        dataset_name = "eri_deriv" + str(deriv_order)
+    elif os.path.exists("eri_partials.h5"):
+        file_name = "eri_partials.h5"
+        dataset_name = "eri_deriv" + str(deriv_order) + "_" + str(idx)
+    else:
+        S = libint_interface.eri_deriv(np.asarray(deriv_vec, int))
+        d = int(np.sqrt(np.sqrt(G.shape[0])))
+        G = G.reshape(d,d,d,d)
+        return jnp.asarray(G)
+
+    with h5py.File(file_name, 'r') as f:
         data_set = f[dataset_name]
-        G = data_set[:,:,:,:,idx]
-    return jnp.asarray(G)
+        if len(data_set.shape) == 5:
+            G = data_set[:,:,:,:,idx]
+        elif len(data_set.shape) == 4:
+            G = data_set[:,:,:,:]
+        else:
+            raise Exception("Something went wrong reading integral derivative file")
+    G = jnp.asarray(G)
+    return G 
     
 # Register primitive evaluation rules
 tei_p.def_impl(tei_impl)
