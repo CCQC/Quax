@@ -41,7 +41,7 @@ def tei_deriv_impl(geom, deriv_vec):
         file_name = "eri_partials.h5"
         dataset_name = "eri_deriv" + str(deriv_order) + "_" + str(idx)
     else:
-        S = libint_interface.eri_deriv(np.asarray(deriv_vec, int))
+        G = libint_interface.eri_deriv(np.asarray(deriv_vec, int))
         d = int(np.sqrt(np.sqrt(G.shape[0])))
         G = G.reshape(d,d,d,d)
         return jnp.asarray(G)
