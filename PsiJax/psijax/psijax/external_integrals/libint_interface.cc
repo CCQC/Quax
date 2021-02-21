@@ -765,8 +765,6 @@ void oei_deriv_disk(int max_deriv_order) {
     for (int i=1; i<= max_deriv_order; i++){
         total_deriv_slices += how_many_derivs(natom, i);
         }
-    double check = (3 * nbf * nbf * total_deriv_slices * 8) * (1e-9);
-    assert(check < 10 && "Total disk space required for one electron integrals exceeds 10 GB. Increase threshold and recompile to proceed.");
 
     // Create H5 File and prepare to fill with 0.0's
     const H5std_string file_name("oei_derivs.h5");

@@ -156,8 +156,8 @@ def vectorized_perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
       return S.pT
    
 
-def rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge):
-    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=True)
+def rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=0):
+    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=deriv_order, return_aux_data=True)
     pT = perturbative_triples(T1, T2, V, fock_Od, fock_Vd)
     #print("(T) energy correction:     ", pT)
     #print("CCSD(T) total energy:      ", E_ccsd + pT)

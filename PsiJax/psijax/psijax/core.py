@@ -10,7 +10,7 @@ import os
 import h5py
 
 from .external_integrals import libint_initialize, libint_finalize
-from .external_integrals.utils import get_deriv_vec_idx
+from .external_integrals.utils import get_deriv_vec_idx, get_required_deriv_vecs
 
 from .integrals import oei
 from .integrals import tei
@@ -97,7 +97,6 @@ def derivative(molecule, basis_name, method, order=1):
     For gradients, choose order=1, hessian order=2, cubic derivative tensor order=3, quartic order = 4.
     Anything higher order derivatives should use the partial derivative utility.
     """
-    #geom = jnp.asarray(np.asarray(molecule.geometry()))
     geom2d = np.asarray(molecule.geometry())
     geom = jnp.asarray(geom2d.flatten())
     mult = molecule.multiplicity()
@@ -118,64 +117,36 @@ def derivative(molecule, basis_name, method, order=1):
     # This will take in internal coordinates, transform them into cartesians, and then compute integrals, energy
     # JAX will then collect the internal coordinate derivative tensor instead. 
 
-    # TODO Can make this safer by including info HDF5 file with rounded geometry, atom labels, etc.
-    if ((os.path.exists("eri_derivs.h5") and os.path.exists("oei_derivs.h5"))):
-        print("Found currently existing integral derivatives in your working directory. Trying to use them.")
-        oeifile = h5py.File('oei_derivs.h5', 'r')
-        erifile = h5py.File('eri_derivs.h5', 'r')
-        # Check if there are `deriv_order` datatsets in the eri file
-        correct_deriv_order = len(erifile) == order
-        # Check nbf dimension of integral arrays
-        sample_dataset_name = list(oeifile.keys())[0]
-        correct_nbf = oeifile[sample_dataset_name].shape[0] == nbf
-        oeifile.close()
-        erifile.close()
-        if correct_deriv_order and correct_nbf:
-            print("Integral derivatives appear to be correct. Avoiding recomputation.")
-        else:
-            print("Integral derivatives dimensions do not match requested derivative order and/or basis set. Recomputing integral derivatives")
-            if os.path.exists("eri_derivs.h5"):
-                print("Deleting two electron integral derivatives...")
-                os.remove("eri_derivs.h5")
-            if os.path.exists("oei_derivs.h5"):
-                print("Deleting one electron integral derivatives...")
-                os.remove("oei_derivs.h5")
-            libint_initialize(xyz_path, basis_name, order)
-            libint_finalize()
-    else:
-        libint_initialize(xyz_path, basis_name, order)
-        libint_finalize()
-
     # Define function 'energy' depending on requested method
+    # TODO add 'order' argument
     if method == 'scf' or method == 'hf' or method == 'rhf':
-        def electronic_energy(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False):
-            return restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+        def electronic_energy(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order, return_aux_data=False):
+            return restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,deriv_order=order, return_aux_data=False)
     elif method =='mp2':
-        def electronic_energy(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False):
+        def electronic_energy(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order, return_aux_data=False):
             return restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
     elif method =='ccsd':
-        def electronic_energy(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False):
+        def electronic_energy(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order, return_aux_data=False):
             return rccsd(geom, basis_name, xyz_path, nuclear_charges, charge)
     elif method =='ccsd(t)':
-        def electronic_energy(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False):
+        def electronic_energy(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order, return_aux_data=False):
             return rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge)
     else:
         print("Desired electronic structure method not understood. Use 'scf' 'hf' 'mp2' 'ccsd' or 'ccsd(t)' ")
 
     # Now compile and compute differentiated energy function
     if order == 1:
-        grad = jacfwd(electronic_energy, 0)(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+        grad = jacfwd(electronic_energy, 0)(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order, return_aux_data=False)
         deriv = jnp.round(grad, 10)
     elif order == 2:
-        hess = jacfwd(jacfwd(electronic_energy, 0))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+        hess = jacfwd(jacfwd(electronic_energy, 0))(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order, return_aux_data=False)
         deriv = jnp.round(hess.reshape(dim,dim), 10)
     elif order == 3:
-        cubic = jacfwd(jacfwd(jacfwd(electronic_energy, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+        cubic = jacfwd(jacfwd(jacfwd(electronic_energy, 0)))(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order, return_aux_data=False)
         deriv = jnp.round(cubic.reshape(dim,dim,dim), 10)
     elif order == 4:
-        quartic = jacfwd(jacfwd(jacfwd(jacfwd(electronic_energy, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+        quartic = jacfwd(jacfwd(jacfwd(jacfwd(electronic_energy, 0))))(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order, return_aux_data=False)
         deriv = jnp.round(quartic.reshape(dim,dim,dim,dim), 10)
-
     return np.asarray(deriv)
 
 def partial_derivative(molecule, basis_name, method, order, address):
@@ -251,7 +222,7 @@ def partial_derivative(molecule, basis_name, method, order, address):
     xyz_path = os.path.abspath(os.getcwd()) + "/" + xyz_file_name
 
     #basis_dict = build_basis_set(molecule, basis_name
-    kwargs = {"basis_name":basis_name,"xyz_path":xyz_path, "nuclear_charges":nuclear_charges, "charge":charge}
+    kwargs = {"basis_name":basis_name,"xyz_path":xyz_path, "nuclear_charges":nuclear_charges, "charge":charge, "order":order}
 
     #TODO TODO TODO: support internal coordinate wrapper function.
     # This will take in internal coordinates, transform them into cartesians, and then compute integrals, energy
@@ -285,8 +256,9 @@ def partial_derivative(molecule, basis_name, method, order, address):
     elif ((os.path.exists("eri_partials.h5") and os.path.exists("oei_partials.h5"))):
         print("Found currently existing partial derivatives in working directory. I hope you know what you are doing!")
     else:
-        libint_initialize(xyz_path, basis_name, order)
-        libint_finalize()
+        pass
+        #libint_initialize(xyz_path, basis_name, order)
+        #libint_finalize()
 
     # Wrap energy functions with unpacked geometric coordinates as single arguments, so we can differentiate w.r.t. single coords
     if method == 'scf' or method == 'hf' or method == 'rhf':
@@ -296,7 +268,8 @@ def partial_derivative(molecule, basis_name, method, order, address):
             xyz_path = kwargs['xyz_path']
             nuclear_charges = kwargs['nuclear_charges']
             charge = kwargs['charge']
-            E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, return_aux_data=False)
+            order = kwargs['order']
+            E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order, return_aux_data=False)
             return E_scf
     elif method =='mp2':
         def partial_wrapper(*args, **kwargs):
@@ -305,7 +278,8 @@ def partial_derivative(molecule, basis_name, method, order, address):
             xyz_path = kwargs['xyz_path']
             nuclear_charges = kwargs['nuclear_charges']
             charge = kwargs['charge']
-            E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge)
+            order = kwargs['order']
+            E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order)
             return E_mp2
     elif method =='ccsd':
         def partial_wrapper(*args, **kwargs):
@@ -314,7 +288,8 @@ def partial_derivative(molecule, basis_name, method, order, address):
             xyz_path = kwargs['xyz_path']
             nuclear_charges = kwargs['nuclear_charges']
             charge = kwargs['charge']
-            E_ccsd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge)
+            order = kwargs['order']
+            E_ccsd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order)
             return E_ccsd
     elif method =='ccsd(t)':
         def partial_wrapper(*args, **kwargs):
@@ -323,7 +298,8 @@ def partial_derivative(molecule, basis_name, method, order, address):
             xyz_path = kwargs['xyz_path']
             nuclear_charges = kwargs['nuclear_charges']
             charge = kwargs['charge']
-            E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge)
+            order = kwargs['order']
+            E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=order)
             return E_ccsd_t
     else:
         raise Exception("Error: Method {} not supported.".format(method))
@@ -354,7 +330,7 @@ def partial_derivative(molecule, basis_name, method, order, address):
 def write_integrals(molecule, basis_name, order, address):
     """
     Writes all required (TODO only for diagonal) partial of one and two electron derivatives to disk
-    using PsiJax integrals.
+    using Quax integrals code.
     
     Temporary function to write all needed integrals to disk.
     Goal: Benchmark partial derivatives with address = (2,2,...,2)
@@ -363,7 +339,6 @@ def write_integrals(molecule, basis_name, order, address):
     [0,0,2,0,0,0,...]
     [0,0,3,0,0,0,...]
     [0,0,4,0,0,0,...]
-    Eventually maybe do sextic
     """
 
     geom = jnp.asarray(np.asarray(molecule.geometry()))
@@ -389,6 +364,7 @@ def write_integrals(molecule, basis_name, order, address):
         G = tei.tei_array(geom.reshape(-1,3),basis_dict)
         return G
     
+    # TODO can these be passed list of lists to generate all partials at a given order?
     if order == 1:
         i = address[0]
         dS, dT, dV = jacfwd(oei_wrapper, i)(*geom_list, **kwargs)

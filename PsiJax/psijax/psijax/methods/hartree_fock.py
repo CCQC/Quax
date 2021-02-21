@@ -4,70 +4,76 @@ import jax.numpy as jnp
 import numpy as np
 import psi4
 
-from ..integrals.basis_utils import build_basis_set
-from ..integrals import tei as og_tei
-from ..integrals import oei 
+#from ..integrals.basis_utils import build_basis_set
+#from ..integrals import tei as og_tei
+#from ..integrals import oei 
+#
+#from ..external_integrals import overlap
+#from ..external_integrals import kinetic
+#from ..external_integrals import potential
+#from ..external_integrals import tei
+#from ..external_integrals import tmp_potential
+#
+#from ..external_integrals import libint_initialize
+#from ..external_integrals import libint_finalize
 
-from ..external_integrals import overlap
-from ..external_integrals import kinetic
-from ..external_integrals import potential
-from ..external_integrals import tei
-from ..external_integrals import tmp_potential
-
-from ..external_integrals import libint_initialize
-from ..external_integrals import libint_finalize
-
+from .ints import compute_integrals
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
-from functools import partial
+
 
 # Builds J if passed TEI's and density. Builds K if passed transpose of TEI, (0,2,1,3) and density
 # Jitting roughly doubles memory use, but this doesnt matter if you want mp2, ccsd(t). 
-jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None)))
+#jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None)))
 #jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None))
 
-def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, SCF_MAX_ITER=100, return_aux_data=True):
+
+def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=0, return_aux_data=True):
+    SCF_MAX_ITER=100
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
 
     # If we are doing MP2 or CCSD after, might as well use jit-compiled JK-build, since HF will not be memory bottleneck
     # has side effect of MP2 being faster than HF tho...
-    #if return_aux_data:
-    #    jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None)))
-    #else: 
-    #    jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None))
+    if return_aux_data:
+        jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None)))
+    else: 
+        jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None))
 
-    # Use local JAX implementation of integrals
-    #with open(xyz_path, 'r') as f:
-    #    tmp = f.read()
-    #molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-    #basis_dict = build_basis_set(molecule, basis_name)
-    #S, T, V = oei.oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
-    #G = og_tei.tei_array(geom.reshape(-1,3),basis_dict)
+#    # Use local JAX implementation of integrals
+#    with open(xyz_path, 'r') as f:
+#        tmp = f.read()
+#    molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
+#    basis_dict = build_basis_set(molecule, basis_name)
+#    S, T, V = oei.oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
+#    G = og_tei.tei_array(geom.reshape(-1,3),basis_dict)
 
     # Use Libint2 for all integrals 
-    libint_initialize(xyz_path, basis_name)
-    S = overlap(geom)
-    T = kinetic(geom) 
-    V = potential(geom) 
-    G = tei(geom)
-    libint_finalize()
-
-    # Have to build Molecule object and basis dictionary
-    #print("Using slow potential integrals")
-    #with open(xyz_path, 'r') as f:
-    #    tmp = f.read()
-    #molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-    #basis_dict = build_basis_set(molecule, basis_name)
-    #V = tmp_potential(jnp.asarray(geom.reshape(-1,3)), basis_dict, nuclear_charges)
+#    libint_initialize(xyz_path, basis_name)
+#    S = overlap(geom)
+#    T = kinetic(geom) 
+#    #V = potential(geom) 
+#    G = tei(geom)
+#    libint_finalize()
+#
+#    # Have to build Molecule object and basis dictionary
+#    #print("Using slow potential integrals")
+#    with open(xyz_path, 'r') as f:
+#        tmp = f.read()
+#    molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
+#    basis_dict = build_basis_set(molecule, basis_name)
+#    V = tmp_potential(jnp.asarray(geom.reshape(-1,3)), basis_dict, nuclear_charges)
 
     # Canonical orthogonalization via cholesky decomposition
+    S, T, V, G = compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order)
     A = cholesky_orthogonalization(S)
 
     nbf = S.shape[0]
 
     #TODO expose these options to user control in addition to integral evaluation scheme.
-    spectral_shift = False
-    damping = True 
+    spectral_shift = True
+    #spectral_shift = False
+    #damping = True 
+    damping = False
     convergence = 1e-10
 
     # For slightly shifting eigenspectrum of transformed Fock for degenerate eigenvalues 
@@ -102,7 +108,7 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     dRMS = 1.0
 
     # Converge according to energy and DIIS residual to ensure eigenvalues and eigenvectors are maximally converged.
-    # Crucial for numerical stability for higher order derivatives of correlated methods.
+    # This is crucial for numerical stability for higher order derivatives of correlated methods.
     while ((abs(E_scf - E_old) > convergence) or (dRMS > convergence)):
         E_old = E_scf * 1
         if damping:
