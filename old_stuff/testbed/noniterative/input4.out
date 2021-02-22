@@ -1,0 +1,2113 @@
+
+    -----------------------------------------------------------------------
+          Psi4: An Open-Source Ab Initio Electronic Structure Package
+                               Psi4 1.3.2 release
+
+                         Git: Rev {HEAD} ecbda83 
+
+
+    R. M. Parrish, L. A. Burns, D. G. A. Smith, A. C. Simmonett,
+    A. E. DePrince III, E. G. Hohenstein, U. Bozkaya, A. Yu. Sokolov,
+    R. Di Remigio, R. M. Richard, J. F. Gonthier, A. M. James,
+    H. R. McAlexander, A. Kumar, M. Saitow, X. Wang, B. P. Pritchard,
+    P. Verma, H. F. Schaefer III, K. Patkowski, R. A. King, E. F. Valeev,
+    F. A. Evangelista, J. M. Turney, T. D. Crawford, and C. D. Sherrill,
+    J. Chem. Theory Comput. 13(7) pp 3185--3197 (2017).
+    (doi: 10.1021/acs.jctc.7b00174)
+
+
+                         Additional Contributions by
+    P. Kraus, H. Kruse, M. H. Lechner, M. C. Schieber, R. A. Shaw,
+    A. Alenaizan, R. Galvelis, Z. L. Glick, S. Lehtola, and J. P. Misiewicz
+
+    -----------------------------------------------------------------------
+
+
+    Psi4 started on: Monday, 09 September 2019 10:10PM
+
+    Process ID: 31719
+    Host:       adabbott
+    PSIDATADIR: /home/adabbott/anaconda3/envs/autodiff/share/psi4
+    Memory:     500.0 MiB
+    Threads:    1
+    
+  ==> Input File <==
+
+--------------------------------------------------------------------------
+import psi4
+import numpy as np
+
+basis {
+assign s_orb
+[ s_orb ]
+cartesian
+****
+H     0
+S   1   1.00
+      0.50000000000      1.0000000000
+S   1   1.00
+      0.40000000000      1.0000000000
+S   1   1.00
+      0.30000000000      1.0000000000
+S   1   1.00
+      0.20000000000      1.0000000000
+S   1   1.00
+      0.10000000000      1.0000000000
+S   1   1.00
+      0.05000000000      1.0000000000
+S   1   1.00
+      0.01000000000      1.0000000000
+S   1   1.00
+      0.00100000000      1.0000000000
+****
+}
+
+molecule h2o {
+symmetry c1
+units bohr
+0 1
+H 0.000000000000 0.000000000000 -0.849220457955
+H 0.000000000000 0.000000000000  0.849220457955
+}
+
+set scf_type pk
+set mp2_type conv
+set cc_type conv
+set puream false
+set maxiter 20
+set e_convergence 6 
+set d_convergence 6
+e1, wfn1 = hessian('hf', return_wfn=True, dertype='gradient')
+#e2, wfn2 = gradient('mp2', return_wfn=True)
+#junk, wfn3 = gradient('lccd', return_wfn=True)
+#e3 = energy('lccd')
+print(wfn1.energy())
+print(np.asarray(wfn1.gradient()))
+print(np.asarray(wfn1.hessian()))
+#print(wfn2.energy())
+#print(np.asarray(wfn2.gradient()))
+#print(e3)
+#print(np.asarray(wfn3.gradient()))
+
+mol = wfn1.molecule()
+bs = wfn1.basisset()
+basis = psi4.core.BasisSet.build(mol)
+mints = psi4.core.MintsHelper(basis)
+C = np.asarray(wfn1.Ca())
+np.save('C4', C)
+
+--------------------------------------------------------------------------
+gradient() will perform analytic gradient computation.
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:10 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS7BB55DDB
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.849220457955     1.007825032230
+         H            0.000000000000     0.000000000000     0.849220457955     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.41314  C =     41.41314 [cm^-1]
+  Rotational constants: A = ************  B = 1241534.81138  C = 1241534.81138 [MHz]
+  Nuclear repulsion =    0.588775264792897
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A         16      16       0       0       0       0
+   -------------------------------------------------------
+    Total      16      16       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:              16
+      Number of primitives:             16
+      Number of atomic orbitals:        16
+      Number of basis functions:        16
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 18632 doubles for integral storage.
+  We computed 9316 shell quartets total.
+  Whereas there are 9316 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 5.1105580764E-06.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.81404417922971   -8.14044e-01   0.00000e+00 
+   @RHF iter   1:    -1.06558402688419   -2.51540e-01   2.80214e-03 DIIS
+   @RHF iter   2:    -1.06869704392232   -3.11302e-03   6.31119e-04 DIIS
+   @RHF iter   3:    -1.06888591759282   -1.88874e-04   5.12246e-05 DIIS
+   @RHF iter   4:    -1.06888692767421   -1.01008e-06   2.26076e-06 DIIS
+   @RHF iter   5:    -1.06888692904112   -1.36691e-09   2.42507e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.537289  
+
+    Virtual:                                                              
+
+       2A      0.001656     3A      0.002470     4A      0.021077  
+       5A      0.023463     6A      0.092139     7A      0.117227  
+       8A      0.227530     9A      0.387873    10A      0.531574  
+      11A      0.899656    12A      1.046724    13A      1.920309  
+      14A      2.055195    15A      3.487248    16A      3.488073  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06888692904112
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5887752647928965
+    One-Electron Energy =                  -2.2407436918884294
+    Two-Electron Energy =                   0.5830814980544083
+    Total Energy =                         -1.0688869290411245
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:    -0.0000
+
+  Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:    -0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:     0.0000      Y:     0.0000      Z:    -0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:10 2019
+Module time:
+	user time   =       0.21 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.21 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:10 2019
+
+
+         ------------------------------------------------------------
+                                   SCF GRAD                          
+                          Rob Parrish, Justin Turney,                
+                       Andy Simmonett, and Alex Sokolov              
+         ------------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.849220457955     1.007825032230
+         H            0.000000000000     0.000000000000     0.849220457955     1.007825032230
+
+  Nuclear repulsion =    0.588775264792897
+
+  ==> Basis Set <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> DirectJKGrad: Integral-Direct SCF Gradients <==
+
+    Gradient:                    1
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Integrals threads:           1
+    Schwarz Cutoff:          0E+00
+
+
+  -Total Gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000    -0.056095372282
+       2        0.000000000000     0.000000000000     0.056095372287
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:10 2019
+Module time:
+	user time   =       0.03 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.24 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+
+  Based on options and gradient (rms=3.24E-02), recommend projecting translations and not projecting rotations.
+hessian() will perform frequency computation by finite difference of analytic gradients.
+
+         ----------------------------------------------------------
+                                   FINDIF
+                     R. A. King and Jonathon Misiewicz
+         ---------------------------------------------------------
+
+  Using finite-differences of gradients to determine vibrational frequencies and 
+  normal modes.  Resulting frequencies are only valid at stationary points.
+    Generating geometries for use with 3-point formula.
+    Displacement size will be 5.00e-03.
+    Number of atoms is 2.
+    Number of irreps is 1.
+    Number of SALCs is 3.
+    Translations projected? 1. Rotations projected? 0.
+    Index of SALCs per irrep:
+     1 :  0  1  2 
+    Number of SALCs per irrep:
+     Irrep 1: 3
+    Number of geometries (including reference) is 7.
+    Number of displacements per irrep:
+      Irrep 1: 6
+
+  //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>//
+  //    Loading displacement 1 of 7    //
+  //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<//
+gradient() will perform analytic gradient computation.
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:10 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS7BB55DDB
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.849220457955     1.007825032230
+         H            0.000000000000     0.000000000000     0.849220457955     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.41314  C =     41.41314 [cm^-1]
+  Rotational constants: A = ************  B = 1241534.81138  C = 1241534.81138 [MHz]
+  Nuclear repulsion =    0.588775264792897
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A         16      16       0       0       0       0
+   -------------------------------------------------------
+    Total      16      16       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:              16
+      Number of primitives:             16
+      Number of atomic orbitals:        16
+      Number of basis functions:        16
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 18632 doubles for integral storage.
+  We computed 9316 shell quartets total.
+  Whereas there are 9316 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 5.1105580764E-06.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.81404417922971   -8.14044e-01   0.00000e+00 
+   @RHF iter   1:    -1.06558402688419   -2.51540e-01   2.80214e-03 DIIS
+   @RHF iter   2:    -1.06869704391695   -3.11302e-03   6.31119e-04 DIIS
+   @RHF iter   3:    -1.06888591758760   -1.88874e-04   5.12246e-05 DIIS
+   @RHF iter   4:    -1.06888692766037   -1.01007e-06   2.26076e-06 DIIS
+   @RHF iter   5:    -1.06888692907531   -1.41494e-09   2.42516e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.537289  
+
+    Virtual:                                                              
+
+       2A      0.001656     3A      0.002470     4A      0.021077  
+       5A      0.023463     6A      0.092139     7A      0.117227  
+       8A      0.227530     9A      0.387873    10A      0.531574  
+      11A      0.899656    12A      1.046724    13A      1.920309  
+      14A      2.055195    15A      3.487248    16A      3.488073  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06888692907531
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5887752647928965
+    One-Electron Energy =                  -2.2407436918784569
+    Two-Electron Energy =                   0.5830814980102454
+    Total Energy =                         -1.0688869290753149
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:    -0.0000
+
+  Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:    -0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:     0.0000      Y:     0.0000      Z:    -0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:10 2019
+Module time:
+	user time   =       0.19 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.44 seconds =       0.01 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:10 2019
+
+
+         ------------------------------------------------------------
+                                   SCF GRAD                          
+                          Rob Parrish, Justin Turney,                
+                       Andy Simmonett, and Alex Sokolov              
+         ------------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.849220457955     1.007825032230
+         H            0.000000000000     0.000000000000     0.849220457955     1.007825032230
+
+  Nuclear repulsion =    0.588775264792897
+
+  ==> Basis Set <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> DirectJKGrad: Integral-Direct SCF Gradients <==
+
+    Gradient:                    1
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Integrals threads:           1
+    Schwarz Cutoff:          0E+00
+
+
+  -Total Gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000    -0.056095372428
+       2        0.000000000000     0.000000000000     0.056095372436
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:10 2019
+Module time:
+	user time   =       0.03 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.47 seconds =       0.01 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+
+  //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>//
+  //    Loading displacement 2 of 7    //
+  //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<//
+gradient() will perform analytic gradient computation.
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:10 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS7BB55DDB
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H           -0.003521781729     0.000000000000    -0.849220457955     1.007825032230
+         H            0.003521781729     0.000000000000     0.849220457955     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.41243  C =     41.41243 [cm^-1]
+  Rotational constants: A = ************  B = 1241513.45954  C = 1241513.45954 [MHz]
+  Nuclear repulsion =    0.588770201909385
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A         16      16       0       0       0       0
+   -------------------------------------------------------
+    Total      16      16       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:              16
+      Number of primitives:             16
+      Number of atomic orbitals:        16
+      Number of basis functions:        16
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 18632 doubles for integral storage.
+  We computed 9316 shell quartets total.
+  Whereas there are 9316 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 5.1105740554E-06.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.81404404397151   -8.14044e-01   0.00000e+00 
+   @RHF iter   1:    -1.06558322639428   -2.51539e-01   2.80213e-03 DIIS
+   @RHF iter   2:    -1.06869622515128   -3.11300e-03   6.31117e-04 DIIS
+   @RHF iter   3:    -1.06888509831981   -1.88873e-04   5.12243e-05 DIIS
+   @RHF iter   4:    -1.06888610837184   -1.01005e-06   2.26075e-06 DIIS
+   @RHF iter   5:    -1.06888610977408   -1.40224e-09   2.42514e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.537287  
+
+    Virtual:                                                              
+
+       2A      0.001656     3A      0.002470     4A      0.021077  
+       5A      0.023463     6A      0.092138     7A      0.117227  
+       8A      0.227528     9A      0.387873    10A      0.531572  
+      11A      0.899657    12A      1.046722    13A      1.920312  
+      14A      2.055193    15A      3.487250    16A      3.488071  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06888610977408
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5887702019093851
+    One-Electron Energy =                  -2.2407355987061415
+    Two-Electron Energy =                   0.5830792870226791
+    Total Energy =                         -1.0688861097740774
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:11 2019
+Module time:
+	user time   =       0.19 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+Total time:
+	user time   =       0.67 seconds =       0.01 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:11 2019
+
+
+         ------------------------------------------------------------
+                                   SCF GRAD                          
+                          Rob Parrish, Justin Turney,                
+                       Andy Simmonett, and Alex Sokolov              
+         ------------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H           -0.003521781729     0.000000000000    -0.849220457955     1.007825032230
+         H            0.003521781729     0.000000000000     0.849220457955     1.007825032230
+
+  Nuclear repulsion =    0.588770201909385
+
+  ==> Basis Set <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> DirectJKGrad: Integral-Direct SCF Gradients <==
+
+    Gradient:                    1
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Integrals threads:           1
+    Schwarz Cutoff:          0E+00
+
+
+  -Total Gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1       -0.000232638518     0.000000000000    -0.056096999849
+       2        0.000232638518     0.000000000000     0.056096999857
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:11 2019
+Module time:
+	user time   =       0.03 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.70 seconds =       0.01 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+
+  //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>//
+  //    Loading displacement 3 of 7    //
+  //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<//
+gradient() will perform analytic gradient computation.
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:11 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS7BB55DDB
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.003521781729     0.000000000000    -0.849220457955     1.007825032230
+         H           -0.003521781729     0.000000000000     0.849220457955     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.41243  C =     41.41243 [cm^-1]
+  Rotational constants: A = ************  B = 1241513.45954  C = 1241513.45954 [MHz]
+  Nuclear repulsion =    0.588770201909385
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A         16      16       0       0       0       0
+   -------------------------------------------------------
+    Total      16      16       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:              16
+      Number of primitives:             16
+      Number of atomic orbitals:        16
+      Number of basis functions:        16
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 18632 doubles for integral storage.
+  We computed 9316 shell quartets total.
+  Whereas there are 9316 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 5.1105740554E-06.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.81404404397162   -8.14044e-01   0.00000e+00 
+   @RHF iter   1:    -1.06558322640448   -2.51539e-01   2.80213e-03 DIIS
+   @RHF iter   2:    -1.06869622514519   -3.11300e-03   6.31117e-04 DIIS
+   @RHF iter   3:    -1.06888509830733   -1.88873e-04   5.12243e-05 DIIS
+   @RHF iter   4:    -1.06888610835814   -1.01005e-06   2.26075e-06 DIIS
+   @RHF iter   5:    -1.06888610976451   -1.40637e-09   2.42514e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.537287  
+
+    Virtual:                                                              
+
+       2A      0.001656     3A      0.002470     4A      0.021077  
+       5A      0.023463     6A      0.092138     7A      0.117227  
+       8A      0.227528     9A      0.387873    10A      0.531572  
+      11A      0.899657    12A      1.046722    13A      1.920312  
+      14A      2.055193    15A      3.487250    16A      3.488071  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06888610976451
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5887702019093851
+    One-Electron Energy =                  -2.2407355987032567
+    Two-Electron Energy =                   0.5830792870293617
+    Total Energy =                         -1.0688861097645099
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:    -0.0000      Y:     0.0000      Z:     0.0000
+
+  Dipole Moment: [e a0]
+     X:    -0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:    -0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:11 2019
+Module time:
+	user time   =       0.18 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.89 seconds =       0.01 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:11 2019
+
+
+         ------------------------------------------------------------
+                                   SCF GRAD                          
+                          Rob Parrish, Justin Turney,                
+                       Andy Simmonett, and Alex Sokolov              
+         ------------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.003521781729     0.000000000000    -0.849220457955     1.007825032230
+         H           -0.003521781729     0.000000000000     0.849220457955     1.007825032230
+
+  Nuclear repulsion =    0.588770201909385
+
+  ==> Basis Set <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> DirectJKGrad: Integral-Direct SCF Gradients <==
+
+    Gradient:                    1
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Integrals threads:           1
+    Schwarz Cutoff:          0E+00
+
+
+  -Total Gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000232638518     0.000000000000    -0.056096999865
+       2       -0.000232638518     0.000000000000     0.056096999869
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:11 2019
+Module time:
+	user time   =       0.03 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.92 seconds =       0.02 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+
+  //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>//
+  //    Loading displacement 4 of 7    //
+  //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<//
+gradient() will perform analytic gradient computation.
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:11 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS7BB55DDB
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000    -0.003521781729    -0.849220457955     1.007825032230
+         H            0.000000000000     0.003521781729     0.849220457955     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.41243  C =     41.41243 [cm^-1]
+  Rotational constants: A = ************  B = 1241513.45954  C = 1241513.45954 [MHz]
+  Nuclear repulsion =    0.588770201909385
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A         16      16       0       0       0       0
+   -------------------------------------------------------
+    Total      16      16       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:              16
+      Number of primitives:             16
+      Number of atomic orbitals:        16
+      Number of basis functions:        16
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 18632 doubles for integral storage.
+  We computed 9316 shell quartets total.
+  Whereas there are 9316 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 5.1105740554E-06.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.81404404397145   -8.14044e-01   0.00000e+00 
+   @RHF iter   1:    -1.06558322638926   -2.51539e-01   2.80213e-03 DIIS
+   @RHF iter   2:    -1.06869622516016   -3.11300e-03   6.31117e-04 DIIS
+   @RHF iter   3:    -1.06888509831977   -1.88873e-04   5.12243e-05 DIIS
+   @RHF iter   4:    -1.06888610836859   -1.01005e-06   2.26075e-06 DIIS
+   @RHF iter   5:    -1.06888610976102   -1.39243e-09   2.42512e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.537287  
+
+    Virtual:                                                              
+
+       2A      0.001656     3A      0.002470     4A      0.021077  
+       5A      0.023463     6A      0.092138     7A      0.117227  
+       8A      0.227528     9A      0.387873    10A      0.531572  
+      11A      0.899657    12A      1.046722    13A      1.920312  
+      14A      2.055193    15A      3.487250    16A      3.488071  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06888610976102
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5887702019093851
+    One-Electron Energy =                  -2.2407355987109021
+    Two-Electron Energy =                   0.5830792870404977
+    Total Energy =                         -1.0688861097610194
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:     0.0000      Y:    -0.0000      Z:    -0.0000
+
+  Dipole Moment: [e a0]
+     X:     0.0000      Y:    -0.0000      Z:    -0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:     0.0000      Y:    -0.0000      Z:    -0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:11 2019
+Module time:
+	user time   =       0.19 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       1.11 seconds =       0.02 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:11 2019
+
+
+         ------------------------------------------------------------
+                                   SCF GRAD                          
+                          Rob Parrish, Justin Turney,                
+                       Andy Simmonett, and Alex Sokolov              
+         ------------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000    -0.003521781729    -0.849220457955     1.007825032230
+         H            0.000000000000     0.003521781729     0.849220457955     1.007825032230
+
+  Nuclear repulsion =    0.588770201909385
+
+  ==> Basis Set <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> DirectJKGrad: Integral-Direct SCF Gradients <==
+
+    Gradient:                    1
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Integrals threads:           1
+    Schwarz Cutoff:          0E+00
+
+
+  -Total Gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000    -0.000232638518    -0.056096999826
+       2        0.000000000000     0.000232638518     0.056096999835
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:11 2019
+Module time:
+	user time   =       0.04 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       1.15 seconds =       0.02 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+
+  //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>//
+  //    Loading displacement 5 of 7    //
+  //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<//
+gradient() will perform analytic gradient computation.
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:11 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS7BB55DDB
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.003521781729    -0.849220457955     1.007825032230
+         H            0.000000000000    -0.003521781729     0.849220457955     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.41243  C =     41.41243 [cm^-1]
+  Rotational constants: A = ************  B = 1241513.45954  C = 1241513.45954 [MHz]
+  Nuclear repulsion =    0.588770201909385
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A         16      16       0       0       0       0
+   -------------------------------------------------------
+    Total      16      16       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:              16
+      Number of primitives:             16
+      Number of atomic orbitals:        16
+      Number of basis functions:        16
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 18632 doubles for integral storage.
+  We computed 9316 shell quartets total.
+  Whereas there are 9316 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 5.1105740554E-06.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.81404404397352   -8.14044e-01   0.00000e+00 
+   @RHF iter   1:    -1.06558322640756   -2.51539e-01   2.80213e-03 DIIS
+   @RHF iter   2:    -1.06869622516020   -3.11300e-03   6.31117e-04 DIIS
+   @RHF iter   3:    -1.06888509832635   -1.88873e-04   5.12243e-05 DIIS
+   @RHF iter   4:    -1.06888610836788   -1.01004e-06   2.26075e-06 DIIS
+   @RHF iter   5:    -1.06888610976018   -1.39230e-09   2.42512e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.537287  
+
+    Virtual:                                                              
+
+       2A      0.001656     3A      0.002470     4A      0.021077  
+       5A      0.023463     6A      0.092138     7A      0.117227  
+       8A      0.227528     9A      0.387873    10A      0.531572  
+      11A      0.899657    12A      1.046722    13A      1.920312  
+      14A      2.055193    15A      3.487250    16A      3.488071  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06888610976018
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5887702019093851
+    One-Electron Energy =                  -2.2407355987053741
+    Two-Electron Energy =                   0.5830792870358099
+    Total Energy =                         -1.0688861097601792
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:     0.0000      Y:    -0.0000      Z:     0.0000
+
+  Dipole Moment: [e a0]
+     X:     0.0000      Y:    -0.0000      Z:     0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:     0.0000      Y:    -0.0000      Z:     0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:11 2019
+Module time:
+	user time   =       0.18 seconds =       0.00 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       1.33 seconds =       0.02 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:11 2019
+
+
+         ------------------------------------------------------------
+                                   SCF GRAD                          
+                          Rob Parrish, Justin Turney,                
+                       Andy Simmonett, and Alex Sokolov              
+         ------------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.003521781729    -0.849220457955     1.007825032230
+         H            0.000000000000    -0.003521781729     0.849220457955     1.007825032230
+
+  Nuclear repulsion =    0.588770201909385
+
+  ==> Basis Set <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> DirectJKGrad: Integral-Direct SCF Gradients <==
+
+    Gradient:                    1
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Integrals threads:           1
+    Schwarz Cutoff:          0E+00
+
+
+  -Total Gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000232638518    -0.056096999836
+       2        0.000000000000    -0.000232638518     0.056096999837
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:11 2019
+Module time:
+	user time   =       0.03 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       1.36 seconds =       0.02 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+
+  //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>//
+  //    Loading displacement 6 of 7    //
+  //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<//
+gradient() will perform analytic gradient computation.
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:11 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS7BB55DDB
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.852742239684     1.007825032230
+         H            0.000000000000     0.000000000000     0.852742239684     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.07178  C =     41.07178 [cm^-1]
+  Rotational constants: A = ************  B = 1231301.03736  C = 1231301.03736 [MHz]
+  Nuclear repulsion =    0.586343653136672
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A         16      16       0       0       0       0
+   -------------------------------------------------------
+    Total      16      16       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:              16
+      Number of primitives:             16
+      Number of atomic orbitals:        16
+      Number of basis functions:        16
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 18632 doubles for integral storage.
+  We computed 9316 shell quartets total.
+  Whereas there are 9316 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 5.1181555344E-06.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.81397384586725   -8.13974e-01   0.00000e+00 
+   @RHF iter   1:    -1.06519442222640   -2.51221e-01   2.79636e-03 DIIS
+   @RHF iter   2:    -1.06829862146424   -3.10420e-03   6.30224e-04 DIIS
+   @RHF iter   3:    -1.06848725660390   -1.88635e-04   5.10795e-05 DIIS
+   @RHF iter   4:    -1.06848826347927   -1.00688e-06   2.25790e-06 DIIS
+   @RHF iter   5:    -1.06848826487585   -1.39658e-09   2.42495e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.536406  
+
+    Virtual:                                                              
+
+       2A      0.001656     3A      0.002470     4A      0.021086  
+       5A      0.023448     6A      0.091918     7A      0.117281  
+       8A      0.226963     9A      0.388064    10A      0.530844  
+      11A      0.900084    12A      1.045797    13A      1.921640  
+      14A      2.053840    15A      3.486968    16A      3.488098  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06848826487585
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5863436531366716
+    One-Electron Energy =                  -2.2368494526982126
+    Two-Electron Energy =                   0.5820175346856900
+    Total Energy =                         -1.0684882648758509
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:    -0.0000
+
+  Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:    -0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:     0.0000      Y:     0.0000      Z:    -0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:12 2019
+Module time:
+	user time   =       0.19 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+Total time:
+	user time   =       1.56 seconds =       0.03 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          2 seconds =       0.03 minutes
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:12 2019
+
+
+         ------------------------------------------------------------
+                                   SCF GRAD                          
+                          Rob Parrish, Justin Turney,                
+                       Andy Simmonett, and Alex Sokolov              
+         ------------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.852742239684     1.007825032230
+         H            0.000000000000     0.000000000000     0.852742239684     1.007825032230
+
+  Nuclear repulsion =    0.586343653136672
+
+  ==> Basis Set <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> DirectJKGrad: Integral-Direct SCF Gradients <==
+
+    Gradient:                    1
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Integrals threads:           1
+    Schwarz Cutoff:          0E+00
+
+
+  -Total Gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000    -0.057100048626
+       2        0.000000000000     0.000000000000     0.057100048622
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:12 2019
+Module time:
+	user time   =       0.03 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       1.59 seconds =       0.03 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          2 seconds =       0.03 minutes
+
+  //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>//
+  //    Loading displacement 7 of 7    //
+  //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<//
+gradient() will perform analytic gradient computation.
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:12 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS7BB55DDB
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.845698676226     1.007825032230
+         H            0.000000000000     0.000000000000     0.845698676226     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.75878  C =     41.75878 [cm^-1]
+  Rotational constants: A = ************  B = 1251896.70235  C = 1251896.70235 [MHz]
+  Nuclear repulsion =    0.591227128592686
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A         16      16       0       0       0       0
+   -------------------------------------------------------
+    Total      16      16       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:              16
+      Number of primitives:             16
+      Number of atomic orbitals:        16
+      Number of basis functions:        16
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 18632 doubles for integral storage.
+  We computed 9316 shell quartets total.
+  Whereas there are 9316 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 5.1027419108E-06.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.81410421909501   -8.14104e-01   0.00000e+00 
+   @RHF iter   1:    -1.06596646555044   -2.51862e-01   2.80792e-03 DIIS
+   @RHF iter   2:    -1.06908829921469   -3.12183e-03   6.32017e-04 DIIS
+   @RHF iter   3:    -1.06927741108389   -1.89112e-04   5.13687e-05 DIIS
+   @RHF iter   4:    -1.06927842425154   -1.01317e-06   2.26358e-06 DIIS
+   @RHF iter   5:    -1.06927842560833   -1.35679e-09   2.42516e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.538177  
+
+    Virtual:                                                              
+
+       2A      0.001655     3A      0.002470     4A      0.021069  
+       5A      0.023477     6A      0.092357     7A      0.117172  
+       8A      0.228096     9A      0.387683    10A      0.532308  
+      11A      0.899229    12A      1.047658    13A      1.918981  
+      14A      2.056561    15A      3.486358    16A      3.489199  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06927842560833
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5912271285926864
+    One-Electron Energy =                  -2.2446556992031219
+    Two-Electron Energy =                   0.5841501450021074
+    Total Energy =                         -1.0692784256083281
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:12 2019
+Module time:
+	user time   =       0.19 seconds =       0.00 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       1.79 seconds =       0.03 minutes
+	system time =       0.02 seconds =       0.00 minutes
+	total time  =          2 seconds =       0.03 minutes
+
+*** tstart() called on adabbott
+*** at Mon Sep  9 22:10:12 2019
+
+
+         ------------------------------------------------------------
+                                   SCF GRAD                          
+                          Rob Parrish, Justin Turney,                
+                       Andy Simmonett, and Alex Sokolov              
+         ------------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.845698676226     1.007825032230
+         H            0.000000000000     0.000000000000     0.845698676226     1.007825032230
+
+  Nuclear repulsion =    0.591227128592686
+
+  ==> Basis Set <==
+
+  Basis Set: ANONYMOUS7BB55DDB
+    Blend: S_ORB
+    Number of shells: 16
+    Number of basis function: 16
+    Number of Cartesian functions: 16
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> DirectJKGrad: Integral-Direct SCF Gradients <==
+
+    Gradient:                    1
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Integrals threads:           1
+    Schwarz Cutoff:          0E+00
+
+
+  -Total Gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000    -0.055064721763
+       2        0.000000000000     0.000000000000     0.055064721762
+
+
+*** tstop() called on adabbott at Mon Sep  9 22:10:12 2019
+Module time:
+	user time   =       0.03 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       1.82 seconds =       0.03 minutes
+	system time =       0.02 seconds =       0.00 minutes
+	total time  =          2 seconds =       0.03 minutes
+
+         ----------------------------------------------------------
+                                   FINDIF
+                     R. A. King and Jonathon Misiewicz
+         ---------------------------------------------------------
+
+  Computing second-derivative from gradients using projected, 
+  symmetry-adapted, cartesian coordinates.
+
+  7 gradients passed in, including the reference geometry.
+  Generating complete list of displacements from unique ones.
+
+
+-------------------------------------------------------------
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS7BB55DDB
+    Role: ORBITAL
+    Keyword: None
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+    Psi4 stopped on: Monday, 09 September 2019 10:10PM
+    Psi4 wall time for execution: 0:00:01.92
+
+*** Psi4 exiting successfully. Buy a developer a beer!

@@ -1,0 +1,326 @@
+
+Host: adabbott
+
+Timers On : Wed Sep  4 16:38:56 2019
+Timers Off: Wed Sep  4 16:38:57 2019
+
+Wall Time:        0.82 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Total PK formation time             :      0.067u      0.000s      0.051w      2 calls
+HF: Form core H                     :      0.017u      0.000s      0.002w      2 calls
+HF: Form S/X                        :      0.000u      0.000s      0.000w      2 calls
+HF: Guess                           :      0.217u      0.000s      0.131w      2 calls
+SAD Guess                           :      0.200u      0.000s      0.114w      2 calls
+HF: Form G                          :      0.000u      0.000s      0.000w     12 calls
+JK: D                               :      0.000u      0.000s      0.000w     12 calls
+JK: USO2AO                          :      0.000u      0.000s      0.000w     12 calls
+JK: JK                              :      0.000u      0.000s      0.000w     12 calls
+PK computes JK                      :      0.000u      0.000s      0.000w     12 calls
+JK: AO2USO                          :      0.000u      0.000s      0.000w     12 calls
+HF: Form F                          :      0.000u      0.000s      0.000w     12 calls
+HF: Form D                          :      0.000u      0.000s      0.000w     12 calls
+HF: DIIS                            :      0.000u      0.000s      0.003w     10 calls
+DIISManager::add_entry              :      0.000u      0.000s      0.000w     10 calls
+DIISManager::extrapolate            :      0.000u      0.000s      0.000w     10 calls
+bMatrix setup                       :      0.000u      0.000s      0.000w     10 calls
+bMatrix pseudoinverse               :      0.000u      0.000s      0.000w     10 calls
+New vector                          :      0.000u      0.000s      0.000w     10 calls
+HF: Form C                          :      0.000u      0.000s      0.000w     10 calls
+Grad: V T Perturb                   :      0.000u      0.000s      0.000w      1 calls
+Grad: S                             :      0.000u      0.000s      0.000w      1 calls
+Grad: JK                            :      0.033u      0.000s      0.019w      1 calls
+Grad: XC                            :      0.000u      0.000s      0.000w      1 calls
+trans_ints                          :      0.000u      0.000s      0.007w      1 calls
+Trans (OO|OO)                       :      0.000u      0.000s      0.003w      1 calls
+Trans (OO|OV)                       :      0.000u      0.000s      0.001w      1 calls
+Trans (OO|VV)                       :      0.000u      0.000s      0.001w      1 calls
+Trans (OV|OV)                       :      0.000u      0.000s      0.001w      1 calls
+Trans (OV|VV)                       :      0.000u      0.000s      0.001w      1 calls
+Sort chem -> phys                   :      0.000u      0.000s      0.000w      1 calls
+Sort (OO|OO) -> <OO|OO>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OO|OV) -> <OO|OV>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OV|OV) -> <OO|VV>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OO|VV) -> <OV|OV>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OV|VV) -> <OV|VV>             :      0.000u      0.000s      0.000w      1 calls
+Trans OEI                           :      0.000u      0.000s      0.000w      1 calls
+Build Denominators                  :      0.000u      0.000s      0.000w      1 calls
+T2(1)                               :      0.000u      0.000s      0.001w      1 calls
+MP2 Energy                          :      0.000u      0.000s      0.001w      1 calls
+G int                               :      0.000u      0.000s      0.001w      1 calls
+OPDM                                :      0.000u      0.000s      0.000w      1 calls
+TPDM OOVV                           :      0.000u      0.017s      0.001w      1 calls
+TPDM REF                            :      0.000u      0.000s      0.000w      1 calls
+TPDM CORR OPDM                      :      0.000u      0.000s      0.000w      1 calls
+
+--------------------------------------------------------------------------------------
+Total PK formation time             :      0.067u      0.000s      0.051w      2 calls
+HF: Form core H                     :      0.017u      0.000s      0.002w      2 calls
+HF: Form S/X                        :      0.000u      0.000s      0.000w      2 calls
+HF: Guess                           :      0.217u      0.000s      0.131w      2 calls
+| SAD Guess                         :      0.200u      0.000s      0.114w      2 calls
+HF: Form G                          :      0.000u      0.000s      0.000w     12 calls
+| JK: D                             :      0.000u      0.000s      0.000w     12 calls
+| JK: USO2AO                        :      0.000u      0.000s      0.000w     12 calls
+| JK: JK                            :      0.000u      0.000s      0.000w     12 calls
+| | PK computes JK                  :      0.000u      0.000s      0.000w     12 calls
+| JK: AO2USO                        :      0.000u      0.000s      0.000w     12 calls
+HF: Form F                          :      0.000u      0.000s      0.000w     12 calls
+HF: Form D                          :      0.000u      0.000s      0.000w     12 calls
+HF: DIIS                            :      0.000u      0.000s      0.003w     10 calls
+| DIISManager::add_entry            :      0.000u      0.000s      0.000w     10 calls
+| DIISManager::extrapolate          :      0.000u      0.000s      0.000w     10 calls
+| | bMatrix setup                   :      0.000u      0.000s      0.000w     10 calls
+| | bMatrix pseudoinverse           :      0.000u      0.000s      0.000w     10 calls
+| | New vector                      :      0.000u      0.000s      0.000w     10 calls
+HF: Form C                          :      0.000u      0.000s      0.000w     10 calls
+Grad: V T Perturb                   :      0.000u      0.000s      0.000w      1 calls
+Grad: S                             :      0.000u      0.000s      0.000w      1 calls
+Grad: JK                            :      0.033u      0.000s      0.019w      1 calls
+Grad: XC                            :      0.000u      0.000s      0.000w      1 calls
+trans_ints                          :      0.000u      0.000s      0.007w      1 calls
+| Trans (OO|OO)                     :      0.000u      0.000s      0.003w      1 calls
+| Trans (OO|OV)                     :      0.000u      0.000s      0.001w      1 calls
+| Trans (OO|VV)                     :      0.000u      0.000s      0.001w      1 calls
+| Trans (OV|OV)                     :      0.000u      0.000s      0.001w      1 calls
+| Trans (OV|VV)                     :      0.000u      0.000s      0.001w      1 calls
+| Sort chem -> phys                 :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OO|OO) -> <OO|OO>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OO|OV) -> <OO|OV>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OV|OV) -> <OO|VV>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OO|VV) -> <OV|OV>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OV|VV) -> <OV|VV>         :      0.000u      0.000s      0.000w      1 calls
+| Trans OEI                         :      0.000u      0.000s      0.000w      1 calls
+| Build Denominators                :      0.000u      0.000s      0.000w      1 calls
+T2(1)                               :      0.000u      0.000s      0.001w      1 calls
+MP2 Energy                          :      0.000u      0.000s      0.001w      1 calls
+G int                               :      0.000u      0.000s      0.001w      1 calls
+OPDM                                :      0.000u      0.000s      0.000w      1 calls
+TPDM OOVV                           :      0.000u      0.017s      0.001w      1 calls
+TPDM REF                            :      0.000u      0.000s      0.000w      1 calls
+TPDM CORR OPDM                      :      0.000u      0.000s      0.000w      1 calls
+
+**************************************************************************************
+
+Host: adabbott
+
+Timers On : Wed Sep  4 16:39:40 2019
+Timers Off: Wed Sep  4 16:39:40 2019
+
+Wall Time:        0.73 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Total PK formation time             :      0.067u      0.000s      0.039w      2 calls
+HF: Form core H                     :      0.000u      0.000s      0.001w      2 calls
+HF: Form S/X                        :      0.000u      0.000s      0.000w      2 calls
+HF: Guess                           :      0.233u      0.000s      0.130w      2 calls
+SAD Guess                           :      0.200u      0.000s      0.114w      2 calls
+HF: Form G                          :      0.000u      0.000s      0.000w     12 calls
+JK: D                               :      0.000u      0.000s      0.000w     12 calls
+JK: USO2AO                          :      0.000u      0.000s      0.000w     12 calls
+JK: JK                              :      0.000u      0.000s      0.000w     12 calls
+PK computes JK                      :      0.000u      0.000s      0.000w     12 calls
+JK: AO2USO                          :      0.000u      0.000s      0.000w     12 calls
+HF: Form F                          :      0.000u      0.000s      0.000w     12 calls
+HF: Form D                          :      0.000u      0.000s      0.000w     12 calls
+HF: DIIS                            :      0.000u      0.000s      0.003w     10 calls
+DIISManager::add_entry              :      0.000u      0.000s      0.000w     10 calls
+DIISManager::extrapolate            :      0.000u      0.000s      0.000w     10 calls
+bMatrix setup                       :      0.000u      0.000s      0.000w     10 calls
+bMatrix pseudoinverse               :      0.000u      0.000s      0.000w     10 calls
+New vector                          :      0.000u      0.000s      0.000w     10 calls
+HF: Form C                          :      0.000u      0.000s      0.000w     10 calls
+Grad: V T Perturb                   :      0.000u      0.000s      0.001w      1 calls
+Grad: S                             :      0.000u      0.000s      0.000w      1 calls
+Grad: JK                            :      0.033u      0.000s      0.019w      1 calls
+Grad: XC                            :      0.000u      0.000s      0.000w      1 calls
+trans_ints                          :      0.000u      0.000s      0.004w      1 calls
+Trans (OO|OO)                       :      0.000u      0.000s      0.002w      1 calls
+Trans (OO|OV)                       :      0.000u      0.000s      0.000w      1 calls
+Trans (OO|VV)                       :      0.000u      0.000s      0.000w      1 calls
+Trans (OV|OV)                       :      0.000u      0.000s      0.001w      1 calls
+Trans (OV|VV)                       :      0.000u      0.000s      0.000w      1 calls
+Sort chem -> phys                   :      0.000u      0.000s      0.000w      1 calls
+Sort (OO|OO) -> <OO|OO>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OO|OV) -> <OO|OV>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OV|OV) -> <OO|VV>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OO|VV) -> <OV|OV>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OV|VV) -> <OV|VV>             :      0.000u      0.000s      0.000w      1 calls
+Trans OEI                           :      0.000u      0.000s      0.000w      1 calls
+Build Denominators                  :      0.000u      0.000s      0.000w      1 calls
+T2(1)                               :      0.000u      0.000s      0.000w      1 calls
+MP2 Energy                          :      0.000u      0.000s      0.000w      1 calls
+G int                               :      0.000u      0.000s      0.000w      1 calls
+OPDM                                :      0.000u      0.000s      0.000w      1 calls
+TPDM OOVV                           :      0.000u      0.000s      0.000w      1 calls
+TPDM REF                            :      0.000u      0.000s      0.001w      1 calls
+TPDM CORR OPDM                      :      0.000u      0.000s      0.000w      1 calls
+
+--------------------------------------------------------------------------------------
+Total PK formation time             :      0.067u      0.000s      0.039w      2 calls
+HF: Form core H                     :      0.000u      0.000s      0.001w      2 calls
+HF: Form S/X                        :      0.000u      0.000s      0.000w      2 calls
+HF: Guess                           :      0.233u      0.000s      0.130w      2 calls
+| SAD Guess                         :      0.200u      0.000s      0.114w      2 calls
+HF: Form G                          :      0.000u      0.000s      0.000w     12 calls
+| JK: D                             :      0.000u      0.000s      0.000w     12 calls
+| JK: USO2AO                        :      0.000u      0.000s      0.000w     12 calls
+| JK: JK                            :      0.000u      0.000s      0.000w     12 calls
+| | PK computes JK                  :      0.000u      0.000s      0.000w     12 calls
+| JK: AO2USO                        :      0.000u      0.000s      0.000w     12 calls
+HF: Form F                          :      0.000u      0.000s      0.000w     12 calls
+HF: Form D                          :      0.000u      0.000s      0.000w     12 calls
+HF: DIIS                            :      0.000u      0.000s      0.003w     10 calls
+| DIISManager::add_entry            :      0.000u      0.000s      0.000w     10 calls
+| DIISManager::extrapolate          :      0.000u      0.000s      0.000w     10 calls
+| | bMatrix setup                   :      0.000u      0.000s      0.000w     10 calls
+| | bMatrix pseudoinverse           :      0.000u      0.000s      0.000w     10 calls
+| | New vector                      :      0.000u      0.000s      0.000w     10 calls
+HF: Form C                          :      0.000u      0.000s      0.000w     10 calls
+Grad: V T Perturb                   :      0.000u      0.000s      0.001w      1 calls
+Grad: S                             :      0.000u      0.000s      0.000w      1 calls
+Grad: JK                            :      0.033u      0.000s      0.019w      1 calls
+Grad: XC                            :      0.000u      0.000s      0.000w      1 calls
+trans_ints                          :      0.000u      0.000s      0.004w      1 calls
+| Trans (OO|OO)                     :      0.000u      0.000s      0.002w      1 calls
+| Trans (OO|OV)                     :      0.000u      0.000s      0.000w      1 calls
+| Trans (OO|VV)                     :      0.000u      0.000s      0.000w      1 calls
+| Trans (OV|OV)                     :      0.000u      0.000s      0.001w      1 calls
+| Trans (OV|VV)                     :      0.000u      0.000s      0.000w      1 calls
+| Sort chem -> phys                 :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OO|OO) -> <OO|OO>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OO|OV) -> <OO|OV>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OV|OV) -> <OO|VV>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OO|VV) -> <OV|OV>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OV|VV) -> <OV|VV>         :      0.000u      0.000s      0.000w      1 calls
+| Trans OEI                         :      0.000u      0.000s      0.000w      1 calls
+| Build Denominators                :      0.000u      0.000s      0.000w      1 calls
+T2(1)                               :      0.000u      0.000s      0.000w      1 calls
+MP2 Energy                          :      0.000u      0.000s      0.000w      1 calls
+G int                               :      0.000u      0.000s      0.000w      1 calls
+OPDM                                :      0.000u      0.000s      0.000w      1 calls
+TPDM OOVV                           :      0.000u      0.000s      0.000w      1 calls
+TPDM REF                            :      0.000u      0.000s      0.001w      1 calls
+TPDM CORR OPDM                      :      0.000u      0.000s      0.000w      1 calls
+
+**************************************************************************************
+
+Host: adabbott
+
+Timers On : Wed Sep  4 16:41:12 2019
+Timers Off: Wed Sep  4 16:41:12 2019
+
+Wall Time:        0.21 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+
+--------------------------------------------------------------------------------------
+
+**************************************************************************************
+
+Host: adabbott
+
+Timers On : Wed Sep  4 16:41:13 2019
+Timers Off: Wed Sep  4 16:41:14 2019
+
+Wall Time:        0.74 seconds
+
+                                                       Time (seconds)
+Module                                       User      System        Wall        Calls
+Total PK formation time             :      0.050u      0.000s      0.039w      2 calls
+HF: Form core H                     :      0.000u      0.000s      0.002w      2 calls
+HF: Form S/X                        :      0.000u      0.000s      0.000w      2 calls
+HF: Guess                           :      0.200u      0.000s      0.130w      2 calls
+SAD Guess                           :      0.183u      0.000s      0.113w      2 calls
+HF: Form G                          :      0.000u      0.000s      0.000w     12 calls
+JK: D                               :      0.000u      0.000s      0.000w     12 calls
+JK: USO2AO                          :      0.000u      0.000s      0.000w     12 calls
+JK: JK                              :      0.000u      0.000s      0.000w     12 calls
+PK computes JK                      :      0.000u      0.000s      0.000w     12 calls
+JK: AO2USO                          :      0.000u      0.000s      0.000w     12 calls
+HF: Form F                          :      0.000u      0.000s      0.000w     12 calls
+HF: Form D                          :      0.000u      0.000s      0.000w     12 calls
+HF: DIIS                            :      0.017u      0.000s      0.003w     10 calls
+DIISManager::add_entry              :      0.000u      0.000s      0.000w     10 calls
+DIISManager::extrapolate            :      0.017u      0.000s      0.000w     10 calls
+bMatrix setup                       :      0.000u      0.000s      0.000w     10 calls
+bMatrix pseudoinverse               :      0.017u      0.000s      0.000w     10 calls
+New vector                          :      0.000u      0.000s      0.000w     10 calls
+HF: Form C                          :      0.000u      0.000s      0.000w     10 calls
+Grad: V T Perturb                   :      0.000u      0.000s      0.001w      1 calls
+Grad: S                             :      0.000u      0.000s      0.000w      1 calls
+Grad: JK                            :      0.033u      0.000s      0.019w      1 calls
+Grad: XC                            :      0.000u      0.000s      0.000w      1 calls
+trans_ints                          :      0.000u      0.000s      0.008w      1 calls
+Trans (OO|OO)                       :      0.000u      0.000s      0.004w      1 calls
+Trans (OO|OV)                       :      0.000u      0.000s      0.001w      1 calls
+Trans (OO|VV)                       :      0.000u      0.000s      0.001w      1 calls
+Trans (OV|OV)                       :      0.000u      0.000s      0.001w      1 calls
+Trans (OV|VV)                       :      0.000u      0.000s      0.001w      1 calls
+Sort chem -> phys                   :      0.000u      0.000s      0.000w      1 calls
+Sort (OO|OO) -> <OO|OO>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OO|OV) -> <OO|OV>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OV|OV) -> <OO|VV>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OO|VV) -> <OV|OV>             :      0.000u      0.000s      0.000w      1 calls
+Sort (OV|VV) -> <OV|VV>             :      0.000u      0.000s      0.000w      1 calls
+Trans OEI                           :      0.000u      0.000s      0.000w      1 calls
+Build Denominators                  :      0.000u      0.000s      0.000w      1 calls
+T2(1)                               :      0.000u      0.000s      0.001w      1 calls
+MP2 Energy                          :      0.000u      0.000s      0.001w      1 calls
+G int                               :      0.000u      0.000s      0.000w      1 calls
+OPDM                                :      0.000u      0.000s      0.000w      1 calls
+TPDM OOVV                           :      0.000u      0.000s      0.001w      1 calls
+TPDM REF                            :      0.000u      0.000s      0.000w      1 calls
+TPDM CORR OPDM                      :      0.000u      0.000s      0.002w      1 calls
+
+--------------------------------------------------------------------------------------
+Total PK formation time             :      0.050u      0.000s      0.039w      2 calls
+HF: Form core H                     :      0.000u      0.000s      0.002w      2 calls
+HF: Form S/X                        :      0.000u      0.000s      0.000w      2 calls
+HF: Guess                           :      0.200u      0.000s      0.130w      2 calls
+| SAD Guess                         :      0.183u      0.000s      0.113w      2 calls
+HF: Form G                          :      0.000u      0.000s      0.000w     12 calls
+| JK: D                             :      0.000u      0.000s      0.000w     12 calls
+| JK: USO2AO                        :      0.000u      0.000s      0.000w     12 calls
+| JK: JK                            :      0.000u      0.000s      0.000w     12 calls
+| | PK computes JK                  :      0.000u      0.000s      0.000w     12 calls
+| JK: AO2USO                        :      0.000u      0.000s      0.000w     12 calls
+HF: Form F                          :      0.000u      0.000s      0.000w     12 calls
+HF: Form D                          :      0.000u      0.000s      0.000w     12 calls
+HF: DIIS                            :      0.017u      0.000s      0.003w     10 calls
+| DIISManager::add_entry            :      0.000u      0.000s      0.000w     10 calls
+| DIISManager::extrapolate          :      0.017u      0.000s      0.000w     10 calls
+| | bMatrix setup                   :      0.000u      0.000s      0.000w     10 calls
+| | bMatrix pseudoinverse           :      0.017u      0.000s      0.000w     10 calls
+| | New vector                      :      0.000u      0.000s      0.000w     10 calls
+HF: Form C                          :      0.000u      0.000s      0.000w     10 calls
+Grad: V T Perturb                   :      0.000u      0.000s      0.001w      1 calls
+Grad: S                             :      0.000u      0.000s      0.000w      1 calls
+Grad: JK                            :      0.033u      0.000s      0.019w      1 calls
+Grad: XC                            :      0.000u      0.000s      0.000w      1 calls
+trans_ints                          :      0.000u      0.000s      0.008w      1 calls
+| Trans (OO|OO)                     :      0.000u      0.000s      0.004w      1 calls
+| Trans (OO|OV)                     :      0.000u      0.000s      0.001w      1 calls
+| Trans (OO|VV)                     :      0.000u      0.000s      0.001w      1 calls
+| Trans (OV|OV)                     :      0.000u      0.000s      0.001w      1 calls
+| Trans (OV|VV)                     :      0.000u      0.000s      0.001w      1 calls
+| Sort chem -> phys                 :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OO|OO) -> <OO|OO>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OO|OV) -> <OO|OV>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OV|OV) -> <OO|VV>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OO|VV) -> <OV|OV>         :      0.000u      0.000s      0.000w      1 calls
+| | Sort (OV|VV) -> <OV|VV>         :      0.000u      0.000s      0.000w      1 calls
+| Trans OEI                         :      0.000u      0.000s      0.000w      1 calls
+| Build Denominators                :      0.000u      0.000s      0.000w      1 calls
+T2(1)                               :      0.000u      0.000s      0.001w      1 calls
+MP2 Energy                          :      0.000u      0.000s      0.001w      1 calls
+G int                               :      0.000u      0.000s      0.000w      1 calls
+OPDM                                :      0.000u      0.000s      0.000w      1 calls
+TPDM OOVV                           :      0.000u      0.000s      0.001w      1 calls
+TPDM REF                            :      0.000u      0.000s      0.000w      1 calls
+TPDM CORR OPDM                      :      0.000u      0.000s      0.002w      1 calls
+
+**************************************************************************************

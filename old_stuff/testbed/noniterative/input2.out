@@ -1,0 +1,1444 @@
+
+    -----------------------------------------------------------------------
+          Psi4: An Open-Source Ab Initio Electronic Structure Package
+                               Psi4 1.3.2 release
+
+                         Git: Rev {HEAD} ecbda83 
+
+
+    R. M. Parrish, L. A. Burns, D. G. A. Smith, A. C. Simmonett,
+    A. E. DePrince III, E. G. Hohenstein, U. Bozkaya, A. Yu. Sokolov,
+    R. Di Remigio, R. M. Richard, J. F. Gonthier, A. M. James,
+    H. R. McAlexander, A. Kumar, M. Saitow, X. Wang, B. P. Pritchard,
+    P. Verma, H. F. Schaefer III, K. Patkowski, R. A. King, E. F. Valeev,
+    F. A. Evangelista, J. M. Turney, T. D. Crawford, and C. D. Sherrill,
+    J. Chem. Theory Comput. 13(7) pp 3185--3197 (2017).
+    (doi: 10.1021/acs.jctc.7b00174)
+
+
+                         Additional Contributions by
+    P. Kraus, H. Kruse, M. H. Lechner, M. C. Schieber, R. A. Shaw,
+    A. Alenaizan, R. Galvelis, Z. L. Glick, S. Lehtola, and J. P. Misiewicz
+
+    -----------------------------------------------------------------------
+
+
+    Psi4 started on: Sunday, 08 September 2019 02:05PM
+
+    Process ID: 31051
+    Host:       adabbott
+    PSIDATADIR: /home/adabbott/anaconda3/envs/autodiff/share/psi4
+    Memory:     500.0 MiB
+    Threads:    1
+    
+  ==> Input File <==
+
+--------------------------------------------------------------------------
+import psi4
+import numpy as np
+
+basis {
+assign s_orb
+[ s_orb ]
+cartesian
+****
+H     0
+S   1   1.00
+      0.50000000000      1.0000000000
+S   1   1.00
+      0.40000000000      1.0000000000
+S   1   1.00
+      0.30000000000      1.0000000000
+S   1   1.00
+      0.20000000000      1.0000000000
+****
+}
+
+molecule h2o {
+symmetry c1
+units bohr
+0 1
+H 0.000000000000 0.000000000000 -0.849220457955
+H 0.000000000000 0.000000000000  0.849220457955
+}
+
+set scf_type pk
+set mp2_type conv
+set cc_type conv
+set puream false
+set maxiter 20
+set e_convergence 6 
+set d_convergence 6
+e1, wfn1 = gradient('hf', return_wfn=True)
+e2, wfn2 = gradient('mp2', return_wfn=True)
+junk, wfn3 = gradient('lccd', return_wfn=True)
+e3 = energy('lccd')
+print(wfn1.energy())
+print(np.asarray(wfn1.gradient()))
+print(wfn2.energy())
+print(np.asarray(wfn2.gradient()))
+print(e3)
+print(np.asarray(wfn3.gradient()))
+
+mol = wfn1.molecule()
+bs = wfn1.basisset()
+basis = psi4.core.BasisSet.build(mol)
+mints = psi4.core.MintsHelper(basis)
+C = np.asarray(wfn1.Ca())
+np.save('C2', C)
+
+--------------------------------------------------------------------------
+gradient() will perform analytic gradient computation.
+
+*** tstart() called on adabbott
+*** at Sun Sep  8 14:05:27 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS539D344A
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.849220457955     1.007825032230
+         H            0.000000000000     0.000000000000     0.849220457955     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.41314  C =     41.41314 [cm^-1]
+  Rotational constants: A = ************  B = 1241534.81138  C = 1241534.81138 [MHz]
+  Nuclear repulsion =    0.588775264792897
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS539D344A
+    Blend: S_ORB
+    Number of shells: 8
+    Number of basis function: 8
+    Number of Cartesian functions: 8
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A          8       8       0       0       0       0
+   -------------------------------------------------------
+    Total       8       8       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:               8
+      Number of primitives:              8
+      Number of atomic orbitals:         8
+      Number of basis functions:         8
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 1332 doubles for integral storage.
+  We computed 666 shell quartets total.
+  Whereas there are 666 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 2.3933843387E-05.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.80649974889810   -8.06500e-01   0.00000e+00 
+   @RHF iter   1:    -1.05853361567193   -2.52034e-01   5.32087e-03 DIIS
+   @RHF iter   2:    -1.06074868313451   -2.21507e-03   1.09611e-03 DIIS
+   @RHF iter   3:    -1.06085946009657   -1.10777e-04   6.86829e-05 DIIS
+   @RHF iter   4:    -1.06085978340060   -3.23304e-07   1.40086e-06 DIIS
+   @RHF iter   5:    -1.06085978352655   -1.25952e-10   1.27117e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.530531  
+
+    Virtual:                                                              
+
+       2A      0.178935     3A      0.337632     4A      0.593260  
+       5A      1.298510     6A      1.563003     7A      2.865669  
+       8A      2.970644  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06085978352655
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5887752647928965
+    One-Electron Energy =                  -2.2382079337080043
+    Two-Electron Energy =                   0.5885728853885581
+    Total Energy =                         -1.0608597835265496
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Sun Sep  8 14:05:27 2019
+Module time:
+	user time   =       0.20 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.20 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+
+*** tstart() called on adabbott
+*** at Sun Sep  8 14:05:27 2019
+
+
+         ------------------------------------------------------------
+                                   SCF GRAD                          
+                          Rob Parrish, Justin Turney,                
+                       Andy Simmonett, and Alex Sokolov              
+         ------------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.849220457955     1.007825032230
+         H            0.000000000000     0.000000000000     0.849220457955     1.007825032230
+
+  Nuclear repulsion =    0.588775264792897
+
+  ==> Basis Set <==
+
+  Basis Set: ANONYMOUS539D344A
+    Blend: S_ORB
+    Number of shells: 8
+    Number of basis function: 8
+    Number of Cartesian functions: 8
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> DirectJKGrad: Integral-Direct SCF Gradients <==
+
+    Gradient:                    1
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Integrals threads:           1
+    Schwarz Cutoff:          0E+00
+
+
+  -Total Gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000    -0.058866930696
+       2        0.000000000000     0.000000000000     0.058866930697
+
+
+*** tstop() called on adabbott at Sun Sep  8 14:05:27 2019
+Module time:
+	user time   =       0.03 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.23 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+gradient() will perform analytic gradient computation.
+
+*** tstart() called on adabbott
+*** at Sun Sep  8 14:05:27 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS539D344A
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.849220457955     1.007825032230
+         H            0.000000000000     0.000000000000     0.849220457955     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.41314  C =     41.41314 [cm^-1]
+  Rotational constants: A = ************  B = 1241534.81138  C = 1241534.81138 [MHz]
+  Nuclear repulsion =    0.588775264792897
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS539D344A
+    Blend: S_ORB
+    Number of shells: 8
+    Number of basis function: 8
+    Number of Cartesian functions: 8
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A          8       8       0       0       0       0
+   -------------------------------------------------------
+    Total       8       8       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:               8
+      Number of primitives:              8
+      Number of atomic orbitals:         8
+      Number of basis functions:         8
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 1332 doubles for integral storage.
+  We computed 666 shell quartets total.
+  Whereas there are 666 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 2.3933843387E-05.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.80649974889810   -8.06500e-01   0.00000e+00 
+   @RHF iter   1:    -1.05853361567199   -2.52034e-01   5.32087e-03 DIIS
+   @RHF iter   2:    -1.06074868313435   -2.21507e-03   1.09611e-03 DIIS
+   @RHF iter   3:    -1.06085946009664   -1.10777e-04   6.86829e-05 DIIS
+   @RHF iter   4:    -1.06085978340036   -3.23304e-07   1.40086e-06 DIIS
+   @RHF iter   5:    -1.06085978352666   -1.26304e-10   1.27117e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.530531  
+
+    Virtual:                                                              
+
+       2A      0.178935     3A      0.337632     4A      0.593260  
+       5A      1.298510     6A      1.563003     7A      2.865669  
+       8A      2.970644  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06085978352666
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5887752647928965
+    One-Electron Energy =                  -2.2382079337085763
+    Two-Electron Energy =                   0.5885728853890195
+    Total Energy =                         -1.0608597835266602
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Sun Sep  8 14:05:27 2019
+Module time:
+	user time   =       0.19 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.42 seconds =       0.01 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+ MINTS: Wrapper to libmints.
+   by Justin Turney
+
+   Calculation information:
+      Number of threads:                 1
+      Number of atoms:                   2
+      Number of AO shells:               8
+      Number of SO shells:               8
+      Number of primitives:              8
+      Number of atomic orbitals:         8
+      Number of basis functions:         8
+
+      Number of irreps:                  1
+      Integral cutoff                 0.00e+00
+      Number of functions per irrep: [   8 ]
+
+ OEINTS: Overlap, kinetic, potential, dipole, and quadrupole integrals
+         stored in file 35.
+
+      Computing two-electron integrals...done
+      Computed 666 non-zero two-electron integrals.
+        Stored in file 33.
+
+
+*** tstart() called on adabbott
+*** at Sun Sep  8 14:05:27 2019
+
+
+ ============================================================================== 
+ ============================================================================== 
+ ============================================================================== 
+
+                       MP2   
+              Program Written by Ugur Bozkaya,
+              Latest Revision June 25, 2014.
+
+ ============================================================================== 
+ ============================================================================== 
+ ============================================================================== 
+
+	RMS orbital gradient is changed to :     1.00e-05
+	MAX orbital gradient is changed to :     3.16e-04
+	MO spaces per irreps... 
+
+	IRREP   FC    OCC   VIR  FV 
+	==============================
+	   A     0     1     7    0
+	==============================
+
+	Memory is    524 MB 
+	Cost of iabc is      0 MB 
+	Cost of abcd is      0 MB 
+	Switching to the incore algorithm for iabc..
+	Switching to the incore algorithm for abcd..
+
+	Computing MP2 energy using SCF MOs (Canonical MP2)... 
+	============================================================================== 
+	Nuclear Repulsion Energy (a.u.)    :     0.58877526479290
+	SCF Energy (a.u.)                  :    -1.06085978352666
+	REF Energy (a.u.)                  :    -1.06085978352666
+	Alpha-Alpha Contribution (a.u.)    :     0.00000000000000
+	Alpha-Beta Contribution (a.u.)     :    -0.01703780021556
+	Beta-Beta Contribution (a.u.)      :     0.00000000000000
+	Scaled_SS Correlation Energy (a.u.):     0.00000000000000
+	Scaled_OS Correlation Energy (a.u.):    -0.02044536025867
+	SCS-MP2 Total Energy (a.u.)        :    -1.08130514378533
+	SOS-MP2 Total Energy (a.u.)        :    -1.06085978352666
+	SCSN-MP2 Total Energy (a.u.)       :    -1.06085978352666
+	SCS-MP2-VDW Total Energy (a.u.)    :    -1.08266816780257
+	SOS-PI-MP2 Total Energy (a.u.)     :    -1.08471270382844
+	MP2 Correlation Energy (a.u.)      :    -0.01703780021556
+	MP2 Total Energy (a.u.)            :    -1.07789758374222
+	============================================================================== 
+	Analytic gradient computation is starting...
+	Computing response density matrices...
+	Computing off-diagonal blocks of GFM...
+	Forming independent-pairs...
+	Number of independent-pairs:   7
+	Computing orbital gradient...
+	Computing diagonal blocks of GFM...
+	Solving orbital Z-vector equations...
+	Forming relaxed response density matrices...
+	Forming relaxed GFM...
+	Writing particle density matrices and GFM to disk...
+	Necessary information has been sent to DERIV, which will take care of the rest.
+
+*** tstop() called on adabbott at Sun Sep  8 14:05:27 2019
+Module time:
+	user time   =       0.01 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.44 seconds =       0.01 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+  Cartesian Displacement SALCs
+  By SALC:
+  Number of SALCs: 6, nirreps: A
+  Project out translations: False
+  Project out rotations: False
+	irrep = 0, ncomponent = 1
+		0: atom 0, direction x, coef 1.000000
+	irrep = 0, ncomponent = 1
+		0: atom 0, direction y, coef 1.000000
+	irrep = 0, ncomponent = 1
+		0: atom 0, direction z, coef 1.000000
+	irrep = 0, ncomponent = 1
+		0: atom 1, direction x, coef 1.000000
+	irrep = 0, ncomponent = 1
+		0: atom 1, direction y, coef 1.000000
+	irrep = 0, ncomponent = 1
+		0: atom 1, direction z, coef 1.000000
+
+  By Atomic Center:
+  Number of atomic centers: 2
+   Atomic Center 0:
+	x component, size = 1
+		0: salc 0, irrep 0, coef 1.000000
+	y component, size = 1
+		0: salc 1, irrep 0, coef 1.000000
+	z component, size = 1
+		0: salc 2, irrep 0, coef 1.000000
+   Atomic Center 1:
+	x component, size = 1
+		0: salc 3, irrep 0, coef 1.000000
+	y component, size = 1
+		0: salc 4, irrep 0, coef 1.000000
+	z component, size = 1
+		0: salc 5, irrep 0, coef 1.000000
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z       
+    ------------   -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.849220457955
+         H            0.000000000000     0.000000000000     0.849220457955
+
+	Presorting MO-basis TPDM.
+	Sorting File: MO TPDM (AA|AA) nbuckets = 1
+	Starting first half-transformation.
+	Sorting half-transformed TPDM.
+	First half integral transformation complete.
+
+
+  -Nuclear Repulsion Energy 1st Derivatives:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000     0.346656312432
+       2        0.000000000000     0.000000000000    -0.346656312432
+
+
+  -Core Hamiltonian Gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000    -0.903294111628
+       2        0.000000000000     0.000000000000     0.903294111628
+
+
+  -Lagrangian contribution to gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000     0.195249890504
+       2        0.000000000000     0.000000000000    -0.195249890504
+
+
+  -Two-electron contribution to gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000     0.308497716083
+       2        0.000000000000     0.000000000000    -0.308497716083
+
+
+  -Total gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000    -0.052890192609
+       2        0.000000000000     0.000000000000     0.052890192609
+
+gradient() will perform analytic gradient computation.
+
+*** tstart() called on adabbott
+*** at Sun Sep  8 14:05:27 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS539D344A
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.849220457955     1.007825032230
+         H            0.000000000000     0.000000000000     0.849220457955     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.41314  C =     41.41314 [cm^-1]
+  Rotational constants: A = ************  B = 1241534.81138  C = 1241534.81138 [MHz]
+  Nuclear repulsion =    0.588775264792897
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS539D344A
+    Blend: S_ORB
+    Number of shells: 8
+    Number of basis function: 8
+    Number of Cartesian functions: 8
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A          8       8       0       0       0       0
+   -------------------------------------------------------
+    Total       8       8       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:               8
+      Number of primitives:              8
+      Number of atomic orbitals:         8
+      Number of basis functions:         8
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 1332 doubles for integral storage.
+  We computed 666 shell quartets total.
+  Whereas there are 666 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 2.3933843387E-05.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.80649974889810   -8.06500e-01   0.00000e+00 
+   @RHF iter   1:    -1.05853361567199   -2.52034e-01   5.32087e-03 DIIS
+   @RHF iter   2:    -1.06074868313435   -2.21507e-03   1.09611e-03 DIIS
+   @RHF iter   3:    -1.06085946009664   -1.10777e-04   6.86829e-05 DIIS
+   @RHF iter   4:    -1.06085978340036   -3.23304e-07   1.40086e-06 DIIS
+   @RHF iter   5:    -1.06085978352666   -1.26304e-10   1.27117e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.530531  
+
+    Virtual:                                                              
+
+       2A      0.178935     3A      0.337632     4A      0.593260  
+       5A      1.298510     6A      1.563003     7A      2.865669  
+       8A      2.970644  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06085978352666
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5887752647928965
+    One-Electron Energy =                  -2.2382079337085763
+    Two-Electron Energy =                   0.5885728853890195
+    Total Energy =                         -1.0608597835266602
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Sun Sep  8 14:05:27 2019
+Module time:
+	user time   =       0.20 seconds =       0.00 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.66 seconds =       0.01 minutes
+	system time =       0.02 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+ MINTS: Wrapper to libmints.
+   by Justin Turney
+
+   Calculation information:
+      Number of threads:                 1
+      Number of atoms:                   2
+      Number of AO shells:               8
+      Number of SO shells:               8
+      Number of primitives:              8
+      Number of atomic orbitals:         8
+      Number of basis functions:         8
+
+      Number of irreps:                  1
+      Integral cutoff                 0.00e+00
+      Number of functions per irrep: [   8 ]
+
+ OEINTS: Overlap, kinetic, potential, dipole, and quadrupole integrals
+         stored in file 35.
+
+      Computing two-electron integrals...done
+      Computed 666 non-zero two-electron integrals.
+        Stored in file 33.
+
+
+*** tstart() called on adabbott
+*** at Sun Sep  8 14:05:27 2019
+
+
+ ============================================================================== 
+ ============================================================================== 
+ ============================================================================== 
+
+                       CEPA   
+              Program Written by Ugur Bozkaya,
+              Latest Revision June 25, 2014.
+
+ ============================================================================== 
+ ============================================================================== 
+ ============================================================================== 
+
+	RMS orbital gradient is changed to :     1.00e-05
+	MAX orbital gradient is changed to :     3.16e-04
+	MO spaces per irreps... 
+
+	IRREP   FC    OCC   VIR  FV 
+	==============================
+	   A     0     1     7    0
+	==============================
+
+	Computing MP2 energy using SCF MOs (Canonical MP2)... 
+	============================================================================== 
+	Nuclear Repulsion Energy (a.u.)    :     0.58877526479290
+	SCF Energy (a.u.)                  :    -1.06085978352666
+	REF Energy (a.u.)                  :    -1.06085978352666
+	Alpha-Alpha Contribution (a.u.)    :     0.00000000000000
+	Alpha-Beta Contribution (a.u.)     :    -0.01703780021556
+	Beta-Beta Contribution (a.u.)      :     0.00000000000000
+	Scaled_SS Correlation Energy (a.u.):     0.00000000000000
+	Scaled_OS Correlation Energy (a.u.):    -0.02044536025867
+	SCS-MP2 Total Energy (a.u.)        :    -1.08130514378533
+	SOS-MP2 Total Energy (a.u.)        :    -1.08300892380688
+	SCSN-MP2 Total Energy (a.u.)       :    -1.06085978352666
+	SCS-MP2-VDW Total Energy (a.u.)    :    -1.08266816780257
+	SOS-PI-MP2 Total Energy (a.u.)     :    -1.08471270382844
+	MP2 Correlation Energy (a.u.)      :    -0.01703780021556
+	MP2 Total Energy (a.u.)            :    -1.07789758374222
+	============================================================================== 
+
+  
+ ============================================================================== 
+ ================ Performing CEPA iterations... =============================== 
+ ============================================================================== 
+
+  Iter    E_corr           E_total            DE           T2 RMS        
+  ----   -------------    ---------------    ----------   ----------    
+   1     -0.0229762589    -1.0838360424     -5.94e-03     7.13e-04 
+   2     -0.0268249025    -1.0876846860     -3.85e-03     3.00e-04 
+   3     -0.0268461747    -1.0877059582     -2.13e-05     2.44e-05 
+   4     -0.0268433589    -1.0877031425      2.82e-06     1.86e-06 
+   5     -0.0268434167    -1.0877032002     -5.78e-08     1.20e-07 
+
+ ============================================================================== 
+ ======================== CEPA ITERATIONS ARE CONVERGED ======================= 
+ ============================================================================== 
+
+	============================================================================== 
+	================ CEPA FINAL RESULTS ========================================== 
+	============================================================================== 
+	Nuclear Repulsion Energy (a.u.)    :     0.58877526479290
+	SCF Energy (a.u.)                  :    -1.06085978352666
+	REF Energy (a.u.)                  :    -1.06085978352666
+	CEPA(0) Correlation Energy (a.u.)  :    -0.02684341670220
+	CEPA(0) Total Energy (a.u.)        :    -1.08770320022886
+	============================================================================== 
+
+	Analytic gradient computation is starting...
+	Computing response density matrices...
+	Computing off-diagonal blocks of GFM...
+	Forming independent-pairs...
+	Number of independent-pairs:   7
+	Computing orbital gradient...
+	Computing G_abcd...
+	Computing diagonal blocks of GFM...
+	Solving orbital Z-vector equations...
+	Forming relaxed response density matrices...
+	Forming relaxed GFM...
+	Writing particle density matrices and GFM to disk...
+	Necessary information has been sent to DERIV, which will take care of the rest.
+
+*** tstop() called on adabbott at Sun Sep  8 14:05:27 2019
+Module time:
+	user time   =       0.01 seconds =       0.00 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.68 seconds =       0.01 minutes
+	system time =       0.03 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+  Cartesian Displacement SALCs
+  By SALC:
+  Number of SALCs: 6, nirreps: A
+  Project out translations: False
+  Project out rotations: False
+	irrep = 0, ncomponent = 1
+		0: atom 0, direction x, coef 1.000000
+	irrep = 0, ncomponent = 1
+		0: atom 0, direction y, coef 1.000000
+	irrep = 0, ncomponent = 1
+		0: atom 0, direction z, coef 1.000000
+	irrep = 0, ncomponent = 1
+		0: atom 1, direction x, coef 1.000000
+	irrep = 0, ncomponent = 1
+		0: atom 1, direction y, coef 1.000000
+	irrep = 0, ncomponent = 1
+		0: atom 1, direction z, coef 1.000000
+
+  By Atomic Center:
+  Number of atomic centers: 2
+   Atomic Center 0:
+	x component, size = 1
+		0: salc 0, irrep 0, coef 1.000000
+	y component, size = 1
+		0: salc 1, irrep 0, coef 1.000000
+	z component, size = 1
+		0: salc 2, irrep 0, coef 1.000000
+   Atomic Center 1:
+	x component, size = 1
+		0: salc 3, irrep 0, coef 1.000000
+	y component, size = 1
+		0: salc 4, irrep 0, coef 1.000000
+	z component, size = 1
+		0: salc 5, irrep 0, coef 1.000000
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z       
+    ------------   -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.849220457955
+         H            0.000000000000     0.000000000000     0.849220457955
+
+	Presorting MO-basis TPDM.
+	Sorting File: MO TPDM (AA|AA) nbuckets = 1
+	Starting first half-transformation.
+	Sorting half-transformed TPDM.
+	First half integral transformation complete.
+
+
+  -Nuclear Repulsion Energy 1st Derivatives:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000     0.346656312432
+       2        0.000000000000     0.000000000000    -0.346656312432
+
+
+  -Core Hamiltonian Gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000    -0.878813362271
+       2        0.000000000000     0.000000000000     0.878813362271
+
+
+  -Lagrangian contribution to gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000     0.180062698010
+       2        0.000000000000     0.000000000000    -0.180062698010
+
+
+  -Two-electron contribution to gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000     0.308124039577
+       2        0.000000000000     0.000000000000    -0.308124039577
+
+
+  -Total gradient:
+     Atom            X                  Y                   Z
+    ------   -----------------  -----------------  -----------------
+       1        0.000000000000     0.000000000000    -0.043970312253
+       2        0.000000000000     0.000000000000     0.043970312253
+
+
+*** tstart() called on adabbott
+*** at Sun Sep  8 14:05:27 2019
+
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS539D344A
+    Role: ORBITAL
+    Keyword: BASIS
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+         ---------------------------------------------------------
+                                   SCF
+               by Justin Turney, Rob Parrish, Andy Simmonett
+                          and Daniel G. A. Smith
+                              RHF Reference
+                        1 Threads,    500 MiB Core
+         ---------------------------------------------------------
+
+  ==> Geometry <==
+
+    Molecular point group: c1
+    Full point group: D_inf_h
+
+    Geometry (in Bohr), charge = 0, multiplicity = 1:
+
+       Center              X                  Y                   Z               Mass       
+    ------------   -----------------  -----------------  -----------------  -----------------
+         H            0.000000000000     0.000000000000    -0.849220457955     1.007825032230
+         H            0.000000000000     0.000000000000     0.849220457955     1.007825032230
+
+  Running in c1 symmetry.
+
+  Rotational constants: A = ************  B =     41.41314  C =     41.41314 [cm^-1]
+  Rotational constants: A = ************  B = 1241534.81138  C = 1241534.81138 [MHz]
+  Nuclear repulsion =    0.588775264792897
+
+  Charge       = 0
+  Multiplicity = 1
+  Electrons    = 2
+  Nalpha       = 1
+  Nbeta        = 1
+
+  ==> Algorithm <==
+
+  SCF Algorithm Type is PK.
+  DIIS enabled.
+  MOM disabled.
+  Fractional occupation disabled.
+  Guess Type is SAD.
+  Energy threshold   = 1.00e-06
+  Density threshold  = 1.00e-06
+  Integral threshold = 0.00e+00
+
+  ==> Primary Basis <==
+
+  Basis Set: ANONYMOUS539D344A
+    Blend: S_ORB
+    Number of shells: 8
+    Number of basis function: 8
+    Number of Cartesian functions: 8
+    Spherical Harmonics?: false
+    Max angular momentum: 0
+
+  ==> Pre-Iterations <==
+
+   -------------------------------------------------------
+    Irrep   Nso     Nmo     Nalpha   Nbeta   Ndocc  Nsocc
+   -------------------------------------------------------
+     A          8       8       0       0       0       0
+   -------------------------------------------------------
+    Total       8       8       1       1       1       0
+   -------------------------------------------------------
+
+  ==> Integral Setup <==
+
+  Using in-core PK algorithm.
+   Calculation information:
+      Number of atoms:                   2
+      Number of AO shells:               8
+      Number of primitives:              8
+      Number of atomic orbitals:         8
+      Number of basis functions:         8
+
+      Integral cutoff                 1.00e-12
+      Number of threads:                 1
+
+  Performing in-core PK
+  Using 1332 doubles for integral storage.
+  We computed 666 shell quartets total.
+  Whereas there are 666 unique shell quartets.
+
+  ==> DiskJK: Disk-Based J/K Matrices <==
+
+    J tasked:                  Yes
+    K tasked:                  Yes
+    wK tasked:                  No
+    Memory [MiB]:              375
+    Schwarz Cutoff:          1E-12
+
+    OpenMP threads:              1
+
+  Minimum eigenvalue in the overlap matrix is 2.3933843387E-05.
+  Using Symmetric Orthogonalization.
+
+  SCF Guess: Superposition of Atomic Densities via on-the-fly atomic UHF.
+
+  ==> Iterations <==
+
+                        Total Energy        Delta E     RMS |[F,P]|
+
+   @RHF iter SAD:    -0.80649974889810   -8.06500e-01   0.00000e+00 
+   @RHF iter   1:    -1.05853361567193   -2.52034e-01   5.32087e-03 DIIS
+   @RHF iter   2:    -1.06074868313451   -2.21507e-03   1.09611e-03 DIIS
+   @RHF iter   3:    -1.06085946009657   -1.10777e-04   6.86829e-05 DIIS
+   @RHF iter   4:    -1.06085978340060   -3.23304e-07   1.40086e-06 DIIS
+   @RHF iter   5:    -1.06085978352655   -1.25952e-10   1.27117e-07 DIIS
+  Energy and wave function converged.
+
+
+  ==> Post-Iterations <==
+
+    Orbital Energies [Eh]
+    ---------------------
+
+    Doubly Occupied:                                                      
+
+       1A     -0.530531  
+
+    Virtual:                                                              
+
+       2A      0.178935     3A      0.337632     4A      0.593260  
+       5A      1.298510     6A      1.563003     7A      2.865669  
+       8A      2.970644  
+
+    Final Occupation by Irrep:
+              A 
+    DOCC [     1 ]
+
+  @RHF Final Energy:    -1.06085978352655
+
+   => Energetics <=
+
+    Nuclear Repulsion Energy =              0.5887752647928965
+    One-Electron Energy =                  -2.2382079337080043
+    Two-Electron Energy =                   0.5885728853885581
+    Total Energy =                         -1.0608597835265496
+
+Computation Completed
+
+
+Properties will be evaluated at   0.000000,   0.000000,   0.000000 [a0]
+
+Properties computed using the SCF density matrix
+
+  Nuclear Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Electronic Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000
+
+  Dipole Moment: [e a0]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+  Dipole Moment: [D]
+     X:     0.0000      Y:     0.0000      Z:     0.0000     Total:     0.0000
+
+
+*** tstop() called on adabbott at Sun Sep  8 14:05:28 2019
+Module time:
+	user time   =       0.19 seconds =       0.00 minutes
+	system time =       0.00 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+Total time:
+	user time   =       0.88 seconds =       0.01 minutes
+	system time =       0.03 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+ MINTS: Wrapper to libmints.
+   by Justin Turney
+
+   Calculation information:
+      Number of threads:                 1
+      Number of atoms:                   2
+      Number of AO shells:               8
+      Number of SO shells:               8
+      Number of primitives:              8
+      Number of atomic orbitals:         8
+      Number of basis functions:         8
+
+      Number of irreps:                  1
+      Integral cutoff                 1.00e-12
+      Number of functions per irrep: [   8 ]
+
+ OEINTS: Overlap, kinetic, potential, dipole, and quadrupole integrals
+         stored in file 35.
+
+      Computing two-electron integrals...done
+      Computed 666 non-zero two-electron integrals.
+        Stored in file 33.
+
+
+*** tstart() called on adabbott
+*** at Sun Sep  8 14:05:28 2019
+
+        ==> Transform all two-electron integrals <==
+
+	Presorting SO-basis two-electron integrals.
+	Sorting File: SO Ints (nn|nn) nbuckets = 1
+	Transforming the one-electron integrals and constructing Fock matrices
+	Starting first half-transformation.
+	Sorting half-transformed integrals.
+	First half integral transformation complete.
+	Starting second half-transformation.
+	Two-electron integral transformation complete.
+
+*** tstop() called on adabbott at Sun Sep  8 14:05:28 2019
+Module time:
+	user time   =       0.00 seconds =       0.00 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.90 seconds =       0.01 minutes
+	system time =       0.04 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+
+*** tstart() called on adabbott
+*** at Sun Sep  8 14:05:28 2019
+
+
+        **********************************************************
+        *                                                        *
+        *                   CCSD Integral Sort                   *
+        *                                                        *
+        **********************************************************
+
+
+        CC integral sort will use                      0.04 mb
+
+        Number of (ab|cd) temporary files:                2
+        Number of (ab|ci) temporary files:                3
+        Starting temporary file number:                 270
+
+        Initial sort........done.
+
+        Sort (IJ|KL)........done.
+        Sort (IJ|KA) 1/2....done.
+        Sort (IJ|KA) 2/2....done.
+        Sort (IA|JB)........done.
+        Sort (IJ|AB)........done.
+        Sort (IA|BC) 1/3....done.
+        Sort (IA|BC) 2/3....done.
+        Sort (IA|BC) 3/3....done.
+        Sort (AB|CD) 1/2....done.
+        Sort (AB|CD) 2/2....done.
+
+
+*** tstop() called on adabbott at Sun Sep  8 14:05:28 2019
+Module time:
+	user time   =       0.01 seconds =       0.00 minutes
+	system time =       0.01 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.91 seconds =       0.02 minutes
+	system time =       0.05 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+
+*** tstart() called on adabbott
+*** at Sun Sep  8 14:05:28 2019
+
+
+
+        *******************************************************
+        *                                                     *
+        *                       CEPA(0)                       *
+        *        Coupled Electron Pair Approximation          *
+        *                                                     *
+        *                   Eugene DePrince                   *
+        *                                                     *
+        *******************************************************
+
+
+
+  ==> Input parameters <==
+
+        Freeze core orbitals?                  no
+        Use frozen natural orbitals?           no
+        r_convergence:                  1.000e-07
+        e_convergence:                  1.000e-06
+        Number of DIIS vectors:                 8
+        Number of frozen core orbitals:         0
+        Number of active occupied orbitals:     1
+        Number of active virtual orbitals:      7
+        Number of frozen virtual orbitals:      0
+
+  ==> Memory <==
+
+        available memory =                            500.00 mb
+        minimum memory requirements for QCISD =         0.00 mb
+        memory requirements for QCISD(T) =              0.01 mb
+
+  ==> Define tiling <==
+
+        v(ab,cd) diagrams will be evaluated in   1 blocks.
+        v(ab,ci) diagrams will be evaluated in   1 blocks over ov2.
+        v(ab,ci) diagrams will be evaluated in   1 blocks over ov.
+
+  Allocate cpu memory (     0.01 mb).....done.
+  Initialize cpu memory..................done.
+
+  Begin CEPA(0) iterations
+
+   Iter  DIIS          Energy       d(Energy)          |d(T)|     time
+      0   0 1   -0.0170378002   -0.0236504636    0.0903761003        0
+      1   1 1   -0.0229762589   -0.0059384587    0.0349357067        0
+      2   2 1   -0.0261682870   -0.0031920281    0.0146835154        0
+      3   3 1   -0.0268386935   -0.0006704066    0.0011947471        0
+      4   4 1   -0.0268433769   -0.0000046833    0.0000909602        0
+      5   5 1   -0.0268434057   -0.0000000288    0.0000058956        0
+      6   6 1   -0.0268434058   -0.0000000001    0.0000005634        0
+      7   7 1   -0.0268434058   -0.0000000000    0.0000000651        0
+
+  CEPA(0) iterations converged!
+
+  CEPA(0) variational energy:      -0.026843405821
+  CEPA(0) transition energy:       -0.026843406076
+
+        OS SCS-MP2 correlation energy:          -0.020445360258
+        SS SCS-MP2 correlation energy:           0.000000000000
+        SCS-MP2 correlation energy:             -0.020445360258
+      * SCS-MP2 total energy:                   -1.081305143785
+
+        OS MP2 correlation energy:              -0.017037800215
+        SS MP2 correlation energy:               0.000000000000
+        MP2 correlation energy:                 -0.017037800215
+      * MP2 total energy:                       -1.077897583742
+
+        OS CEPA(0) correlation energy:          -0.026843406076
+        SS CEPA(0) correlation energy:           0.000000000000
+        CEPA(0) correlation energy:             -0.026843405821
+      * CEPA(0) total energy:                   -1.087703189347
+
+  Total time for CEPA(0) iterations:       0.01 s (user)
+                                        0.02 s (system)
+                                           0 s (total)
+
+  Time per iteration:                   0.00 s (user)
+                                        0.00 s (system)
+                                        0.00 s (total)
+
+*** tstop() called on adabbott at Sun Sep  8 14:05:28 2019
+Module time:
+	user time   =       0.01 seconds =       0.00 minutes
+	system time =       0.02 seconds =       0.00 minutes
+	total time  =          0 seconds =       0.00 minutes
+Total time:
+	user time   =       0.92 seconds =       0.02 minutes
+	system time =       0.07 seconds =       0.00 minutes
+	total time  =          1 seconds =       0.02 minutes
+   => Loading Basis Set <=
+
+    Name: ANONYMOUS539D344A
+    Role: ORBITAL
+    Keyword: None
+    atoms 1-2 entry H          line     5 inputblock s_orb 
+
+
+    Psi4 stopped on: Sunday, 08 September 2019 02:05PM
+    Psi4 wall time for execution: 0:00:01.19
+
+*** Psi4 exiting successfully. Buy a developer a beer!
