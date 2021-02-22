@@ -1,3 +1,7 @@
+# Quax 
+You have just found Quax. We have just gone open source. Pardon our dust while we tidy things up.
+The paper outlining this package was just recently submitted, and this repo will be updated with a link once published. 
+
 ### Arbitrary Order Nuclear Derivatives of Electronic Energies
 This library supports a simple and clean API for obtaining higher-order energy derivatives of electronic
 structure computations such as Hartree-Fock, second-order Moller-Plesset perturbation theory (MP2), and
@@ -53,7 +57,7 @@ print(dz1_dz2)
 
 In the above, the `address` argument is the 0-based indexing location of the partial derivative in the derivative tensor.
 Since H2 has 6 Cartesian coordinates, the derivative tensor at order=2 (Hessian) is a 6 by 6 array, with indices along each dimension running from 0 to 5. 
-The indices 0 to 5 correspond to the row-wise flattened Cartesian derivative vector.
+The indices 0 to 5 correspond to the row-wise flattened Cartesian coordinate vector.
 Therefore, the ordering of the Cartesian coordinates in the molecule definition affects which partial derivative `address` is referring to.
 
 ### Caveats
@@ -61,8 +65,17 @@ Therefore, the ordering of the Cartesian coordinates in the molecule definition 
 
 
 ### Installation Instructions
+
+### Anaconda Environment installation instructions
+If you have a working installation of Libint with derivatives
+`conda create -n quax python=3.7`
+`conda activate quax`
+
+
 The library requires several dependencies, most of which are taken care of with `setup.py`.
-To install, clone this repository, and run `pip install .`. If you plan to develop/edit/play around with the code,
+To install, clone this repository, and run 
+```pip install .```
+If you plan to develop/edit/play around with the code,
 install with `pip install -e .` so that the installation will automatically update when changes are made.
 This takes care of the following dependencies, according to the contents of `setup.py`.
 ```
@@ -112,7 +125,59 @@ conda install hdf5
 conda install gmp
 conda install bzip2
 conda install boost
+conda install cmake
+conda install libstdcxx-ng
+conda install -c conda-forge libcxx
 ```
+
+
+NEW  have to install
+```
+conda create -n jax python=3.6
+conda activate jax
+conda install ninja
+conda install -c omnia eigen3
+conda install gcc
+conda install -c conda-forge pybind11
+conda install gcc_linux-64  ###THIS ONE
+conda install boost
+```
+
+Libint's gmp issues can be taken care of by installing `conda install gcc_linux-64`
+Also need `conda install gxx_linux-64` 
+
+
+### Building the Libint Interface
+
+The default gcc version 4.8 that comes with `conda install gcc` is not recent enough to successfully compile the Libint interface.
+You must instead use a more modern compiler. To do this in anaconda, we need to use
+`x86_64-conda_cos6-linux-gnu-gcc` as our compiler instead of gcc.
+This is available by installing `gcc_linux-64` and `gxx_linux-64`.
+Thus a complete anaconda envrionment, containing everything you need to run the code and compile the Libint interface,
+would include:
+
+```
+conda create -n ad python=3.6
+conda activate ad
+conda install -c psi4 psi4
+conda install gcc_linux-64
+conda install gxx_linux-64
+conda install -c omnia eigen3
+conda install -c conda-forge pybind11
+
+pip install jax
+pip install jaxlib
+conda install h5py
+```
+
+These are sufficient to compile the Libint interface.
+Head over to `external_integrals/` directory and edit the makefile with the appropriate paths.
+All of the required headers and libraries should be discoverable in the anaconda environment's include and lib paths.
+After editing the paths appropriately and setting the CC compiler to `x86_64-conda_cos6-linux-gnu-gcc`,
+
+Libint's gmp issues can be taken care of by installing `conda install gcc_linux-64`
+Also need `conda install gxx_linux-64` 
+
 
 Now, given a Libint tarball which supports the desired maximum angular momentum and derivative order,
 we need to unpack the library, `cd` into it, and `mkdir PREFIX` where the headers and static library will be stored.
@@ -128,6 +193,9 @@ cmake --build . --target check
 cmake --build . --target install
 ```
 
+
+
+### Installing Libint in a clean conda environment
 Note that the cmake command may not find various libraries for the dependencies of Libint.
 `cmake . -DCMAKE_INSTALL_PREFIX=/path/to/libint/PREFIX/ -DCMAKE_POSITION_INDEPENDENT_CODE=ON`
 To fix this, you may need to explicitly point to it
