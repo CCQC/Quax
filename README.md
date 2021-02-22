@@ -112,7 +112,7 @@ Feel free to try other more advanced compilers. gcc >= 7.0 appears to work great
 
 ### Building Libint
 Libint can be built to support specific maximum angular momentum, different types of integrals, and certain derivative orders.
-The following is a build procedure supports up to d functions and 4th order derivatives. For more details,
+The following is a build procedure supports up to _d_ functions and 4th-order derivatives. For more details,
 see the [Libint](https://github.com/evaleev/libint) repo.
 Note this build takes quite a long time! (on the order of hours to a couple days)
 In the future we will look into supplying pre-built libint tarballs by some means.
