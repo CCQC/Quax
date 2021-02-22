@@ -14,6 +14,11 @@ We use [JAX](https://github.com/google/jax) for automatically differentiating el
 The code can be easily extended to support other methods, for example
 using the guidance offered by the [Psi4Numpy project](https://github.com/psi4/psi4numpy).
 
+If you are interested in obtaining electronic energy derivatives with Quax,
+but are wary and/or not familiar with the concept of automatic differentiation, 
+we recommend [this video](https://www.youtube.com/watch?v=wG_nF1awSSY) for a brief primer.
+
+### Using Quax
 The API is simple. A full derivative tensor (an entire gradient w.r.t. all Cartesian coordinates,
 or the full Hessian, or the full cubic and quartic derivative tensors, etc) for a molecule
 at a given level of theory and be computed as follows: 
