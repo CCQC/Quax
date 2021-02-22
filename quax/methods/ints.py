@@ -37,7 +37,7 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
                 nbf = basis_set.nbf()
                 # Check if there are `deriv_order` datatsets in the eri file
                 # TODO this should be >= right?
-                correct_deriv_order = len(erifile) >= deriv_order
+                correct_deriv_order = len(erifile) == deriv_order
                 # Check nbf dimension of integral arrays
                 sample_dataset_name = list(oeifile.keys())[0]
                 correct_nbf = oeifile[sample_dataset_name].shape[0] == nbf
@@ -46,13 +46,42 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
                 correct_int_derivs = correct_deriv_order and correct_nbf
                 if correct_int_derivs:
                     print("Integral derivatives appear to be correct. Avoiding recomputation.")
-                libint_initialize(xyz_path, basis_name)
-                S = overlap(geom)
-                T = kinetic(geom)
-                V = potential(geom)
-                G = tei(geom)
-                libint_finalize()
+                    libint_initialize(xyz_path, basis_name)
+                    S = overlap(geom)
+                    T = kinetic(geom)
+                    V = potential(geom)
+                    G = tei(geom)
+                    libint_finalize()
+                #TODO this is an absolute MESS
+                else:
+                    print("Integral derivatives dimensions do not match requested derivative order and/or basis set. Recomputing integral derivatives")
+                    if os.path.exists("eri_derivs.h5"):
+                        print("Deleting two electron integral derivatives...")
+                        os.remove("eri_derivs.h5")
+                    if os.path.exists("oei_derivs.h5"):
+                        print("Deleting one electron integral derivatives...")
+                        os.remove("oei_derivs.h5")
+                    if deriv_order <= 2:
+                        libint_initialize(xyz_path, basis_name, deriv_order)
+                        S = overlap(geom)
+                        T = kinetic(geom)
+                        V = potential(geom)
+                        G = tei(geom)
+                        libint_finalize()
+                    else:
+                        # If higher order, LIBINT api does not support potentials
+                        # In this case, use Libint to write TEI's to disk, and do OEI's manually
+                        libint_initialize(xyz_path, basis_name)
+                        libint_interface.eri_deriv_disk(max_deriv_order)
+                        G = tei(geom)
+                        libint_finalize()
 
+                        with open(xyz_path, 'r') as f:
+                            tmp = f.read()
+                        molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
+                        basis_dict = build_basis_set(molecule, basis_name)
+                        S, T, V = oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
+                    
             else:
                 # TODO this is only required since libint API does not expose potential integrals > 2nd derivs
                 if deriv_order <= 2:
