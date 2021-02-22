@@ -1,4 +1,6 @@
 # Quax 
+![Screenshot](quax.png)
+
 You have just found Quax. We have just gone open source. Pardon our dust while we tidy things up.
 The paper outlining this package was just recently submitted, and this repo will be updated with a link once published. 
 
