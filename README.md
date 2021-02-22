@@ -33,6 +33,7 @@ hessian = quax.core.derivative(molecule, 'cc-pvdz', 'ccsd(t)', order=2)
 print(hessian)
 ```
 
+We use the Psi4 Python API for loading in the molecule, the charge, multiplicity, etc.
 Full derivative tensor computations may easily run into memory issues. For example, the two electron integrals second derivative tensor used in the above computation
 for _n_ basis functions and _N_ cartesian coordinates at derivative order _k_ contains _n_<sup>4</sup> * _N_<sup>k</sup> double precision floating point numbers, which requires a great deal of memory. 
 Not only that, but the regular two-electron integrals and the two-electron integral _gradient_ tensor are also held in memory.
@@ -74,10 +75,12 @@ Also, we do not recommend computing derivatives of systems with many degenerate 
 
 ### Anaconda Environment installation instructions
 To use Quax, only a few dependencies are needed. We recommend using clean anaconda environment: 
-`conda create -n quax python=3.7`
-`conda activate quax`
-`conda install -c psi4 psi4`
-`python setup.py install`
+```
+conda create -n quax python=3.7
+conda activate quax
+conda install -c psi4 psi4
+python setup.py install
+```
 
 This is sufficient to use Quax without the Libint interface.
 
@@ -103,8 +106,23 @@ This is available by installing `gcc_linux-64` and `gxx_linux-64`.
 Feel free to try other more advanced compilers. gcc >= 7.0 appears to work great. 
 
 ### Building Libint
+Libint can be built to support specific maximum angular momentum, different types of integrals, and certain derivative orders.
+The following is a build procedure supports up to d functions and 4th order derivatives. For more details,
+see the [Libint](https://github.com/evaleev/libint) repo.
+Note this build takes quite a long time! (on the order of hours to a couple days)
+In the future we will look into supplying pre-built libint tarballs by some means.
 
-TODO
+```
+git clone https://github.com/evaleev/libint.git
+cd libint
+./autogen.sh
+mkdir BUILD
+cd BUILD
+mkdir PREFIX
+ ../configure --prefix=/home/adabbott/Git/libint/libint/build/PREFIX --with-max-am=2 --with-opt-am=0 --enable-1body=4 --enable-eri=4 --with-multipole-max-order=0 --enable-eri3=no --enable-eri2=no --enable-g12=no --enable-g12dkh=no --with-pic --enable-static --enable-single-evaltype --enable-generic-code --disable-unrolling
+
+make export
+```
 
 ### Compiling Libint
 Now, given a Libint tarball which supports the desired maximum angular momentum and derivative order,
