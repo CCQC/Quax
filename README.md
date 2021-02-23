@@ -50,7 +50,7 @@ Because of this performance bottleneck, the library also supports **partial deri
 These computations compute _just one_ element of the derivative tensor at a particular order (for example, a single element of the _N_ by _N_ Hessian).
 
 ```python
-import psijax
+import quax 
 import psi4
 
 molecule = psi4.geometry('''
@@ -60,7 +60,7 @@ molecule = psi4.geometry('''
                          units bohr
                          ''')
 
-dz1_dz2 = psijax.core.partial_derivative(molecule, '6-31g', 'mp2', order=2, address=(2,5))
+dz1_dz2 = quax.core.partial_derivative(molecule, '6-31g', 'mp2', order=2, address=(2,5))
 print(dz1_dz2)
 ```
 
