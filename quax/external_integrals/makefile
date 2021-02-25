@@ -1,13 +1,8 @@
 # NOTE: These paths below need to be edited such that they point to a set of 
-# Eigen headers, Python headers, Pybind11 headers, Libint API headers libint2.h libint2.hpp, the rest of the Libint2 headers, and the library location of libint2.a and libint2.so
-# Note this requires compiling LIBINT with shared libraries, i.e. the flag -DLIBINT2_BUILD_SHARED_AND_STATIC_LIBS=ON must be passed when compiling
-# this is because Pybind11 requires -fPIC and -shared flags.
-# These paths currently use a version of Libint2 which only has up to 2 angular momentum and 4 orders of differentiation, and is edited to enable ERI derivatives
+# Eigen headers, Python headers, Pybind11 headers, Libint API headers libint2.h libint2.hpp, the rest of the Libint2 headers, and the library location of libint2.a,
 CC      := g++
-# Libint prefix location (where /include, /lib, /include/libint2 is) 
-#LIBINT_PREFIX := /home/adabbott/Git/libint_test1/libint/build/libint-2.7.0-beta.6/PREFIX
+# Libint prefix location (where /include, /include/libint2, /lib, /share are located) 
 LIBINT_PREFIX := /home/adabbott/Git/libint_am3/libint/build/libint-2.7.0-beta.6/PREFIX
-#LIBINT_PREFIX := /home/adabbott/Git/libint_test3/libint/BUILD/libint-2.7.0-beta.6/PREFIX
 
 I1 := $(LIBINT_PREFIX)/include
 I2 := $(LIBINT_PREFIX)/include/libint2
@@ -21,16 +16,17 @@ I5 := /home/adabbott/anaconda3/envs/quax/lib/python3.7/site-packages/pybind11/in
 # HDF5 headers, static and shared libraries 
 I6 := /home/adabbott/Git/hdf5/hdf5-1.12.0/PREFIX/include
 L2 := /home/adabbott/Git/hdf5/hdf5-1.12.0/PREFIX/lib
+# Edit path in quotes to be same location as L2 definition above
 RPATH := -Wl,-rpath,"/home/adabbott/Git/hdf5/hdf5-1.12.0/PREFIX/lib"
 
-# This 'TARGETS' suffix should be set to whatever is returned by the command `python3-config --extension-suffix` entered on command line
-# and it should match the same python version referenced in the above includes I4 (3.6 in this case)
-
-# TODO this TARGETS suffix must be equal to the result of running "python3-config --extension-suffix"
+# This 'TARGETS' suffix should be set to whatever is returned by the command `python3-config --extension-suffix` entered on command line.
+# and it should match the same python version referenced in the above include path for I4 := (3.7 in this case)
 TARGETS := libint_interface.cpython-37m-x86_64-linux-gnu.so
 OBJ     := libint_interface.o
-DEPS    := 
+#DEPS    := 
 
+
+# Rest is boilerplate. Do not edit unless you know what you're doing.
 .PHONY: all clean
 
 all: $(TARGETS)
