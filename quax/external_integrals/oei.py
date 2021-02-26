@@ -5,7 +5,8 @@ import h5py
 import os 
 
 from . import libint_interface
-from . import utils
+from ..utils import get_deriv_vec
+
 jax.config.update("jax_enable_x64", True)
 
 # Create new JAX primitives for overlap, kinetic, potential evaluation and their derivatives 
@@ -59,7 +60,7 @@ def potential_impl(geom):
 def overlap_deriv_impl(geom, deriv_vec):
     deriv_vec = np.asarray(deriv_vec, int)
     deriv_order = np.sum(deriv_vec)
-    idx = utils.get_deriv_vec_idx(deriv_vec)
+    idx = get_deriv_vec_idx(deriv_vec)
 
     # By default, look for full derivative tensor file with datasets name (type)_deriv(order)
     # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
@@ -88,7 +89,7 @@ def overlap_deriv_impl(geom, deriv_vec):
 def kinetic_deriv_impl(geom, deriv_vec):
     deriv_vec = np.asarray(deriv_vec, int)
     deriv_order = np.sum(deriv_vec)
-    idx = utils.get_deriv_vec_idx(deriv_vec)
+    idx = get_deriv_vec_idx(deriv_vec)
 
     # By default, look for full derivative tensor file with datasets name (type)_deriv(order)
     # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
@@ -117,7 +118,7 @@ def kinetic_deriv_impl(geom, deriv_vec):
 def potential_deriv_impl(geom, deriv_vec):
     deriv_vec = np.asarray(deriv_vec, int)
     deriv_order = np.sum(deriv_vec)
-    idx = utils.get_deriv_vec_idx(deriv_vec)
+    idx = get_deriv_vec_idx(deriv_vec)
 
     # By default, look for full derivative tensor file with datasets name (type)_deriv(order)
     # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)

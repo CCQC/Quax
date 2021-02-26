@@ -4,7 +4,8 @@ import numpy as np
 import h5py
 import os
 from . import libint_interface
-from . import utils
+from ..utils import get_deriv_vec
+
 jax.config.update("jax_enable_x64", True)
 jax.config.enable_omnistaging()
 
@@ -29,7 +30,7 @@ def tei_impl(geom):
 def tei_deriv_impl(geom, deriv_vec):
     deriv_vec = np.asarray(deriv_vec, int)
     deriv_order = np.sum(deriv_vec)
-    idx = utils.get_deriv_vec_idx(deriv_vec)
+    idx = get_deriv_vec_idx(deriv_vec)
 
     # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
     # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)

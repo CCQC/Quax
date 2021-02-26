@@ -1,7 +1,6 @@
 from . import tei
 from . import oei
 from . import libint_interface
-from . import utils
 from . import libint
 
 from .tei import tei

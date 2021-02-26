@@ -4,28 +4,8 @@ import jax.numpy as jnp
 import numpy as np
 import psi4
 
-#from ..integrals.basis_utils import build_basis_set
-#from ..integrals import tei as og_tei
-#from ..integrals import oei 
-#
-#from ..external_integrals import overlap
-#from ..external_integrals import kinetic
-#from ..external_integrals import potential
-#from ..external_integrals import tei
-#from ..external_integrals import tmp_potential
-#
-#from ..external_integrals import libint_initialize
-#from ..external_integrals import libint_finalize
-
 from .ints import compute_integrals
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
-
-
-# Builds J if passed TEI's and density. Builds K if passed transpose of TEI, (0,2,1,3) and density
-# Jitting roughly doubles memory use, but this doesnt matter if you want mp2, ccsd(t). 
-#jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None)))
-#jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None))
-
 
 def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=0, return_aux_data=True):
     SCF_MAX_ITER=100
@@ -34,6 +14,7 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
 
     # If we are doing MP2 or CCSD after, might as well use jit-compiled JK-build, since HF will not be memory bottleneck
     # has side effect of MP2 being faster than HF tho...
+    # Consider having low memory or high memory mode
     if return_aux_data:
         jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None)))
     else: 

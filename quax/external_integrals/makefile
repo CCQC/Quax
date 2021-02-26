@@ -33,8 +33,9 @@ all: $(TARGETS)
 
 clean: rm -f $(OBJ)
 
+#TODO add -O3
 $(OBJ): %.o : %.cc $(DEPS)
-	$(CC) -c $< -o $@ -O3 -fPIC -std=c++11 -I $(I1) -I $(I2) -I $(I3) -I $(I4) -I $(I5) -I $(I6) -lint2 -L $(L1) -lhdf5 -lhdf5_cpp -L $(L2) $(RPATH)
+	$(CC) -c $< -o $@  -fPIC -std=c++11 -I $(I1) -I $(I2) -I $(I3) -I $(I4) -I $(I5) -I $(I6) -lint2 -L $(L1) -lhdf5 -lhdf5_cpp -L $(L2) $(RPATH)
 $(TARGETS): $(OBJ)
-	$(CC) $^ -o $@ -O3 -fPIC -shared -std=c++11 -I $(I1) -I $(I2) -I $(I3) -I $(I4) -I $(I5) -I $(I6) -lint2 -L $(L1) -lhdf5 -lhdf5_cpp -L $(L2) $(RPATH)
+	$(CC) $^ -o $@ -fPIC -shared -std=c++11 -I $(I1) -I $(I2) -I $(I3) -I $(I4) -I $(I5) -I $(I6) -lint2 -L $(L1) -lhdf5 -lhdf5_cpp -L $(L2) $(RPATH)
 
