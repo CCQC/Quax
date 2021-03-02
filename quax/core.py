@@ -73,6 +73,10 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
     nuclear_charges = jnp.asarray([molecule.charge(i) for i in range(geom2d.shape[0])])
     args = (geom, basis_name, xyz_path, nuclear_charges, charge, options)
 
+    basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
+    nbf = basis_set.nbf()
+    print("Number of basis functions: ", nbf)
+
     # Energy and full derivative tensor evaluations
     if not partial:
         # Create energy evaluation function
@@ -166,7 +170,7 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
         else:
             print("Error: Order {} partial derivatives are not exposed to the API.".format(deriv_order))
             partial_deriv = 0
-        return partial_deriv
+        return jnp.round(partial_deriv,10)
 
 def energy(molecule, basis_name, method, options=None):
     """
