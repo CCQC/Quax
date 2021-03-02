@@ -29,7 +29,7 @@ if libint_imported:
 def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order):
 
     if libint_imported and libint_interface.LIBINT2_MAX_DERIV_ORDER >= deriv_order:
-        # Check disk for currently existing 
+        # Check disk for currently existing integral derivatives 
         check = check_disk(geom,basis_name,xyz_path,deriv_order)
         if check:
             libint_initialize(xyz_path, basis_name)
@@ -51,7 +51,7 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
                 # If higher order, LIBINT api does not support potentials
                 # In this case, use Libint to write TEI's to disk, and do OEI's manually
                 libint_initialize(xyz_path, basis_name)
-                libint_interface.eri_deriv_disk(max_deriv_order)
+                libint_interface.eri_deriv_disk(deriv_order)
                 G = tei(geom)
                 libint_finalize()
 
@@ -71,6 +71,8 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
     return S, T, V, G
 
 def check_disk(geom,basis_name,xyz_path,deriv_order,address=None):
+    # TODO 
+    # First check TEI's, then OEI's, return separately, check separately in compute_integrals
     correct_int_derivs = False
 
     if ((os.path.exists("eri_derivs.h5") and os.path.exists("oei_derivs.h5"))):
