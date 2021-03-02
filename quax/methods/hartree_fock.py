@@ -7,8 +7,14 @@ import psi4
 from .ints import compute_integrals
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 
-def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=0, return_aux_data=True):
-    SCF_MAX_ITER=100
+def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
+    # Load keyword options
+    maxit = options['maxit']
+    damping = options['damping']
+    damp_factor = options['damp_factor']
+    spectral_shift = options['spectral_shift']
+    convergence = 1e-10
+
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
 
@@ -20,47 +26,16 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     else: 
         jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None))
 
-#    # Use local JAX implementation of integrals
-#    with open(xyz_path, 'r') as f:
-#        tmp = f.read()
-#    molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-#    basis_dict = build_basis_set(molecule, basis_name)
-#    S, T, V = oei.oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
-#    G = og_tei.tei_array(geom.reshape(-1,3),basis_dict)
-
-    # Use Libint2 for all integrals 
-#    libint_initialize(xyz_path, basis_name)
-#    S = overlap(geom)
-#    T = kinetic(geom) 
-#    #V = potential(geom) 
-#    G = tei(geom)
-#    libint_finalize()
-#
-#    # Have to build Molecule object and basis dictionary
-#    #print("Using slow potential integrals")
-#    with open(xyz_path, 'r') as f:
-#        tmp = f.read()
-#    molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-#    basis_dict = build_basis_set(molecule, basis_name)
-#    V = tmp_potential(jnp.asarray(geom.reshape(-1,3)), basis_dict, nuclear_charges)
-
     # Canonical orthogonalization via cholesky decomposition
     S, T, V, G = compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order)
     A = cholesky_orthogonalization(S)
 
     nbf = S.shape[0]
 
-    #TODO expose these options to user control in addition to integral evaluation scheme.
-    spectral_shift = True
-    #spectral_shift = False
-    #damping = True 
-    damping = False
-    convergence = 1e-10
-
     # For slightly shifting eigenspectrum of transformed Fock for degenerate eigenvalues 
     # (JAX cannot differentiate degenerate eigenvalue eigh) 
     if spectral_shift:
-        # Chosen to be 1e-8 based on N2/cc-pVTZ Hessian sensitivity compared to analytic CFOUR Hessians
+        # Shifting eigenspectrum requires lower convergence.
         convergence = 1e-8 
         fudge = jnp.asarray(np.linspace(0, 1, nbf)) * convergence
         shift = jnp.diag(fudge)
@@ -85,7 +60,6 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     E_scf = 1.0
     E_old = 0.0
     Dold = jnp.zeros_like(D)
-
     dRMS = 1.0
 
     # Converge according to energy and DIIS residual to ensure eigenvalues and eigenvectors are maximally converged.
@@ -94,7 +68,7 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
         E_old = E_scf * 1
         if damping:
             if iteration < 10:
-                D = Dold * 0.50 + D * 0.50
+                D = Dold * damp_factor + D * damp_factor
                 Dold = D * 1
         # Build JK matrix: 2 * J - K
         JK = 2 * jk_build(G, D)
@@ -106,19 +80,18 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
             diis_e = jnp.einsum('ij,jk,kl->il', F, D, S) - jnp.einsum('ij,jk,kl->il', S, D, F)
             diis_e = A.dot(diis_e).dot(A)
             dRMS = jnp.mean(diis_e**2)**0.5
-
         # Compute energy, transform Fock and diagonalize, get new density
         E_scf, D, C, eps = rhf_iter(F,D)
         iteration += 1
-        if iteration == SCF_MAX_ITER:
+        if iteration == maxit:
             break
     print(iteration, " RHF iterations performed")
 
     # If many orbitals are degenerate, warn that higher order derivatives may be unstable 
     tmp = jnp.round(eps,6)
-    ndegen_orbs = jnp.unique(tmp).shape[0] - tmp.shape[0]
-    if (ndegen_orbs / nbf) > 0.10:
-        print("Hartree-Fock warning: More than 10% of orbitals have degenerate counterparts. Higher order derivatives may be unstable due to eigendecomposition AD rule")
+    ndegen_orbs =  tmp.shape[0] - jnp.unique(tmp).shape[0] 
+    if (ndegen_orbs / nbf) > 0.20:
+        print("Hartree-Fock warning: More than 20% of orbitals have degeneracies. Higher order derivatives may be unstable due to eigendecomposition AD rule")
     if not return_aux_data:
         return E_scf
     else:

@@ -7,9 +7,9 @@ import psi4
 from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation
 from .hartree_fock import restricted_hartree_fock
 
-def rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=0, return_aux_data=False):
+def rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
     # Do HF
-    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=deriv_order, return_aux_data=True)
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
 
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
@@ -35,7 +35,7 @@ def rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=0, re
     T1 = jnp.zeros((ndocc,nvir))
     T2 = D*V[2]
 
-    CC_MAX_ITER = 30
+    maxit = options['maxit']
     iteration = 0
     E_ccsd = 1.0
     E_old = 0.0
@@ -46,7 +46,7 @@ def rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=0, re
         E_ccsd = rccsd_energy(T1,T2,V[2])
 
         iteration += 1
-        if iteration == CC_MAX_ITER:
+        if iteration == maxit:
             break
 
     print(iteration, " CCSD iterations performed")

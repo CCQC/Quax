@@ -7,10 +7,10 @@ import psi4
 from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation, cartesian_product
 from .hartree_fock import restricted_hartree_fock
 
-def restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=0):
+def restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=0):
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
-    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order=deriv_order, return_aux_data=True)
+    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
 
     nvirt = G.shape[0] - ndocc
     nbf = G.shape[0]
@@ -18,7 +18,6 @@ def restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_or
     G = partial_tei_transformation(G, C[:,:ndocc],C[:,ndocc:],C[:,:ndocc],C[:,ndocc:])
 
     # Create tensor dim (occ,vir,occ,vir) of all possible orbital energy denominators
-    # Partial tei transformation is super efficient, it is this part that is bad.
     eps_occ, eps_vir = eps[:ndocc], eps[ndocc:]
     e_denom = jnp.reciprocal(eps_occ.reshape(-1, 1, 1, 1) - eps_vir.reshape(-1, 1, 1) + eps_occ.reshape(-1, 1) - eps_vir)
 
