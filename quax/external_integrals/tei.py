@@ -4,7 +4,7 @@ import numpy as np
 import h5py
 import os
 from . import libint_interface
-from ..utils import get_deriv_vec
+from ..utils import get_deriv_vec_idx
 
 jax.config.update("jax_enable_x64", True)
 jax.config.enable_omnistaging()
