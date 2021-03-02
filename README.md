@@ -1,12 +1,11 @@
 # Quax: Quantum Chemistry, powered by JAX
 ![Screenshot](quax.png)
 
-You have found Quax. We have just gone open-source. Pardon our dust while we tidy things up.
-The paper outlining this package was just recently submitted, and this repo will be updated with a link once published. 
+You have found Quax. The paper outlining this package was just recently submitted, and this repo will be updated with a link once published. 
 
 ### Arbitrary Order Nuclear Derivatives of Electronic Energies
 This library supports a simple and clean API for obtaining higher-order energy derivatives of electronic
-structure computations such as Hartree-Fock, second-order Moller-Plesset perturbation theory (MP2), and
+structure computations such as Hartree-Fock, second-order Møller-Plesset perturbation theory (MP2), and
 coupled cluster with singles, doubles, and perturbative triples excitations [CCSD(T)].
 Whereas most codes support only analytic gradient and occasionally Hessian computations,
 this code can compute analytic derivatives of arbitrary order. 
@@ -19,35 +18,46 @@ but are wary and/or not familiar with the concept of automatic differentiation,
 we recommend [this video](https://www.youtube.com/watch?v=wG_nF1awSSY) for a brief primer.
 
 ### Using Quax
-The API is simple. A full derivative tensor (an entire gradient w.r.t. all Cartesian coordinates,
-or the full Hessian, or the full cubic and quartic derivative tensors, etc) for a molecule
-at a given level of theory and be computed as follows: 
+The Quax API is very simple. We use Psi4 to handle molecule data like coordinates, charge, multiplicity, and basis set
+information. Once a Psi4 Molecule object is defined, energies, derivatives, and partial derivatives can be computed with a single line of code.
+In the following example, for water hf/sto-3g, we compute the energy, gradient, Hessian, and single elements
+of the gradient and Hessian:
 
 ```python
-import quax 
+import quax
 import psi4
 
-molecule = psi4.geometry('''
+molecule = psi4.geometry("""
                          0 1
-                         H 0.0 0.0 -0.80000000000
-                         H 0.0 0.0  0.80000000000
-                         units bohr
-                         ''')
+                         O 0.0 0.0 0.0
+                         H 0.0 0.0 1.0
+                         H 0.0 1.0 0.0
+                         units bohr 
+                         """)
 
-hessian = quax.core.derivative(molecule, 'cc-pvdz', 'ccsd(t)', order=2)
+energy = quax.core.energy(molecule, 'sto-3g', 'hf')
+print(energy)
+gradient = quax.core.derivative(molecule, 'sto-3g', 'hf', deriv_order=1)
+print(gradient)
+hessian = quax.core.derivative(molecule, 'sto-3g', 'hf', deriv_order=2)
 print(hessian)
+
+dz1 = quax.core.partial_derivative(molecule, 'sto-3g', 'hf', deriv_order=1, partial=(2,))
+print(dz1)
+
+dz1_dz2 = quax.core.partial_derivative(molecule, 'sto-3g', 'hf', deriv_order=2, partial=(2,5))
+print(dz1_dz2)
+
+print('Partial gradient matches gradient element: ', dz1 == gradient[2])
+print('Partial hessian matches hessian element: ', dz1_dz2 == hessian[2,5])
 ```
 
-We use the Psi4 Python API for loading in the molecule, the charge, multiplicity, etc.
-Full derivative tensor computations may easily run into memory issues. For example, the two electron integrals second derivative tensor used in the above computation
-for _n_ basis functions and _N_ cartesian coordinates at derivative order _k_ contains _n_<sup>4</sup> * _N_<sup>k</sup> double precision floating point numbers, which requires a great deal of memory. 
-Not only that, but the regular two-electron integrals and the two-electron integral _gradient_ tensor are also held in memory.
-The above computation therefore, from having 10 basis functions, stores 3 arrays associated with the two-electron integrals at run time:
-each of shapes (10,10,10,10), (10,10,10,10,6), and (10,10,10,10,6,6). 
-These issues also arise in the simulataneous storage of the old and new T1 and T2 amplitudes during coupled cluster iterations.
+Above, in the `quax.core.partial_derivative` function calls, the `partial` arguments describe the address of the element in the _n_th order derivative
+tensor you want to compute. The dimensions of a derivative tensor correspond to the row-wise flattened Cartesian coordinates, with 0-based indexing.
+For _N_ Cartesian coordinates, gradient is a size _N_ vector, Hessian a _N_ by _N_ matrix, and cubic and quartic derivative tensors are rank-3 and rank-4 tensors with dimension size _N_.
 
-Because of this performance bottleneck, the library also supports **partial derivative** computations.
-These computations compute _just one_ element of the derivative tensor at a particular order (for example, a single element of the _N_ by _N_ Hessian).
+Speaking of which, the Quax API currently supports up to 4th-order full-derivatives of energy methods, and up to 6th-order partial derivatives.
+A full quartic derivative tensor at CCSD(T) can be computed like so: 
 
 ```python
 import quax 
@@ -60,26 +70,56 @@ molecule = psi4.geometry('''
                          units bohr
                          ''')
 
-dz1_dz2 = quax.core.partial_derivative(molecule, '6-31g', 'mp2', order=2, address=(2,5))
-print(dz1_dz2)
+quartic = quax.core.derivative(molecule, '6-31g', 'ccsd(t)', deriv_order=4)
 ```
 
-In the above, the `address` argument is the 0-based indexing location of the partial derivative in the derivative tensor.
-Since H2 has 6 Cartesian coordinates, the derivative tensor at order=2 (Hessian) is a 6 by 6 array, with indices along each dimension running from 0 to 5. 
-The indices 0 to 5 correspond to the row-wise flattened Cartesian coordinate vector.
-Therefore, the ordering of the Cartesian coordinates in the molecule definition affects which partial derivative `address` is referring to.
+Perhaps that's too expensive/slow. You can instead compute quartic partial derivatives:
+
+```python
+import quax 
+import psi4
+
+molecule = psi4.geometry('''
+                         0 1
+                         H 0.0 0.0 -0.80000000000
+                         H 0.0 0.0  0.80000000000
+                         units bohr
+                         ''')
+
+dz1_dz1_dz2_dz2 = quax.core.partial_derivative(molecule, '6-31g', 'ccsd(t)', deriv_order=4, partial=(2,2,5,5))
+```
+
+Similar computations can be split across multiple nodes in an embarassingly parallel fashion, and one can take full advantage of symmetry so that only the unique elements are computed.
+The full quartic derivative tensor can then be constructed with the results.
+
+It's important to note that full derivative tensor computations may easily run into memory issues. 
+For example, the two-electron integrals fourth derivative tensor used in the above computation
+for _n_ basis functions and _N_ cartesian coordinates at derivative order _k_ contains _n_<sup>4</sup> * _N_<sup>k</sup> double precision floating point numbers, which requires a great deal of memory. 
+Not only that, but the regular two-electron integrals, and the first, second, and third-order derivative tensors are also held in memory.
+The above computation therefore, from having 4 basis functions, stores 5 arrays associated with the two-electron integrals at run time:
+each of shapes (4,4,4,4), (4,4,4,4,6), (4,4,4,4,6,6), (4,4,4,4,6,6,6), (4,4,4,4,6,6,6,6).
+These issues also arise in the simulataneous storage of the old and new T1 and T2 amplitudes during coupled cluster iterations.
+Obviously, for large basis sets and molecules, these arrays get very big very fast.
+Unless you have impressive computing resources, partial derivatives are recommended for higher order derivatives.
 
 ### Caveats
-Our integrals code is _slow_. Using the Libint interface is highly recommended. However, compiling Libint for support of very high order
-derivatives (4th, 5th, 6th) can cause the library size to be very large. We recommend pre-computing higher order integral derivatives 
-and saving to disk for such computations.
+Our integrals code is _slow_. Using the Libint interface is highly recommended. However, compiling Libint for support for very high order
+derivatives (5th, 6th) takes a very long time and causes the library size to be very large (sometimes so large it's uncompilable), so using the Quax integrals
+is the best bet at this time.
+We will incrementally roll out improvements which allow user specification for how to handle higher-order integral derivatives.
+For example, control over when to use disk vs core memory, and whether Libint or Quax integral derivatives are computed.
+In principle, the Quax integrals code could also be improved.
+Contributions and suggestions are welcome.
 
-Also, we do not recommend computing derivatives of systems with many degenerate orbitals. Workarounds for this are coming soon.
+Also, we do not recommend computing derivatives of systems with many degenerate orbitals.
+The reason for this is because automatically differentiating through eigendecomposition involves denominators of eigenvalue differences, which blow up in the degenerate case.  
+We cheat our way around this by shifting the eigenspectrum to lift the degeneracy, but this only works for systems with moderate degeneracy.
+Workarounds for this are coming soon.
 
 # Installation Instructions
 
 ### Anaconda Environment installation instructions
-To use Quax, only a few dependencies are needed. We recommend using clean anaconda environment: 
+To use Quax, only a few dependencies are needed. We recommend using a clean Anaconda environment: 
 ```
 conda create -n quax python=3.7
 conda activate quax
@@ -90,7 +130,7 @@ python setup.py install
 This is sufficient to use Quax without the Libint interface.
 
 ### Building the Libint Interface
-If you plan to use the Libint interface, you can install those dependencies as well.
+If you plan to use the Libint interface (highly recommnded), you can install those dependencies as well.
 ```
 conda install libstdcxx-ng
 conda install gcc_linux-64
@@ -129,6 +169,8 @@ mkdir PREFIX
 make export
 ```
 
+The above will produce a file of the form `libint-*.tgz`, containing your custom Libint library that needs to be compiled.
+
 ### Compiling Libint
 Now, given a Libint tarball which supports the desired maximum angular momentum and derivative order,
 we need to unpack the library, `cd` into it, and `mkdir PREFIX` where the headers and static library will be stored.
@@ -148,21 +190,23 @@ cmake --build . --target install
 Note that the following cmake command may not find various libraries for the dependencies of Libint.
 `cmake . -DCMAKE_INSTALL_PREFIX=/path/to/libint/PREFIX/ -DCMAKE_POSITION_INDEPENDENT_CODE=ON`
 To fix this, you may need to explicitly point to it
-`export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/vulcan/adabbott/.conda/envs/quax/lib/`
+`export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/libint/dependency/lib/`
 and then run the above cmake command.
+If using Anaconda, the path is probably in the environment directory `/path/to/envs/quax/lib/`.
 
 Also note that Libint recommends using Ninja to build for performance reasons. This can be done if Ninja is installed:
 `cmake . -G Ninja -DCMAKE_INSTALL_PREFIX=/path/to/libint/PREFIX/ -DCMAKE_POSITION_INDEPENDENT_CODE=ON`
 
-Once Libint is installed, the makefile in `external_integrals/makefile` needs to be edited to the proper paths specifying the locations
-of headers and libraries for Libint, pybind11, HDF5, and python. Then run `make` to compile the Libint interface.
+### Compiling the Libint-Quax interface
+Once Libint is installed, the makefile in `quax/external_integrals/makefile` needs to be edited with your compiler and the proper paths specifying the locations
+of headers and libraries for Libint, pybind11, HDF5, and python. 
 
-### Compiling the Quax-Libint interface
-From here, head over to `external_integrals/` directory and edit the makefile with the appropriate paths.
 The `LIBINT_PREFIX` path in the makefile is wherever you installed the headers and the static library `lib/libint2.a`. 
 All of the required headers and libraries should be discoverable in the Anaconda environment's include and lib paths.
 After editing the paths appropriately and setting the CC compiler to `x86_64-conda_cos6-linux-gnu-gcc`, or 
 if you have a nice modern compiler available, use that.
+
+Running `make` in the directory `quax/external_integrals/` to compile the Libint interface.
 
 
 <!---
