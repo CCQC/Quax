@@ -1,6 +1,16 @@
 import numpy as np
 import itertools
 
+def how_many_derivs(k,n):
+    """How many unique Cartesian derivatives for k atoms at nth order"""
+    val = 1
+    fact = 1
+    for i in range(n):
+        val *= 3 * k + i
+        fact *= i + 1;
+    val /= fact
+    return int(val)
+
 def get_deriv_vec_idx(deriv_vec):
     """
     Used to lookup appropriate slice of disk-saved integral derivative tensor 

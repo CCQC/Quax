@@ -16,50 +16,91 @@ from ..utils import get_deriv_vec_idx, get_required_deriv_vecs
 # Check for Libint interface 
 from ..constants import libint_imported
 if libint_imported:
-    from ..external_integrals import overlap
-    from ..external_integrals import kinetic
-    from ..external_integrals import potential
-    from ..external_integrals import tei
-    
-    from ..external_integrals import libint_initialize
-    from ..external_integrals import libint_finalize
+    from ..external_integrals import TEI 
+    from ..external_integrals import OEI 
     from ..external_integrals import libint_interface
      
 
-def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order):
+def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order, options):
+    # Load integral algo, decides to compute integrals in memory or use disk 
+    algo = options['integral_algo']
 
     if libint_imported and libint_interface.LIBINT2_MAX_DERIV_ORDER >= deriv_order:
-        # Check disk for currently existing integral derivatives 
-        check = check_disk(geom,basis_name,xyz_path,deriv_order)
-        if check:
-            libint_initialize(xyz_path, basis_name)
-            S = overlap(geom)
-            T = kinetic(geom)
-            V = potential(geom)
-            G = tei(geom)
-            libint_finalize()
-        else:
-            if deriv_order <= 2:
-                # Write new integral derivs to disk
-                libint_initialize(xyz_path, basis_name, deriv_order)
-                S = overlap(geom)
-                T = kinetic(geom)
-                V = potential(geom)
-                G = tei(geom)
-                libint_finalize()
-            else:
-                # If higher order, LIBINT api does not support potentials
-                # In this case, use Libint to write TEI's to disk, and do OEI's manually
-                libint_initialize(xyz_path, basis_name)
-                libint_interface.eri_deriv_disk(deriv_order)
-                G = tei(geom)
-                libint_finalize()
+        if algo == 'libint_core':
+            libint_interface.initialize(xyz_path, basis_name)
+            # Precompute TEI derivatives 
+            tei_obj = TEI(basis_name, xyz_path, deriv_order, 'core')
+            oei_obj = OEI(basis_name, xyz_path, deriv_order, 'core')
+            # Compute integrals
+            S = oei_obj.overlap(geom)
+            T = oei_obj.kinetic(geom)
+            # TODO add hotfix for Libint not supporting > 2nd order
+            V = oei_obj.potential(geom)
+            G = tei_obj.tei(geom)
+            libint_interface.finalize()
+            return S, T, V, G
 
-                with open(xyz_path, 'r') as f:
-                    tmp = f.read()
-                molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-                basis_dict = build_basis_set(molecule, basis_name)
-                S, T, V = oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
+        elif algo == 'libint_disk' and deriv_order > 0:
+            # Check disk for currently existing integral derivatives 
+            check = check_disk(geom,basis_name,xyz_path,deriv_order)
+
+            tei_obj = TEI(basis_name, xyz_path, deriv_order, 'disk')
+            oei_obj = OEI(basis_name, xyz_path, deriv_order, 'disk')
+            # If disk integral derivs are right, nothing to do
+            if check:
+                libint_interface.initialize(xyz_path, basis_name)
+                S = oei_obj.overlap(geom)
+                T = oei_obj.kinetic(geom)
+                V = oei_obj.potential(geom)
+                G = tei_obj.tei(geom)
+                libint_interface.finalize()
+            else:
+                # Else write integral derivs to disk
+                if deriv_order <= 2:
+                    libint_interface.initialize(xyz_path, basis_name)
+                    libint_interface.oei_deriv_disk(deriv_order)
+                    libint_interface.eri_deriv_disk(deriv_order)
+                    S = oei_obj.overlap(geom)
+                    T = oei_obj.kinetic(geom)
+                    V = oei_obj.potential(geom)
+                    G = tei_obj.tei(geom)
+                    libint_interface.finalize()
+                else:
+                    # If higher order than 2, LIBINT api does not support potentials 
+                    # In this case, use Libint to write TEI's to disk, and do OEI's with Quax
+                    libint_interface.initialize(xyz_path, basis_name)
+                    libint_interface.eri_deriv_disk(deriv_order)
+                    G = tei_obj.tei(geom)
+                    libint_interface.finalize()
+    
+                    with open(xyz_path, 'r') as f:
+                        tmp = f.read()
+                    molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
+                    basis_dict = build_basis_set(molecule, basis_name)
+                    S, T, V = oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
+        elif deriv_order == 0:
+            libint_interface.initialize(xyz_path, basis_name)
+            tei_obj = TEI(basis_name, xyz_path, deriv_order, 'core')
+            oei_obj = OEI(basis_name, xyz_path, deriv_order, 'core')
+            # Compute integrals
+            S = oei_obj.overlap(geom)
+            T = oei_obj.kinetic(geom)
+            V = oei_obj.potential(geom)
+            G = tei_obj.tei(geom)
+            libint_interface.finalize()
+
+        # TODO
+        #elif algo == 'quax_disk':
+
+        elif algo == 'quax_core':
+            with open(xyz_path, 'r') as f:
+                tmp = f.read()
+            molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
+            basis_dict = build_basis_set(molecule, basis_name)
+            S, T, V = oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
+            G = tei_array(geom.reshape(-1,3),basis_dict)
+
+    # If Libint not imported or Libint version doesnt support requested deriv order, use Quax integrals
     else:
         with open(xyz_path, 'r') as f:
             tmp = f.read()
@@ -67,11 +108,11 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
         basis_dict = build_basis_set(molecule, basis_name)
         S, T, V = oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
         G = tei_array(geom.reshape(-1,3),basis_dict)
-
     return S, T, V, G
 
 def check_disk(geom,basis_name,xyz_path,deriv_order,address=None):
-    # TODO 
+    # TODO need to check geometry and basis set name in addition to nbf
+
     # First check TEI's, then OEI's, return separately, check separately in compute_integrals
     correct_int_derivs = False
 

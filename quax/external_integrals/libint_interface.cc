@@ -964,6 +964,7 @@ void eri_deriv_disk(int max_deriv_order) {
     DSetCreatPropList plist;
     plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
 
+    // Check to make sure you are not flooding the disk.
     long total_deriv_slices = 0;
     for (int i=1; i<= max_deriv_order; i++){
         total_deriv_slices += how_many_derivs(natom, i);
@@ -976,9 +977,6 @@ void eri_deriv_disk(int max_deriv_order) {
         int nshell_derivs = how_many_derivs(4, deriv_order);
         // Number of unique nuclear derivatives of ERI's
         unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
-        // Check to make sure you are not flooding the disk.
-        //double check = (nbf * nbf * nbf * nbf * nderivs_triu * 8) * (1e-9);
-        //assert(check < 2 && "Disk space required for ERI's exceeds 2 GB. Are you sure you know what you are doing?");
 
         // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
         const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
@@ -1105,6 +1103,122 @@ delete file;
 std::cout << " done" << std::endl;
 } // eri_deriv_disk function
 
+
+// Computes a single 'deriv_order' derivative tensor of electron repulsion integrals, keeps everything in core memory
+py::array eri_deriv_core(int deriv_order) {
+    // Number of unique shell derivatives output by libint (number of indices in buffer)
+    int nshell_derivs = how_many_derivs(4, deriv_order);
+    // Number of unique nuclear derivatives of ERI's
+    unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+    // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+
+    // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+    const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(natom * 3, deriv_order);
+
+    // Libint engine for computing shell quartet derivatives
+    libint2::Engine eri_engine(libint2::Operator::coulomb,obs.max_nprim(),obs.max_l(), deriv_order);
+    const auto& eri_buffer = eri_engine.results(); // will point to computed shell sets
+
+    size_t length = nbf * nbf * nbf * nbf * nderivs_triu;
+    std::vector<double> result(length);
+
+    // Begin shell quartet loops
+    for(auto s1=0; s1!=obs.size(); ++s1) {
+        auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
+        auto atom1 = shell2atom[s1]; // Atom index of shell 1
+        auto n1 = obs[s1].size();    // number of basis functions in shell 1
+        for(auto s2=0; s2!=obs.size(); ++s2) {
+            auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
+            auto atom2 = shell2atom[s2]; // Atom index of shell 2
+            auto n2 = obs[s2].size();    // number of basis functions in shell 2
+            for(auto s3=0; s3!=obs.size(); ++s3) {
+                auto bf3 = shell2bf[s3];     // Index of first basis function in shell 3
+                auto atom3 = shell2atom[s3]; // Atom index of shell 3
+                auto n3 = obs[s3].size();    // number of basis functions in shell 3
+                for(auto s4=0; s4!=obs.size(); ++s4) {
+                    auto bf4 = shell2bf[s4];     // Index of first basis function in shell 4
+                    auto atom4 = shell2atom[s4]; // Atom index of shell 4
+                    auto n4 = obs[s4].size();    // number of basis functions in shell 4
+
+                    if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                    std::vector<long> shell_atom_index_list{atom1,atom2,atom3,atom4};
+
+                    eri_engine.compute(obs[s1], obs[s2], obs[s3], obs[s4]); // Compute shell set
+
+                    // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+                    for(int nuc_idx=0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                        size_t offset_nuc_idx = nuc_idx * nbf * nbf * nbf * nbf;
+
+                        // Look up multidimensional cartesian derivative index
+                        auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+    
+                        // Find out which shell derivatives provided by Libint correspond to this nuclear cartesian derivative
+                        std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+                        for (int j=0; j < multi_cart_idx.size(); j++){
+                            int desired_atom_idx = multi_cart_idx[j] / 3;
+                            int desired_coord = multi_cart_idx[j] % 3;
+                            for (int i=0; i<4; i++){
+                                int atom_idx = shell_atom_index_list[i];
+                                if (atom_idx == desired_atom_idx) {
+                                    int tmp = 3 * i + desired_coord;
+                                    indices[j].push_back(tmp);
+                                }
+                            }
+                        }
+
+                        // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                        // and the total number of subvectors is the order of differentiation
+                        // Now we want all combinations where we pick exactly one index from each subvector.
+                        // This is achievable through a cartesian product 
+                        std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                        std::vector<int> buffer_indices;
+                        
+                        //for (auto vec : index_combos)  {
+                        //    std::sort(vec.begin(), vec.end());
+                        //    int buf_idx = 0;
+                        //    // buffer_multidim_lookup
+                        //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                        //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                        //    buffer_indices.push_back(buf_idx);
+                        //}
+                        // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
+                        for (auto vec : index_combos)  {
+                            if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
+                            else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
+                            else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
+                            else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                        }
+
+                        // Loop over shell block, keeping a total count idx for the size of shell set
+                        for(auto i=0; i<buffer_indices.size(); ++i) {
+                            auto eri_shellset = eri_buffer[buffer_indices[i]];
+                            if (eri_shellset == nullptr) continue;
+                            for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                                size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
+                                for(auto f2=0; f2!=n2; ++f2) {
+                                    size_t offset_2 = (bf2 + f2) * nbf * nbf;
+                                    for(auto f3=0; f3!=n3; ++f3) {
+                                        size_t offset_3 = (bf3 + f3) * nbf;
+                                        for(auto f4=0; f4!=n4; ++f4, ++idx) {
+                                            size_t offset_4 = bf4 + f4;
+                                            result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += eri_shellset[idx];
+                                            //eri_shellset_slab[f1][f2][f3][f4][nuc_idx] += eri_shellset[idx];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } // For every nuc_idx 0, nderivs_triu
+                }
+            }
+        }
+    } // shell quartet loops
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+} // eri_deriv_disk function
+
+
 // Define module named 'libint_interface' which can be imported with python
 // The second arg, 'm' defines a variable py::module_ which can be used to create
 // bindings. the def() methods generates binding code that exposes new functions to Python.
@@ -1120,8 +1234,9 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("kinetic_deriv", &kinetic_deriv, "Computes kinetic integral nuclear derivatives with libint");
     m.def("potential_deriv", &potential_deriv, "Computes potential integral nuclear derivatives with libint");
     m.def("eri_deriv", &eri_deriv, "Computes electron repulsion integral nuclear derivatives with libint");
-    m.def("eri_deriv_disk", &eri_deriv_disk, "Computes coulomb integral nuclea derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
+    m.def("eri_deriv_disk", &eri_deriv_disk, "Computes coulomb integral nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
     m.def("oei_deriv_disk", &oei_deriv_disk, "Computes overlap, kinetic, and potential integral derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
+    m.def("eri_deriv_core", &eri_deriv_core, "Computes a single coulomb integral nuclear derivative tensor, in memory.");
     //TODO partial derivative impl's
     //m.def("eri_partial_deriv_disk", &eri_partial_deriv_disk, "Computes a subset of the full coulomb integral nuclear derivative tensor and writes them to disk with HDF5");
      m.attr("LIBINT2_MAX_DERIV_ORDER") = LIBINT2_MAX_DERIV_ORDER;
