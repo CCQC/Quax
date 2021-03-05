@@ -130,8 +130,3 @@ class TEI(object):
         results = jnp.concatenate(results, axis=0)
         return results, 0
 
-
-
-## Create new JAX primitives for TEI evaluation and derivative evaluation
-#tei_p = jax.core.Primitive("tei")
-#tei_deriv_p = jax.core.Primitive("tei_deriv")
