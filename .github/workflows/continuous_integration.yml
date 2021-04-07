@@ -13,14 +13,17 @@ jobs:
     - name: Set up Python 3.8
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
+        python-version: 3.7
     - name: Add conda to system path
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
-        conda env update --file environment.yml --name base
+        conda install -c psi4 psi4
+        conda install jax
+        conda install jaxlib
+        conda install h5py
     - name: Lint with flake8
       run: |
         conda install flake8
