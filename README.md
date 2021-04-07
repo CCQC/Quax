@@ -1,9 +1,7 @@
 # Quax: Quantum Chemistry, powered by JAX
 ![Screenshot](quax.png)
 
-You have found Quax. The paper outlining this package was just recently submitted, and this repo will be updated with a link once published. 
-
-### Arbitrary Order Nuclear Derivatives of Electronic Energies
+You have found Quax. The paper outlining this work was just [recently published](https://pubs.acs.org/doi/abs/10.1021/acs.jpclett.1c00607). 
 This library supports a simple and clean API for obtaining higher-order energy derivatives of electronic
 structure computations such as Hartree-Fock, second-order Møller-Plesset perturbation theory (MP2), and
 coupled cluster with singles, doubles, and perturbative triples excitations [CCSD(T)].
@@ -14,13 +12,19 @@ The code can be easily extended to support other methods, for example
 using the guidance offered by the [Psi4Numpy project](https://github.com/psi4/psi4numpy).
 
 If you are interested in obtaining electronic energy derivatives with Quax,
-but are wary and/or not familiar with the concept of automatic differentiation, 
+but are wary of and/or not familiar with the concept of automatic differentiation, 
 we recommend [this video](https://www.youtube.com/watch?v=wG_nF1awSSY) for a brief primer.
+
+We should also note this project is mostly intended as an experimental proof-of-concept. 
+While it can be used for research applications, users should always take steps to verify the accuracy of the results,
+either by checking energies and derivatives against standard electronic structure codes or by using finite differences.
+Generally, if the energy and gradient are correct, higher order derivatives are most likely correct to a high degree of numerical precision.
+Note however the caveat (described below) that systems with highly degenerate orbitals will likely be numerically unstable at high derivative orders.
 
 ### Using Quax
 The Quax API is very simple. We use Psi4 to handle molecule data like coordinates, charge, multiplicity, and basis set
 information. Once a Psi4 Molecule object is defined, energies, derivatives, and partial derivatives can be computed with a single line of code.
-In the following example, for water hf/sto-3g, we compute the energy, gradient, Hessian, and single elements
+In the following example, we perform Hartree-Fock computations with a sto-3g basis set: we compute the energy, gradient, Hessian, and single elements
 of the gradient and Hessian:
 
 ```python
@@ -353,4 +357,19 @@ Also note that Libint recommends using Ninja to build for performance reasons. T
 Once Libint is installed, the makefile in `external_integrals/makefile` needs to be edited to the proper paths specifying the locations
 of headers and libraries for Libint, pybind11, HDF5, and python. Then run `make` to compile the Libint interface.
 
--->
+### Citing Quax
+If you use Quax in your research, we would appreciate a citation:
+```
+@article{abbott2021,
+  title={Arbitrary-Order Derivatives of Quantum Chemical Methods via Automatic Differentiation},
+  author={Abbott, Adam S and Abbott, Boyi Z and Turney, Justin M and Schaefer III, Henry F},
+  journal={The Journal of Physical Chemistry Letters},
+  volume={12},
+  pages={3232--3239},
+  year={2021},
+  publisher={ACS Publications}
+}
+```
+We also kindly request you give credit to the projects which make up the dependencies of Quax.
+
+
