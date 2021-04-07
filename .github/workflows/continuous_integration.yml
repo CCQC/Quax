@@ -27,11 +27,11 @@ jobs:
         conda init bash
         conda create -n quax python=3.7
         conda activate quax
-        conda install -c psi4 psi4
         conda install -c conda-forge jax
         conda install -c conda-forge jaxlib
         conda install -c conda-forge h5py
-    - name: Test with pytest
-      run: |
-        conda install pytest
-        pytest
+#       conda install -c psi4 psi4
+    #- name: Test with pytest
+    #  run: |
+    #    conda install pytest
+    #    pytest
