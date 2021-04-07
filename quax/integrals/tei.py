@@ -1,7 +1,6 @@
 import jax 
 from jax.config import config
 config.update("jax_enable_x64", True)
-config.enable_omnistaging()
 import jax.numpy as jnp
 from jax.experimental import loops
 

@@ -8,7 +8,6 @@ from . import libint_interface
 from ..utils import get_deriv_vec_idx, how_many_derivs
 
 jax.config.update("jax_enable_x64", True)
-jax.config.enable_omnistaging()
 
 class OEI(object):
 

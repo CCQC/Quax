@@ -2,7 +2,6 @@ import jax
 from jax import jacfwd
 from jax.config import config
 config.update("jax_enable_x64", True)
-config.enable_omnistaging()
 import jax.numpy as jnp
 import psi4
 import numpy as np
