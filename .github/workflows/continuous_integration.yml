@@ -20,6 +20,7 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
+        conda init bash
         conda create -n quax python=3.7
         conda activate quax
         conda install -c psi4 psi4
