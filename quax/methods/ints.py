@@ -112,7 +112,6 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
 
 def check_disk(geom,basis_name,xyz_path,deriv_order,address=None):
     # TODO need to check geometry and basis set name in addition to nbf
-
     # First check TEI's, then OEI's, return separately, check separately in compute_integrals
     correct_int_derivs = False
 
@@ -150,7 +149,6 @@ def check_disk(geom,basis_name,xyz_path,deriv_order,address=None):
         sample_dataset_name = list(oeifile.keys())[0]
         correct_nbf = oeifile[sample_dataset_name].shape[0] == nbf
         correct_int_derivs = correct_nbf
-
     return correct_int_derivs
 
 def write_integrals(molecule, basis_name, deriv_order, address):
