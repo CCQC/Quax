@@ -1,4 +1,6 @@
 # Quax: Quantum Chemistry, powered by JAX
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+
 ![Screenshot](quax.png)
 
 You have found Quax. The paper outlining this work was just [recently published](https://pubs.acs.org/doi/abs/10.1021/acs.jpclett.1c00607). 
