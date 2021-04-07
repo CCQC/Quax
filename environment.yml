@@ -1,0 +1,11 @@
+name: quax
+channels:
+  - psi4
+  - conda-forge
+  - defaults
+dependencies:
+  - psi4
+  - jax
+  - jaxlib
+  - h5py
+  - pytest
