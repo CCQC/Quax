@@ -27,7 +27,7 @@ jobs:
         conda install -c conda-forge jax
         conda install -c conda-forge jaxlib
         conda install -c conda-forge h5py
-#       conda install -c psi4 psi4
+        conda install -c psi4 psi4
     #- name: Test with pytest
     #  run: |
     #    conda install pytest
