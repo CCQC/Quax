@@ -1,4 +1,5 @@
 # Quax: Quantum Chemistry, powered by JAX
+![Continuous Integration](https://github.com/CCQC/Quax/actions/workflows/continuous_integration.yml/badge.svg)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 ![Screenshot](quax.png)
