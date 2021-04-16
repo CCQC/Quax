@@ -9,13 +9,7 @@
 
 #include "buffer_lookups.h"
 
-// TODO get rid of cartesian gaussians
-// TODO test third, fourth derivs
-// TODO parallelization with openmp?
-// TODO write dedicated eri_full_deriv function for computing full ERI deriv tensor and saving to disk, and corresponding jax functions to access saved slices correspondingto deriv_vecs as needed.
-//      This would use fread, fwrite, fseek and write a series of files corresponding to deriv_vec (nbf,nbf,nbf,nbf) slices, and dynamically write to them in the shell quartet loops.
-//      Unlike the current implementation, each shell quartet derivative would only be computed once, rather than NCART^2 times for hessians, NCART^4 times for quartics, barring screening attempts which makes it better than this in practice.
-//      This would work great for full derivative computations. Current implementation is ideal for partial derivatives.
+// TODO support spherical harmonic gaussians, try parallelization with openmp, implement symmetry considerations, support 5th, 6th derivs
 
 namespace py = pybind11;
 using namespace H5;
@@ -28,6 +22,8 @@ unsigned int ncart;
 std::vector<size_t> shell2bf;
 std::vector<long> shell2atom;
 
+// These lookup arrays are for mapping Libint's computed shell-set integrals and integral derivatives to the proper index 
+// in the full OEI/TEI array or derivative array.
 // ERI,overlap,kinetic buffer lookup arrays are always the same, create at compile time.
 // Potential buffer lookups have to be created at runtime since they are dependent on natoms
 // Total size of these is (12 + 12^2 + 12^3 + 12^4 + 6 + 6^2 + 6^3 + 6^4) * 2 bytes = 48 kB 
@@ -736,7 +732,7 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 }
 
-// Writes all overlap, kinetic, and potential derivatives up to `max_deriv_order` to disk
+// The following function writes all overlap, kinetic, and potential derivatives up to `max_deriv_order` to disk
 // HDF5 File Name: oei_derivs.h5 
 //      HDF5 Dataset names within the file:
 //      overlap_deriv1 
@@ -759,6 +755,7 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
 //          shape (nbf,nbf,n_unique_2nd_derivs)
 //      potential_deriv3 
 //          shape (nbf,nbf,n_unique_3rd_derivs)
+// The number of unique derivatives is essentially equal to the size of the generalized upper triangle of the derivative tensor.
 void oei_deriv_disk(int max_deriv_order) {
     std::cout << "Writing one-electron integral derivative tensors up to order " << max_deriv_order << " to disk...";
     long total_deriv_slices = 0;
@@ -1050,6 +1047,7 @@ void eri_deriv_disk(int max_deriv_order) {
                             std::vector<std::vector<int>> index_combos = cartesian_product(indices);
                             std::vector<int> buffer_indices;
                             
+                            // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
                             //for (auto vec : index_combos)  {
                             //    std::sort(vec.begin(), vec.end());
                             //    int buf_idx = 0;
@@ -1175,6 +1173,7 @@ py::array eri_deriv_core(int deriv_order) {
                         std::vector<std::vector<int>> index_combos = cartesian_product(indices);
                         std::vector<int> buffer_indices;
                         
+                        // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
                         //for (auto vec : index_combos)  {
                         //    std::sort(vec.begin(), vec.end());
                         //    int buf_idx = 0;
