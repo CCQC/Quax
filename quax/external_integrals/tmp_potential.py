@@ -1,7 +1,6 @@
 # Temporary potential integrals since libint does allow beyond 2nd order at the moment.
 import jax 
 from jax.config import config; config.update("jax_enable_x64", True)
-config.enable_omnistaging()
 import jax.numpy as np
 import numpy as onp
 from jax.experimental import loops
