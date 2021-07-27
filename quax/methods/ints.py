@@ -19,6 +19,7 @@ if libint_imported:
     from ..external_integrals import TEI 
     from ..external_integrals import OEI 
     from ..external_integrals import libint_interface
+    from ..external_integrals import tmp_potential
      
 
 def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order, options):
@@ -34,8 +35,17 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
             # Compute integrals
             S = oei_obj.overlap(geom)
             T = oei_obj.kinetic(geom)
-            # TODO add hotfix for Libint not supporting > 2nd order
-            V = oei_obj.potential(geom)
+            # Since Libint does not support potentials beyond 2nd order,
+            # don't use Libint in that case. 
+            # TODO revert if Libint ever changes
+            if deriv_order <= 2:
+                V = oei_obj.potential(geom)
+            else:
+                with open(xyz_path, 'r') as f:
+                    tmp = f.read()
+                molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
+                basis_dict = build_basis_set(molecule, basis_name)
+                V = tmp_potential(geom.reshape(-1,3),basis_dict,nuclear_charges)
             G = tei_obj.tei(geom)
             libint_interface.finalize()
             return S, T, V, G
