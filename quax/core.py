@@ -14,6 +14,7 @@ from .methods.hartree_fock import restricted_hartree_fock
 from .methods.mp2 import restricted_mp2
 from .methods.ccsd import rccsd
 from .methods.ccsd_t import rccsd_t
+from .utils import get_required_deriv_vecs
 
 psi4.core.be_quiet()
 
@@ -59,6 +60,8 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
         options = check_options(options)
     else:
         options = check_options({})
+    print("Using integral method: {}".format(options['integral_algo']))
+
 
     # Load molecule data
     geom2d = np.asarray(molecule.geometry())
@@ -75,6 +78,7 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
 
     basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
     nbf = basis_set.nbf()
+    natoms = molecule.natom()
     print("Number of basis functions: ", nbf)
 
     # Energy and full derivative tensor evaluations
@@ -120,6 +124,12 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
     else:
         if len(partial) != deriv_order:
             raise Exception("The length of the index coordinates given by 'partial' argument should be the same as the order of differentiation")
+
+        # Estimate memory footprint of two electron integrals partial derivatives
+        nderivs = get_required_deriv_vecs(natoms, deriv_order, partial).shape[0]
+        ngigabytes = nbf**4 * 64 * 8 * nderivs / 1e9
+        print("Estimated memory footprint from two-electron integral partial derivatives: {} GB".format(ngigabytes))
+
         # For partial derivatives, need to unpack each geometric coordinate into separate arguments
         # to differentiate wrt specific coordinates using JAX AD utilities. 
 
