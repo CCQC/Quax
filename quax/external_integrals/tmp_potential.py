@@ -67,7 +67,7 @@ def potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefacto
 
 def tmp_potential(geom, basis, charges):
     """
-    Build one electron integral arrays (overlap, kinetic, and potential integrals)
+    Build potential one-electron integrals array
     """
     coeffs, exps, atoms, ams, indices, dims = flatten_basis_data(basis)
     nbf = get_nbf(basis)
