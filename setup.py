@@ -9,7 +9,8 @@ if __name__ == "__main__":
         author_email='adabbott@uga.edu',
         url="none",
         license='BSD-3C',
-        packages=setuptools.find_packages(),
+        packages=setuptools.find_packages(where="quax"),
+        package_dir={"": "quax"},
         install_requires=[
             'numpy>=1.7',
             'jax>=0.2.9',
@@ -31,5 +32,5 @@ if __name__ == "__main__":
             'Intended Audience :: Science/Research',
             'Programming Language :: Python :: 3',
         ],
-        zip_safe=True,
+        zip_safe=False
     )

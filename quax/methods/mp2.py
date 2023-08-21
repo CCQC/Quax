@@ -1,7 +1,7 @@
 import jax 
 from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as jnp
-from jax.experimental import loops
+from jax.lax import fori_loop
 import psi4
 
 from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation, cartesian_product
@@ -30,10 +30,14 @@ def restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, options,
     # Loop algo (lower memory, but tei transform is the memory bottleneck)
     # Create all combinations of four loop variables to make XLA compilation easier
     indices = cartesian_product(jnp.arange(ndocc),jnp.arange(ndocc),jnp.arange(nvirt),jnp.arange(nvirt))
-    with loops.Scope() as s:
-      s.mp2_correlation = 0.
-      for idx in s.range(indices.shape[0]):
+
+    mp2_correlation = 0.0
+    def loop_mp2(idx, mp2_corr):
         i,j,a,b = indices[idx]
-        s.mp2_correlation += G[i, a, j, b] * (2 * G[i, a, j, b] - G[i, b, j, a]) * e_denom[i,a,j,b]
-      return E_scf + s.mp2_correlation
+        mp2_corr += G[i, a, j, b] * (2 * G[i, a, j, b] - G[i, b, j, a]) * e_denom[i,a,j,b]
+        return mp2_corr
+
+    dE_mp2 = fori_loop(0, indices.shape[0], loop_mp2, mp2_correlation)
+
+    return E_scf + dE_mp2
 

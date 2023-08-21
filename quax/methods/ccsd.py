@@ -1,7 +1,6 @@
 import jax 
 from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as jnp
-from jax.experimental import loops
 import psi4
 
 from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation

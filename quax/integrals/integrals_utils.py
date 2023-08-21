@@ -3,7 +3,7 @@ from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import numpy as np
 from functools import partial
-from jax.experimental import loops
+from jax.lax import while_loop
 
 def boys(m,x,eps=1e-12):
     return 0.5 * (x + eps)**(-(m + 0.5)) * jax.lax.igamma(m + 0.5, x + eps) \
@@ -19,15 +19,16 @@ def binomial_prefactor(k, l1, l2, PAx, PBx):
     """
     q = jax.lax.max(-k, k-2*l2)
     q_final = jax.lax.min(k, 2*l1-k)
-    with loops.Scope() as L:
-      L.total = 0.
-      L.q = q
-      for _ in L.while_range(lambda: L.q <= q_final):
-        i = (k+L.q)//2
-        j = (k-L.q)//2
-        L.total += PAx[l1-i] * PBx[l2-j] * binomials[l1,i] * binomials[l2,j]
-        L.q += 2
-    return L.total
+
+    def loop_q(arr):
+       q_n, total = arr
+       i = (k+q_n)//2
+       j = (k-q_n)//2
+       return (q_n+2, total + PAx[l1-i] * PBx[l2-j] * binomials[l1,i] * binomials[l2,j])
+
+    q_, total_sum = while_loop(lambda arr: arr[0] < q_final, loop_q, (q,0))
+
+    return total_sum
 
 def gaussian_product(alpha1,A,alpha2,B):
     '''Gaussian product theorem. Returns center.'''
@@ -36,7 +37,7 @@ def gaussian_product(alpha1,A,alpha2,B):
 def find_unique_shells(nshells):
     '''Find shell quartets which correspond to corresponding to unique two-electron integrals, i>=j, k>=l, IJ>=KL'''
     v = np.arange(nshells,dtype=jnp.int16) 
-    indices = old_cartesian_product(v,v,v,v)
+    indices = cartesian_product(v,v,v,v)
     cond1 = (indices[:,0] >= indices[:,1]) & (indices[:,2] >= indices[:,3]) 
     cond2 = indices[:,0] * (indices[:,0] + 1)/2 + indices[:,1] >= indices[:,2] * (indices[:,2] + 1)/2 + indices[:,3]
     mask = cond1 & cond2 

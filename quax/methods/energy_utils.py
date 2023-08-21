@@ -1,6 +1,5 @@
 import jax
 from jax.config import config; config.update("jax_enable_x64", True)
-from jax.experimental import loops
 import jax.numpy as jnp
 from functools import partial
 
