@@ -14,58 +14,58 @@ def B_array(l1,l2,l3,l4,pa_pow,pb_pow,qc_pow,qd_pow,qp_pow,g1_pow,g2_pow,oodelta
     # It does not appear to help to pull out binomial prefactors and compute outside loop.
 
     def loop_i1(arr0):
-       i1, i2, r1, r2, u, B = arr0
-       Bterm = binomial_prefactor(arr0[0],l1,l2,pa_pow,pb_pow)
-       tmp = i1
-       r1 = i1 // 2
+       i1_0, i2_0, r1_0, r2_0, u_0, B_0 = arr0
+       Bterm = binomial_prefactor(i1_0,l1,l2,pa_pow,pb_pow)
+       tmp = i1_0
+       r1_0 = i1_0 // 2
 
        def loop_r1(arr1):
-          i1, i2, r1, r2, u, B = arr1
-          Bterm *= fact_ratio2[i1,r1]
-          Bterm *= g1_pow[r1-i1]
-          tmp -= 2 * r1
-          i2 = l3 + l4
+          i1_1, i2_1, r1_1, r2_1, u_1, B_1 = arr1
+          Bterm *= fact_ratio2[i1_1,r1_1]
+          Bterm *= g1_pow[r1_1-i1_1]
+          tmp -= 2 * r1_1
+          i2_1 = l3 + l4
 
           def loop_i2(arr2):
-             i1, i2, r1, r2, u, B = arr2
-             Bterm *= neg_one_pow[i2]
-             Bterm *= binomial_prefactor(i2,l3,l4,qc_pow,qd_pow)
-             tmp += i2
-             r2 = i2 // 2
+             i1_2, i2_2, r1_2, r2_2, u_2, B_2 = arr2
+             Bterm *= neg_one_pow[i2_2]
+             Bterm *= binomial_prefactor(i2_2,l3,l4,qc_pow,qd_pow)
+             tmp += i2_2
+             r2_2 = i2_2 // 2
 
              def loop_r2(arr3):
-                i1, i2, r1, r2, u, B = arr3
-                Bterm *= fact_ratio2[i2,r2]
-                Bterm *= g2_pow[r2-i2]
-                tmp -= 2 * r2
-                u = tmp // 2
+                i1_3, i2_3, r1_3, r2_3, u_3, B_3 = arr3
+                Bterm *= fact_ratio2[i2_3,r2_3]
+                Bterm *= g2_pow[r2_3-i2_3]
+                tmp -= 2 * r2_3
+                u_3 = tmp // 2
 
                 def loop_u(arr4):
-                   i1, i2, r1, r2, u, B = arr4
-                   I = tmp - u
-                   Bterm *= neg_one_pow[u]
-                   Bterm *= fact_ratio2[tmp,u]
-                   Bterm *= qp_pow[tmp - 2 * u]
+                   i1_4, i2_4, r1_4, r2_4, u_4, B_4 = arr4
+                   I = tmp - u_4
+                   Bterm *= neg_one_pow[u_4]
+                   Bterm *= fact_ratio2[tmp,u_4]
+                   Bterm *= qp_pow[tmp - 2 * u_4]
                    Bterm *= oodelta_pow[I]
                    B = B.at[I].set(Bterm)
-                   u -= 1
-                   return (i1, i2, r1, r2, u, B)
+                   u_4 -= 1
+                   return (i1_4, i2_4, r1_4, r2_4, u_4, B_4)
 
-                i1_, i2_, r1_, r2_, u_, B_ = while_loop(lambda arr4: arr4[4] > -1, loop_u, (i1, i2, r1, r2, u, B))
-                r2_ -= 1
-                return (i1_, i2_, r1_, r2_, u_, B_)
+                i1_3_, i2_3_, r1_3_, r2_3_, u_3_, B_3_ = while_loop(lambda arr4: arr4[4] > -1, loop_u, (i1_3, i2_3, r1_3, r2_3, u_3, B_3))
+                r2_3_ -= 1
+                return (i1_3_, i2_3_, r1_3_, r2_3_, u_3_, B_3_)
 
-             i1_, i2_, r1_, r2_, u_, B_ = while_loop(lambda arr3: arr3[3] > -1, loop_r2, (i1, i2, r1, r2, u, B))
-             i2_ -= 1
-             return (i1_, i2_, r1_, r2_, u_, B_)
+             i1_2_, i2_2_, r1_2_, r2_2_, u_2_, B_2_ = while_loop(lambda arr3: arr3[3] > -1, loop_r2, (i1_2, i2_2, r1_2, r2_2, u_2, B_2))
+             i2_2_ -= 1
+             return (i1_2_, i2_2_, r1_2_, r2_2_, u_2_, B_2_)
 
-          i1_, i2_, r1_, r2_, u_, B_ = while_loop(lambda arr2: arr2[1] > -1, loop_i2, (i1, i2, r1, r2, u, B))
-          r1_ -= 1
-          return (i1_, i2_, r1_, r2_, u_, B_)
+          i1_1_, i2_1_, r1_1_, r2_1_, u_1_, B_1_ = while_loop(lambda arr2: arr2[1] > -1, loop_i2, (i1_1, i2_1, r1_1, r2_1, u_1, B_1))
+          r1_1_ -= 1
+          return (i1_1_, i2_1_, r1_1_, r2_1_, u_1_, B_1_)
 
-       i1_, i2_, r1_, r2_, u_, B_ = while_loop(lambda arr1: arr1[2] > -1, loop_r1, (i1, i2, r1, r2, u, B))
-       i1_ -= 1
-       return (i1_, i2_, r1_, r2_, u_, B_)
+       i1_0_, i2_0_, r1_0_, r2_0_, u_0_, B_0_ = while_loop(lambda arr1: arr1[2] > -1, loop_r1, (i1_0, i2_0, r1_0, r2_0, u_0, B_0))
+       i1_0_ -= 1
+       return (i1_0_, i2_0_, r1_0_, r2_0_, u_0_, B_0_)
 
     i1, i2, r1, r2, u, B = while_loop(lambda arr0: arr0[0] > -1, loop_i1, (l1 + l2, 0, 0, 0, 0, B_vals)) # (i1, i2, r1, r2, u, B)
     return B
@@ -167,7 +167,7 @@ def tei_array(geom, basis):
     # Shape: (nprim, nprim, natom, 3, max_am+1). In loop index PA_pow as [p1,p2,atoms[p1],:,:]
     PminusA_pow = jnp.power(jnp.transpose(jnp.broadcast_to(PminusA, (max_am+1,nprim,nprim,natom,3)), (1,2,3,4,0)), jnp.arange(max_am+1))
 
-    def loop_prim_quartets(n, G):
+    def loop_prim_quartets(n, G_tei):
       # Load in primitive indices, coeffs, exponents, centers, angular momentum index, and leading placement index in TEI array
       p1,p2,p3,p4 = primitive_quartets[n]
       coef = coeffs[p1] * coeffs[p2] * coeffs[p3] * coeffs[p4]
@@ -230,28 +230,28 @@ def tei_array(geom, basis):
 
       a, b, c, d = 0, 0, 0, 0
       def loop_a(arr0):
-         a, b, c, d, G = arr0
-         b = 0
+         a_0, b_0, c_0, d_0, G_0 = arr0
+         b_0 = 0
 
          def loop_b(arr1):
-            a, b, c, d, G = arr1
-            c = 0
+            a_1, b_1, c_1, d_1, G_1 = arr1
+            c_1 = 0
 
             def loop_c(arr2):
-               a, b, c, d, G = arr2
-               d = 0
+               a_2, b_2, c_2, d_2, G_2 = arr2
+               d_2 = 0
 
                def loop_d(arr3):
-                  a, b, c, d, G = arr3
+                  a_3, b_3, c_3, d_3, G_3 = arr3
                   # Collect angular momentum and index in G
-                  la, ma, na = angular_momentum_combinations[a + ld1]
-                  lb, mb, nb = angular_momentum_combinations[b + ld2]
-                  lc, mc, nc = angular_momentum_combinations[c + ld3]
-                  ld, md, nd = angular_momentum_combinations[d + ld4]
-                  i = idx1 + a
-                  j = idx2 + b
-                  k = idx3 + c
-                  l = idx4 + d
+                  la, ma, na = angular_momentum_combinations[a_3 + ld1]
+                  lb, mb, nb = angular_momentum_combinations[b_3 + ld2]
+                  lc, mc, nc = angular_momentum_combinations[c_3 + ld3]
+                  ld, md, nd = angular_momentum_combinations[d_3 + ld4]
+                  i = idx1 + a_3
+                  j = idx2 + b_3
+                  k = idx3 + c_3
+                  l = idx4 + d_3
                   # Compute the primitive quartet tei and add to appropriate index in G
                   Bx = B_array(la,lb,lc,ld,PA_pow[0],PB_pow[0],QC_pow[0],QD_pow[0],QP_pow[0],g1_pow,g2_pow,oodelta_pow,B_vals)
                   By = B_array(ma,mb,mc,md,PA_pow[1],PB_pow[1],QC_pow[1],QD_pow[1],QP_pow[1],g1_pow,g2_pow,oodelta_pow,B_vals)
@@ -259,51 +259,51 @@ def tei_array(geom, basis):
 
                   I, J, K, primitive = 0, 0, 0, 0.0
                   def loop_I(arrI):
-                     I, J, K, primitive = arrI
-                     J = 0
-                     tmp = Bx[I]
+                     I_I, J_I, K_I, primitive_I = arrI
+                     J_I = 0
+                     tmp = Bx[I_I]
 
                      def loop_J(arrJ):
-                        I, J, K, primitive = arrJ
-                        K = 0
-                        tmp *= By[J]
+                        I_J, J_J, K_J, primitive_J = arrJ
+                        K_J = 0
+                        tmp *= By[J_J]
 
                         def loop_K(arrK):
-                           I, J, K, primitive = arrK
-                           tmp *= Bz[K] * boys_eval[I + J + K]
-                           primitive += tmp
-                           K += 1
-                           return (I, J, K, primitive)
+                           I_K, J_K, K_K, primitive_K = arrK
+                           tmp *= Bz[K_K] * boys_eval[I_K + J_K + K_K]
+                           primitive_K += tmp
+                           K_K += 1
+                           return (I_K, J_K, K_K, primitive_K)
 
-                        I_, J_, K_, primitive_ = while_loop(lambda arrK: arrK[2] < na + nb + nc + nd + 1, loop_K, (I, J, K, primitive))
-                        J_ += 1
-                        return (I_, J_, K_, primitive_)
+                        I_J_, J_J_, K_J_, primitive_J_ = while_loop(lambda arrK: arrK[2] < na + nb + nc + nd + 1, loop_K, (I_J, J_J, K_J, primitive_J))
+                        J_J_ += 1
+                        return (I_J_, J_J_, K_J_, primitive_J_)
 
-                     I_, J_, K_, primitive_ = while_loop(lambda arrJ: arrJ[1] < ma + mb + mc + md + 1, loop_J, (I, J, K, primitive))
-                     I_ += 1 # I
-                     return (I_, J_, K_, primitive_)
+                     I_I_, J_I_, K_I_, primitive_I_ = while_loop(lambda arrJ: arrJ[1] < ma + mb + mc + md + 1, loop_J, (I_I, J_I, K_I, primitive_I))
+                     I_I_ += 1 # I
+                     return (I_I_, J_I_, K_I_, primitive_I_)
 
                   I_, J_, K_, primitive_ = while_loop(lambda arrI: arrI[0] < la + lb + lc + ld + 1, loop_I, (I, J, K, primitive))
 
                   tei = prefactor * primitive_
-                  G = G.at[i, j, k, l].set(tei)
-                  d += 1
-                  return (a, b, c, d, G)
+                  G_3 = G_3.at[i, j, k, l].set(tei)
+                  d_3 += 1
+                  return (a_3, b_3, c_3, d_3, G_3)
 
-               a_, b_, c_, d_, G_ = while_loop(lambda arr3: arr3[3] < dims[arr3[6]], loop_d, arr2)
-               c_ += 1
-               return (a_, b_, c_, d_, G_)
+               a_2_, b_2_, c_2_, d_2_, G_2_ = while_loop(lambda arr3: arr3[3] < dims[p4], loop_d, (a_2, b_2, c_2, d_2, G_2))
+               c_2_ += 1
+               return (a_2_, b_2_, c_2_, d_2_, G_2_)
 
-            a_, b_, c_, d_, G_ = while_loop(lambda arr2: arr2[2] < dims[arr2[5]], loop_c, arr1)
-            b_ += 1
-            return (a_, b_, c_, d_, G_)
+            a_1_, b_1_, c_1_, d_1_, G_1_ = while_loop(lambda arr2: arr2[2] < dims[p3], loop_c, (a_1, b_1, c_1, d_1, G_1))
+            b_1_ += 1
+            return (a_1_, b_1_, c_1_, d_1_, G_1_)
 
-         a_, b_, c_, d_, G_ = while_loop(lambda arr1: arr1[1] < dims[arr1[4]], loop_b, arr0)
-         a_ += 1
-         return (a_, b_, c_, d_, G_)
+         a_0_, b_0_, c_0_, d_0_, G_0_ = while_loop(lambda arr1: arr1[1] < dims[p2], loop_b, (a_0, b_0, c_0, d_0, G_0))
+         a_0_ += 1
+         return (a_0_, b_0_, c_0_, d_0_, G_0_)
 
-      a_, b_, c_, d_, G_ = while_loop(lambda arr0: arr0[0] < dims[p1], loop_a, (a, b, c, d, G))
-      return G_
+      a_, b_, c_, d_, G_tei_ = while_loop(lambda arr0: arr0[0] < dims[p1], loop_a, (a, b, c, d, G_tei))
+      return G_tei_
 
     G = fori_loop(0, primitive_quartets.shape[0], loop_prim_quartets, jnp.zeros((nbf,nbf,nbf,nbf)))
     return G

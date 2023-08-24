@@ -37,61 +37,61 @@ def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
         Dd_occ = fock_Od[i] + fock_Od[j] + fock_Od[k] 
 
         def loop_a(arr0):
-           a, b, c, pT_contribution = arr0
-           b = 0
+           a_0, b_0, c_0, pT_contribution_0 = arr0
+           b_0 = 0
 
            def loop_b(arr1):
-              a, b, c, pT_contribution = arr1
-              c = 0
-              delta_vir = 1 + delta_v[a,b]
+              a_1, b_1, c_1, pT_contribution_1 = arr1
+              c_1 = 0
+              delta_vir = 1 + delta_v[a_1,b_1]
 
               def loop_c(arr2):
-                 a, b, c, pT_contribution = arr2
-                 delta_vir = delta_vir + delta_v[b,c]
-                 Dd = Dd_occ - (fock_Vd[a] + fock_Vd[b] + fock_Vd[c])
-                 X = W[a,b,c]*V[a,b,c] + W[a,c,b]*V[a,c,b] + W[b,a,c]*V[b,a,c]  \
-                   + W[b,c,a]*V[b,c,a] + W[c,a,b]*V[c,a,b] + W[c,b,a]*V[c,b,a]
-                 Y = (V[a,b,c] + V[b,c,a] + V[c,a,b])
-                 Z = (V[a,c,b] + V[b,a,c] + V[c,b,a])
-                 E = (Y - 2*Z)*(W[a,b,c] + W[b,c,a] + W[c,a,b]) + (Z - 2*Y)*(W[a,c,b]+W[b,a,c]+W[c,b,a]) + 3*X
-                 pT_contribution += E * delta_occ / (Dd * delta_vir)
-                 c += 1
-                 return (a, b, c, pT_contribution)
+                 a_2, b_2, c_2, pT_contribution_2 = arr2
+                 delta_vir = delta_vir + delta_v[b_2,c_2]
+                 Dd = Dd_occ - (fock_Vd[a_2] + fock_Vd[b_2] + fock_Vd[c_2])
+                 X = W[a_2,b_2,c_2]*V[a_2,b_2,c_2] + W[a_2,c_2,b_2]*V[a_2,c_2,b_2] + W[b_2,a_2,c_2]*V[b_2,a_2,c_2]  \
+                   + W[b_2,c_2,a_2]*V[b_2,c_2,a_2] + W[c_2,a_2,b_2]*V[c_2,a_2,b_2] + W[c_2,b_2,a_2]*V[c_2,b_2,a_2]
+                 Y = (V[a_2,b_2,c_2] + V[b_2,c_2,a_2] + V[c_2,a_2,b_2])
+                 Z = (V[a_2,c_2,b_2] + V[b_2,a_2,c_2] + V[c_2,b_2,a_2])
+                 E = (Y - 2*Z)*(W[a_2,b_2,c_2] + W[b_2,c_2,a_2] + W[c_2,a_2,b_2]) + (Z - 2*Y)*(W[a_2,c_2,b_2]+W[b_2,a_2,c_2]+W[c_2,b_2,a_2]) + 3*X
+                 pT_contribution_2 += E * delta_occ / (Dd * delta_vir)
+                 c_2 += 1
+                 return (a_2, b_2, c_2, pT_contribution_2)
 
-              a_, b_, c_, pT_contribution_ = while_loop(lambda arr2: arr2[2] < arr2[1] + 1, loop_c, (a, b, c, pT_contribution))
-              b_ += 1
-              return (a_, b_, c_, pT_contribution_)
+              a_1_, b_1_, c_1_, pT_contribution_1_ = while_loop(lambda arr2: arr2[2] < arr2[1] + 1, loop_c, (a_1, b_1, c_1, pT_contribution_1))
+              b_1_ += 1
+              return (a_1_, b_1_, c_1_, pT_contribution_1_)
 
-           a_, b_, c_, pT_contribution_ = while_loop(lambda arr1: arr1[1] < arr1[0] + 1, loop_b, (a, b, c, pT_contribution))
-           a_ += 1
-           return (a_, b_, c_, pT_contribution_)
+           a_0_, b_0_, c_0_, pT_contribution_0_ = while_loop(lambda arr1: arr1[1] < arr1[0] + 1, loop_b, (a_0, b_0, c_0, pT_contribution_0))
+           a_0_ += 1
+           return (a_0_, b_0_, c_0_, pT_contribution_0_)
 
-        a_, b_. c_, dE_pT = while_loop(lambda arr0: arr0[0] < v, loop_a, (0, 0, 0, 0.0)) # (a, b, c, pT_contribution)
+        a, b, c, dE_pT = while_loop(lambda arr0: arr0[0] < v, loop_a, (0, 0, 0, 0.0)) # (a, b, c, pT_contribution)
         return dE_pT
 
     def loop_i(arr0):
-       i, j, k, pT = arr0
-       j = 0
+       i_0, j_0, k_0, pT_0 = arr0
+       j_0 = 0
 
        def loop_j(arr1):
-          i, j, k, pT = arr1
-          k = 0
+          i_1, j_1, k_1, pT_1 = arr1
+          k_1 = 0
 
           def loop_k(arr2):
-             i, j, k, pT = arr2
-             pT += inner_func(i, j, k)
-             k += 1
-             return (i, j, k, pT)
+             i_2, j_2, k_2, pT_2 = arr2
+             pT_2 += inner_func(i_2, j_2, k_2)
+             k_2 += 1
+             return (i_2, j_2, k_2, pT_2)
 
-          i_, j_, k_, pT_ = while_loop(lambda arr2: arr2[2] < arr2[1] + 1, loop_k, (i, j, k, pT))
-          j_ += 1
-          return (i_, j_, k_, pT_)
+          i_1_, j_1_, k_1_, pT_1_ = while_loop(lambda arr2: arr2[2] < arr2[1] + 1, loop_k, (i_1, j_1, k_1, pT_1))
+          j_1_ += 1
+          return (i_1_, j_1_, k_1_, pT_1_)
 
-       i_, j_, k_, pT_ = while_loop(lambda arr1: arr1[1] < arr1[0] + 1, loop_j, (i, j, k, pT))
-       i_ += 1
-       return (i_, j_, k_, pT_)
+       i_0_, j_0_, k_0_, pT_0_ = while_loop(lambda arr1: arr1[1] < arr1[0] + 1, loop_j, (i_0, j_0, k_0, pT_0))
+       i_0_ += 1
+       return (i_0_, j_0_, k_0_, pT_0_)
 
-    i_, j_, k_, pT = while_loop(lambda arr0: arr0[0] < o, loop_i, (0, 0, 0, 0.0)) # (i, j, k, pT)
+    i, j, k, pT = while_loop(lambda arr0: arr0[0] < o, loop_i, (0, 0, 0, 0.0)) # (i, j, k, pT)
     return pT
 
 def rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=0):

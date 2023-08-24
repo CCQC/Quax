@@ -72,33 +72,33 @@ def kinetic(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor):
 def A_array(l1,l2,PA,PB,CP,g,A_vals):
 
     def loop_i(arr0):
-       i, r, u, A = arr0
-       Aterm = neg_one_pow[i] * binomial_prefactor(i,l1,l2,PA,PB) * factorials[i]
-       r = i // 2
+       i_0, r_0, u_0, A_0 = arr0
+       Aterm_0 = neg_one_pow[i_0] * binomial_prefactor(i_0,l1,l2,PA,PB) * factorials[i_0]
+       r_0 = i_0 // 2
 
        def loop_r(arr1):
-          i, r, u, Aterm, A = arr1
-          u = (i - 2 * r) // 2
+          i_1, r_1, u_1, Aterm_1, A_1 = arr1
+          u_1 = (i_1 - 2 * r_1) // 2
 
           def loop_u(arr2):
-             i, r, u, Aterm, A = arr2
-             I = i - 2 * r - u
-             tmp = I - u
-             fact_ratio = 1 / (factorials[r] * factorials[u] * factorials[tmp])
-             Aterm *= neg_one_pow[u]  * CP[tmp] * (0.25 / g)**(r+u) * fact_ratio
-             A = A.at[I].set(u)
-             u -= 1
-             return (i, r, u, Aterm, A)
+             i_2, r_2, u_2, Aterm_2, A_2 = arr2
+             I = i_2 - 2 * r_2 - u_2
+             tmp = I - u_2
+             fact_ratio = 1 / (factorials[r_2] * factorials[u_2] * factorials[tmp])
+             Aterm_2 *= neg_one_pow[u_2]  * CP[tmp] * (0.25 / g)**(r_2+u_2) * fact_ratio
+             A_2 = A_2.at[I].set(Aterm_2)
+             u_2 -= 1
+             return (i_2, r_2, u_2, Aterm_2, A_2)
 
-          i_, r_, u_, Aterm_, A_ = while_loop(lambda arr2: arr2[1] > -1, loop_u, (i, r, u, Aterm, A))
-          r_ -= 1
-          return (i_, r_, u_, Aterm_, A_)
+          i_1_, r_1_, u_1_, Aterm_1_, A_1_ = while_loop(lambda arr2: arr2[1] > -1, loop_u, (i_1, r_1, u_1, Aterm_1, A_1))
+          r_1_ -= 1
+          return (i_1_, r_1_, u_1_, Aterm_1_, A_1_)
 
-       i_, r_, u_, Aterm_, A_ = while_loop(lambda arr1: arr1[1] > -1, loop_r, (i, r, u, Aterm, A))
-       i_ -= 1
-       return (i_, r_, u_, A_)
+       i_0_, r_0_, u_0_, Aterm_0_, A_0_ = while_loop(lambda arr1: arr1[1] > -1, loop_r, (i_0, r_0, u_0, Aterm_0, A_0))
+       i_0_ -= 1
+       return (i_0_, r_0_, u_0_, A_0_)
 
-    i_, r_, u_, A = while_loop(lambda arr0: arr0[0] > -1, loop_i, (l1 + l2, 0, 0, A_vals)) # (i, r, u, A)
+    i, r, u, A = while_loop(lambda arr0: arr0[0] > -1, loop_i, (l1 + l2, 0, 0, A_vals)) # (i, r, u, A)
 
     return A
 
@@ -116,26 +116,26 @@ def potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefacto
 
       I, J, K, total = 0, 0, 0, 0
       def loop_I(arr0):
-         I, J, K, val, total = arr0
-         J = 0
+         I_0, J_0, K_0, val_0, total_0 = arr0
+         J_0 = 0
 
          def loop_J(arr1):
-            I, J, K, val, total = arr1
-            K = 0
+            I_1, J_1, K_1, val_1, total_1 = arr1
+            K_1 = 0
 
             def loop_K(arr2):
-               I, J, K, val, total = arr2
-               total += Ax[I] * Ay[J] * Az[K] * boys_eval[I + J + K, n]
-               K += 1
-               return (I, J, K, val, total)
+               I_2, J_2, K_2, val_2, total_2 = arr2
+               total_2 += Ax[I_2] * Ay[J_2] * Az[K_2] * boys_eval[I_2 + J_2 + K_2, n]
+               K_2 += 1
+               return (I_2, J_2, K_2, val_2, total_2)
 
-            I_, J_, K_, val_, total_ = while_loop(lambda arr2: arr2[2] < na + nb + 1, loop_K, (I, J, K, val, total))
-            J_ += 1
-            return (I_, J_, K_, val_, total_)
+            I_1_, J_1_, K_1_, val_1_, total_1_ = while_loop(lambda arr2: arr2[2] < na + nb + 1, loop_K, (I_1, J_1, K_1, val_1, total_1))
+            J_1_ += 1
+            return (I_1_, J_1_, K_1_, val_1_, total_1_)
 
-         I_, J_, K_, val_, total_ = while_loop(lambda arr1: arr1[1] < ma + mb + 1, loop_J, (I, J, K, val, total))
-         I_ += 1
-         return (I_, J_, K_, val_, total_)
+         I_0_, J_0_, K_0_, val_0_, total_0_ = while_loop(lambda arr1: arr1[1] < ma + mb + 1, loop_J, (I_0, J_0, K_0, val_0, total_0))
+         I_0_ += 1
+         return (I_0_, J_0_, K_0_, val_0_, total_0_)
 
       I_, J_, K_, val_, total_ = while_loop(lambda arr0: arr0[0] < la + lb + 1, loop_I, (I, J, K, val, total))
       val_ += charges[n] * prefactor * total_
@@ -194,28 +194,28 @@ def oei_arrays(geom, basis, charges):
 
        a, b = 0, 0
        def loop_a(arr0):
-          a, b, oei = arr0
-          b = 0
+          a_0, b_0, oei_0 = arr0
+          b_0 = 0
 
           def loop_b(arr1):
-             a, b, oei = arr1
+             a_1, b_1, oei_1 = arr1
              # Gather angular momentum and index
-             la,ma,na = angular_momentum_combinations[a + ld1]
-             lb,mb,nb = angular_momentum_combinations[b + ld2]
+             la,ma,na = angular_momentum_combinations[a_1 + ld1]
+             lb,mb,nb = angular_momentum_combinations[b_1 + ld2]
              # To only create unique indices, need to have separate indices arrays for i and j.
-             i = indices[p1] + a
-             j = indices[p2] + b
+             i = indices[p1] + a_1
+             j = indices[p2] + b_1
              # Compute one electron integrals and add to appropriate index
              overlap_int = overlap(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
              kinetic_int = kinetic(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
              potential_int = potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefactor,charges,A_vals) * coef
-             oei = oei.at[([0,1,2],[i,i,i],[j,j,j])].set((overlap_int, kinetic_int, potential_int))
-             b += 1
-             return (a, b, oei)
+             oei_1 = oei_1.at[([0,1,2],[i,i,i],[j,j,j])].set((overlap_int, kinetic_int, potential_int))
+             b_1 += 1
+             return (a_1, b_1, oei_1)
 
-          a_, b_, oei_ = while_loop(lambda arr1: arr1[1] < dims[p2], loop_b, (a, b, oei))
-          a_ += 1
-          return (a_, b_, oei_)
+          a_0_, b_0_, oei_0_ = while_loop(lambda arr1: arr1[1] < dims[p2], loop_b, (a_0, b_0, oei_0))
+          a_0_ += 1
+          return (a_0_, b_0_, oei_0_)
 
        a_, b_, oei_ = while_loop(lambda arr0: arr0[0] < dims[p1], loop_a, (a, b, STV))
 

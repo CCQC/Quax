@@ -11,3 +11,8 @@ for path in os.listdir(module_path + "/external_integrals"):
     if lib.match(path):
         from . import external_integrals 
         libint_imported = True
+
+if libint_imported:
+    print("Using Libint integrals...")
+else:
+    print("Using Quax integrals...")
