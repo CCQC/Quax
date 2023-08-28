@@ -43,12 +43,12 @@ class OEI(object):
         self.potential_deriv_p.def_impl(self.potential_deriv_impl)
 
         # Register the JVP rules with JAX
-        jax.ad.primitive_jvps[self.overlap_p] = self.overlap_jvp
-        jax.ad.primitive_jvps[self.overlap_deriv_p] = self.overlap_deriv_jvp
-        jax.ad.primitive_jvps[self.kinetic_p] = self.kinetic_jvp
-        jax.ad.primitive_jvps[self.kinetic_deriv_p] = self.kinetic_deriv_jvp
-        jax.ad.primitive_jvps[self.potential_p] = self.potential_jvp
-        jax.ad.primitive_jvps[self.potential_deriv_p] = self.potential_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.overlap_p] = self.overlap_jvp
+        jax.interpreters.ad.primitive_jvps[self.overlap_deriv_p] = self.overlap_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.kinetic_p] = self.kinetic_jvp
+        jax.interpreters.ad.primitive_jvps[self.kinetic_deriv_p] = self.kinetic_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.potential_p] = self.potential_jvp
+        jax.interpreters.ad.primitive_jvps[self.potential_deriv_p] = self.potential_deriv_jvp
 
         # Register the batching rules with JAX
         jax.interpreters.batching.primitive_batchers[self.overlap_deriv_p] = self.overlap_deriv_batch

@@ -21,7 +21,7 @@ RPATH := -Wl,-rpath,"/home/vulcan/ecm23353/.conda/envs/quax/lib"
 
 # This 'TARGETS' suffix should be set to whatever is returned by the command `python3-config --extension-suffix` entered on command line.
 # and it should match the same python version referenced in the above include path for I4 := (3.7 in this case)
-TARGETS := libint_interface.cpython-310m-x86_64-linux-gnu.so
+TARGETS := libint_interface.cpython-310-x86_64-linux-gnu.so
 OBJ     := libint_interface.o
 
 # Rest is boilerplate. Do not edit unless you know what you're doing.

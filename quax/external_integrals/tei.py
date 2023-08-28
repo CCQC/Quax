@@ -42,8 +42,8 @@ class TEI(object):
         self.tei_deriv_p.def_impl(self.tei_deriv_impl)
 
         # Register the JVP rules with JAX
-        jax.ad.primitive_jvps[self.tei_p] = self.tei_jvp
-        jax.ad.primitive_jvps[self.tei_deriv_p] = self.tei_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.tei_p] = self.tei_jvp
+        jax.interpreters.ad.primitive_jvps[self.tei_deriv_p] = self.tei_deriv_jvp
 
         # Register tei_deriv batching rule with JAX
         jax.interpreters.batching.primitive_batchers[self.tei_deriv_p] = self.tei_deriv_batch

@@ -14,13 +14,13 @@ H    1.424209276385    -0.993112599269     0.000000000000
 units bohr
 """)
 basis_name = 'sto-3g'
-psi4.set_options({'basis': basis_name, 
-                  'scf_type': 'pk', 
+psi4.set_options({'basis': basis_name,
+                  'scf_type': 'pk',
                   'mp2_type':'conv',
                   'e_convergence': 1e-10,
                   'd_convergence':1e-10,
-                  'puream': 0, 
-                  'points':5, 
+                  'puream': 0,
+                  'points':5,
                   'fd_project':False})
 
 options = {'damping':True, 'spectral_shift':False, 'integral_algo': 'quax_core'}
