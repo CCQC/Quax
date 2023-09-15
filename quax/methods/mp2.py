@@ -15,7 +15,7 @@ def restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, options,
     nvirt = G.shape[0] - ndocc
     nbf = G.shape[0]
 
-    G = partial_tei_transformation(G, C[:,:ndocc],C[:,ndocc:],C[:,:ndocc],C[:,ndocc:])
+    G = partial_tei_transformation(G, C[:,:ndocc], C[:,ndocc:], C[:,:ndocc], C[:,ndocc:])
 
     # Create tensor dim (occ,vir,occ,vir) of all possible orbital energy denominators
     eps_occ, eps_vir = eps[:ndocc], eps[ndocc:]
@@ -29,12 +29,12 @@ def restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, options,
 
     # Loop algo (lower memory, but tei transform is the memory bottleneck)
     # Create all combinations of four loop variables to make XLA compilation easier
-    indices = cartesian_product(jnp.arange(ndocc),jnp.arange(ndocc),jnp.arange(nvirt),jnp.arange(nvirt))
+    indices = cartesian_product(jnp.arange(ndocc), jnp.arange(ndocc), jnp.arange(nvirt), jnp.arange(nvirt))
 
     mp2_correlation = 0.0
     def loop_mp2(idx, mp2_corr):
         i,j,a,b = indices[idx]
-        mp2_corr += G[i, a, j, b] * (2 * G[i, a, j, b] - G[i, b, j, a]) * e_denom[i,a,j,b]
+        mp2_corr += G[i, a, j, b] * (2 * G[i, a, j, b] - G[i, b, j, a]) * e_denom[i, a, j, b]
         return mp2_corr
 
     dE_mp2 = fori_loop(0, indices.shape[0], loop_mp2, mp2_correlation)

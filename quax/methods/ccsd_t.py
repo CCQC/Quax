@@ -4,8 +4,7 @@ import jax.numpy as jnp
 from jax.lax import while_loop
 
 from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation
-from .ccsd import rccsd 
-from ..integrals import integrals_utils
+from .ccsd import rccsd
 
 def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
     Voooo, Vooov, Voovv, Vovov, Vovvv, Vvvvv = V
@@ -43,22 +42,23 @@ def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
            def loop_b(arr1):
               a_1, b_1, c_1, pT_contribution_1 = arr1
               c_1 = 0
-              delta_vir = 1 + delta_v[a_1,b_1]
+              delta_vir = 1 + delta_v[a_1, b_1]
 
               def loop_c(arr2):
-                 a_2, b_2, c_2, pT_contribution_2 = arr2
-                 delta_vir = delta_vir + delta_v[b_2,c_2]
+                 a_2, b_2, c_2, delta_vir_2, pT_contribution_2 = arr2
+                 delta_vir_2 = delta_vir_2 + delta_v[b_2,c_2]
                  Dd = Dd_occ - (fock_Vd[a_2] + fock_Vd[b_2] + fock_Vd[c_2])
-                 X = W[a_2,b_2,c_2]*V[a_2,b_2,c_2] + W[a_2,c_2,b_2]*V[a_2,c_2,b_2] + W[b_2,a_2,c_2]*V[b_2,a_2,c_2]  \
-                   + W[b_2,c_2,a_2]*V[b_2,c_2,a_2] + W[c_2,a_2,b_2]*V[c_2,a_2,b_2] + W[c_2,b_2,a_2]*V[c_2,b_2,a_2]
-                 Y = (V[a_2,b_2,c_2] + V[b_2,c_2,a_2] + V[c_2,a_2,b_2])
-                 Z = (V[a_2,c_2,b_2] + V[b_2,a_2,c_2] + V[c_2,b_2,a_2])
-                 E = (Y - 2*Z)*(W[a_2,b_2,c_2] + W[b_2,c_2,a_2] + W[c_2,a_2,b_2]) + (Z - 2*Y)*(W[a_2,c_2,b_2]+W[b_2,a_2,c_2]+W[c_2,b_2,a_2]) + 3*X
-                 pT_contribution_2 += E * delta_occ / (Dd * delta_vir)
+                 X = W[a_2, b_2, c_2]*V[a_2, b_2, c_2] + W[a_2, c_2, b_2]*V[a_2, c_2, b_2] + W[b_2, a_2, c_2]*V[b_2, a_2, c_2]  \
+                   + W[b_2, c_2, a_2]*V[b_2, c_2, a_2] + W[c_2, a_2, b_2]*V[c_2, a_2, b_2] + W[c_2, b_2, a_2]*V[c_2, b_2, a_2]
+                 Y = (V[a_2, b_2, c_2] + V[b_2, c_2, a_2] + V[c_2, a_2, b_2])
+                 Z = (V[a_2, c_2, b_2] + V[b_2, a_2, c_2] + V[c_2, b_2, a_2])
+                 E = (Y - 2 * Z) * (W[a_2, b_2, c_2] + W[b_2, c_2, a_2] + W[c_2, a_2, b_2]) \
+                   + (Z - 2 * Y) * (W[a_2, c_2, b_2] + W[b_2, a_2, c_2]+W[c_2, b_2, a_2]) + 3 * X
+                 pT_contribution_2 += E * delta_occ / (Dd * delta_vir_2)
                  c_2 += 1
-                 return (a_2, b_2, c_2, pT_contribution_2)
+                 return (a_2, b_2, c_2, delta_vir_2, pT_contribution_2)
 
-              a_1_, b_1_, c_1_, pT_contribution_1_ = while_loop(lambda arr2: arr2[2] < arr2[1] + 1, loop_c, (a_1, b_1, c_1, pT_contribution_1))
+              a_1_, b_1_, c_1_, delta_vir_, pT_contribution_1_ = while_loop(lambda arr2: arr2[2] < arr2[1] + 1, loop_c, (a_1, b_1, c_1, delta_vir, pT_contribution_1))
               b_1_ += 1
               return (a_1_, b_1_, c_1_, pT_contribution_1_)
 

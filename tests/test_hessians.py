@@ -23,7 +23,7 @@ psi4.set_options({'basis': basis_name,
                   'points':5,
                   'fd_project':False})
 
-options = {'damping':True, 'spectral_shift':False, 'integral_algo': 'quax_core'}
+options = {'damping':True, 'spectral_shift':False}
 
 def test_hartree_fock_hessian(method='hf'):
     psi_deriv = np.round(np.asarray(psi4.hessian(method + '/' + basis_name)), 10)

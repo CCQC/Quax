@@ -155,15 +155,15 @@ std::vector<std::vector<int>> generate_multi_index_lookup(int nparams, int deriv
 // Compute overlap integrals
 py::array overlap() {
     // Overlap integral engine
-    libint2::Engine s_engine(libint2::Operator::overlap,obs.max_nprim(),obs.max_l());
+    libint2::Engine s_engine(libint2::Operator::overlap, obs.max_nprim(), obs.max_l());
     const auto& buf_vec = s_engine.results(); // will point to computed shell sets
     size_t length = nbf * nbf;
     std::vector<double> result(length); // vector to store integral array
 
-    for(auto s1=0; s1!=obs.size(); ++s1) {
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];  // first basis function in first shell
         auto n1 = obs[s1].size(); // number of basis functions in first shell
-        for(auto s2=0; s2!=obs.size(); ++s2) {
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
             auto bf2 = shell2bf[s2];  // first basis function in second shell
             auto n2 = obs[s2].size(); // number of basis functions in second shell
 
@@ -172,8 +172,8 @@ py::array overlap() {
             if (ints_shellset == nullptr)
                 continue;  // nullptr returned if the entire shell-set was screened out
             // Loop over shell block, keeping a total count idx for the size of shell set
-            for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                     result[(bf1 + f1) * nbf + bf2 + f2] = ints_shellset[idx];
                 }
             }
@@ -185,15 +185,15 @@ py::array overlap() {
 // Compute kinetic energy integrals
 py::array kinetic() {
     // Kinetic energy integral engine
-    libint2::Engine t_engine(libint2::Operator::kinetic,obs.max_nprim(),obs.max_l());
+    libint2::Engine t_engine(libint2::Operator::kinetic, obs.max_nprim(), obs.max_l());
     const auto& buf_vec = t_engine.results(); // will point to computed shell sets
     size_t length = nbf * nbf;
     std::vector<double> result(length);
 
-    for(auto s1=0; s1!=obs.size(); ++s1) {
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];  // first basis function in first shell
         auto n1 = obs[s1].size(); // number of basis functions in first shell
-        for(auto s2=0; s2!=obs.size(); ++s2) {
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
             auto bf2 = shell2bf[s2];  // first basis function in second shell
             auto n2 = obs[s2].size(); // number of basis functions in second shell
 
@@ -202,8 +202,8 @@ py::array kinetic() {
             if (ints_shellset == nullptr)
                 continue;  // nullptr returned if the entire shell-set was screened out
             // Loop over shell block, keeping a total count idx for the size of shell set
-            for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                     result[ (bf1 + f1) * nbf + bf2 + f2 ] = ints_shellset[idx];
                 }
             }
@@ -215,17 +215,17 @@ py::array kinetic() {
 // Compute nuclear-electron potential energy integrals
 py::array potential() {
     // Potential integral engine
-    libint2::Engine v_engine(libint2::Operator::nuclear,obs.max_nprim(),obs.max_l());
+    libint2::Engine v_engine(libint2::Operator::nuclear, obs.max_nprim(), obs.max_l());
     v_engine.set_params(make_point_charges(atoms));
     const auto& buf_vec = v_engine.results(); // will point to computed shell sets
 
     size_t length = nbf * nbf;
     std::vector<double> result(length);
     
-    for(auto s1=0; s1!=obs.size(); ++s1) {
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];  // first basis function in first shell
         auto n1 = obs[s1].size(); // number of basis functions in first shell
-        for(auto s2=0; s2!=obs.size(); ++s2) {
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
             auto bf2 = shell2bf[s2];  // first basis function in second shell
             auto n2 = obs[s2].size(); // number of basis functions in second shell
 
@@ -234,8 +234,8 @@ py::array potential() {
             if (ints_shellset == nullptr)
                 continue;  // nullptr returned if the entire shell-set was screened out
             // Loop over shell block, keeping a total count idx for the size of shell set
-            for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                     // idx = x + (y * width) where x = bf2 + f2 and y = bf1 + f1 
                     result[ (bf1 + f1) * nbf + bf2 + f2 ] = ints_shellset[idx];
                 }
@@ -248,22 +248,22 @@ py::array potential() {
 // Computes electron repulsion integrals
 py::array eri() {
     // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
-    libint2::Engine eri_engine(libint2::Operator::coulomb,obs.max_nprim(),obs.max_l());
+    libint2::Engine eri_engine(libint2::Operator::coulomb, obs.max_nprim(), obs.max_l());
     const auto& buf_vec = eri_engine.results(); // will point to computed shell sets
 
     size_t length = nbf * nbf * nbf * nbf;
     std::vector<double> result(length);
     
-    for(auto s1=0; s1!=obs.size(); ++s1) {
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];  // first basis function in first shell
         auto n1 = obs[s1].size(); // number of basis functions in first shell
-        for(auto s2=0; s2!=obs.size(); ++s2) {
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
             auto bf2 = shell2bf[s2];  // first basis function in second shell
             auto n2 = obs[s2].size(); // number of basis functions in second shell
-            for(auto s3=0; s3!=obs.size(); ++s3) {
+            for(auto s3=0; s3 != obs.size(); ++s3) {
                 auto bf3 = shell2bf[s3];  // first basis function in third shell
                 auto n3 = obs[s3].size(); // number of basis functions in third shell
-                for(auto s4=0; s4!=obs.size(); ++s4) {
+                for(auto s4 = 0; s4 != obs.size(); ++s4) {
                     auto bf4 = shell2bf[s4];  // first basis function in fourth shell
                     auto n4 = obs[s4].size(); // number of basis functions in fourth shell
 
@@ -272,13 +272,13 @@ py::array eri() {
                     if (ints_shellset == nullptr)
                         continue;  // nullptr returned if the entire shell-set was screened out
                     // Loop over shell block, keeping a total count idx for the size of shell set
-                    for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                         size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
-                        for(auto f2=0; f2!=n2; ++f2) {
+                        for(auto f2 = 0; f2 != n2; ++f2) {
                             size_t offset_2 = (bf2 + f2) * nbf * nbf;
-                            for(auto f3=0; f3!=n3; ++f3) {
+                            for(auto f3 = 0; f3 != n3; ++f3) {
                                 size_t offset_3 = (bf3 + f3) * nbf;
-                                for(auto f4=0; f4!=n4; ++f4, ++idx) {
+                                for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
                                     result[offset_1 + offset_2 + offset_3 + bf4 + f4] = ints_shellset[idx];
                                 }
                             }
@@ -303,7 +303,7 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
     // Overlap integral derivative engine
-    libint2::Engine s_engine(libint2::Operator::overlap,obs.max_nprim(),obs.max_l(),deriv_order);
+    libint2::Engine s_engine(libint2::Operator::overlap, obs.max_nprim(), obs.max_l(), deriv_order);
 
     // Get size of overlap derivative array and allocate 
     size_t length = nbf * nbf;
@@ -311,11 +311,11 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
 
     const auto& buf_vec = s_engine.results(); // will point to computed shell sets
     
-    for(auto s1=0; s1!=obs.size(); ++s1) {
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
         auto atom1 = shell2atom[s1]; // Atom index of shell 1
         auto n1 = obs[s1].size();    // number of basis functions in shell 1
-        for(auto s2=0; s2!=obs.size(); ++s2) {
+        for(auto s2=0; s2 != obs.size(); ++s2) {
             auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
             auto atom2 = shell2atom[s2]; // Atom index of shell 2
             auto n2 = obs[s2].size();    // number of basis functions in shell 2
@@ -323,12 +323,12 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
             if (atom1 == atom2) continue;
 
             // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
-            std::vector<long> shell_atom_index_list{atom1,atom2};
+            std::vector<long> shell_atom_index_list{atom1, atom2};
 
             // We can check if EVERY differentiated atom according to deriv_vec is contained in this set of 2 atom indices
             // This will ensure the derivative we want is in the buffer.
             std::vector<int> desired_shell_atoms; 
-            for (int i=0; i < deriv_order; i++){
+            for (int i = 0; i < deriv_order; i++){
                 int desired_atom = desired_atom_indices[i];
                 if (shell_atom_index_list[0] == desired_atom) desired_shell_atoms.push_back(0); 
                 else if (shell_atom_index_list[1] == desired_atom) desired_shell_atoms.push_back(1); 
@@ -342,7 +342,7 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
 
             // Now convert these shell atom indices into a shell derivative index, a set of indices length deriv_order with values between 0 and 5, corresponding to 6 possible shell center coordinates
             std::vector<int> shell_derivative;
-            for (int i=0; i < deriv_order; i++){
+            for (int i = 0; i < deriv_order; i++){
                 shell_derivative.push_back(3 * desired_shell_atoms[i] + desired_coordinates[i]);
             }
 
@@ -367,8 +367,8 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
                 continue;  // nullptr returned if the entire shell-set was screened out
 
             // Loop over shell block, keeping a total count idx for the size of shell set
-            for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                     result[(bf1 + f1) * nbf + bf2 + f2 ] = ints_shellset[idx];
                 }
             }
@@ -389,17 +389,17 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
     // Kinetic integral derivative engine
-    libint2::Engine t_engine(libint2::Operator::kinetic,obs.max_nprim(),obs.max_l(),deriv_order);
+    libint2::Engine t_engine(libint2::Operator::kinetic, obs.max_nprim(), obs.max_l(), deriv_order);
     const auto& buf_vec = t_engine.results(); // will point to computed shell sets
 
     size_t length = nbf * nbf;
     std::vector<double> result(length);
     
-    for(auto s1=0; s1!=obs.size(); ++s1) {
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
         auto atom1 = shell2atom[s1]; // Atom index of shell 1
         auto n1 = obs[s1].size();    // number of basis functions in shell 1
-        for(auto s2=0; s2!=obs.size(); ++s2) {
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
             auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
             auto atom2 = shell2atom[s2]; // Atom index of shell 2
             auto n2 = obs[s2].size();    // number of basis functions in shell 2
@@ -407,12 +407,12 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
             if (atom1 == atom2) continue;
 
             // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
-            std::vector<long> shell_atom_index_list{atom1,atom2};
+            std::vector<long> shell_atom_index_list{atom1, atom2};
 
             // We can check if EVERY differentiated atom according to deriv_vec is contained in this set of 2 atom indices
             // This will ensure the derivative we want is in the buffer.
             std::vector<int> desired_shell_atoms; 
-            for (int i=0; i < deriv_order; i++){
+            for (int i = 0; i < deriv_order; i++){
                 int desired_atom = desired_atom_indices[i];
                 if (shell_atom_index_list[0] == desired_atom) desired_shell_atoms.push_back(0); 
                 else if (shell_atom_index_list[1] == desired_atom) desired_shell_atoms.push_back(1); 
@@ -426,7 +426,7 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
 
             // Now convert these shell atom indices into a shell derivative index, a set of indices length deriv_order with values between 0 and 5, corresponding to 6 possible shell center coordinates
             std::vector<int> shell_derivative;
-            for (int i=0; i < deriv_order; i++){
+            for (int i = 0; i < deriv_order; i++){
                 shell_derivative.push_back(3 * desired_shell_atoms[i] + desired_coordinates[i]);
             }
 
@@ -451,8 +451,8 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
                 continue;  // nullptr returned if the entire shell-set was screened out
 
             // Loop over shell block, keeping a total count idx for the size of shell set
-            for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                     result[(bf1 + f1) * nbf + bf2 + f2 ] = ints_shellset[idx];
                 }
             }
@@ -468,10 +468,8 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
     // Lookup arrays for mapping shell derivative index to buffer index 
-    // Potential derivatives are weird. The dimension size is 6 + ncart + ncart 
-    // I believe only the first 6 and last ncart are relevent. Idk what is with the ghost dimension 
     // Potential lookup arrays depend on atom size
-    int dimensions = 6 + 2 * 3 * atoms.size();
+    int dimensions = 6 + 3 * atoms.size();
     static const std::vector<int> buffer_index_potential1d = generate_1d_lookup(dimensions);
     static const std::vector<std::vector<int>> buffer_index_potential2d = generate_2d_lookup(dimensions);
     static const std::vector<std::vector<std::vector<int>>> buffer_index_potential3d = generate_3d_lookup(dimensions);
@@ -483,7 +481,7 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
     // Potential integral derivative engine
-    libint2::Engine v_engine(libint2::Operator::nuclear,obs.max_nprim(),obs.max_l(),deriv_order);
+    libint2::Engine v_engine(libint2::Operator::nuclear, obs.max_nprim(), obs.max_l(), deriv_order);
     v_engine.set_params(libint2::make_point_charges(atoms));
     const auto& buf_vec = v_engine.results(); // will point to computed shell sets
 
@@ -491,47 +489,45 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
     size_t length = nbf * nbf;
     std::vector<double> result(length);
 
-    for(auto s1=0; s1!=obs.size(); ++s1) {
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
         auto atom1 = shell2atom[s1]; // Atom index of shell 1
         auto n1 = obs[s1].size();    // number of basis functions in shell 1
-        for(auto s2=0; s2!=obs.size(); ++s2) {
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
             auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
             auto atom2 = shell2atom[s2]; // Atom index of shell 2
             auto n2 = obs[s2].size();    // number of basis functions in shell 2
 
             // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
-            std::vector<long> shell_atom_index_list{atom1,atom2};
+            std::vector<long> shell_atom_index_list{atom1, atom2};
 
             // Initialize 2d vector, with DERIV_ORDER subvectors
             // Each subvector contains index candidates which are possible choices for each partial derivative operator
             // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
             // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
             std::vector<std::vector<int>> indices; 
-            for (int i=0;i<deriv_order; i++){
+            for (int i = 0; i < deriv_order; i++){
                 std::vector<int> new_vec;
                 indices.push_back(new_vec);
             }
 
             // For every desired atom derivative, check shell and nuclear indices for a match, add it to subvector for that derivative
             // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
-            for (int j=0; j < desired_atom_indices.size(); j++){
+            for (int j = 0; j < desired_atom_indices.size(); j++){
                 int desired_atom_idx = desired_atom_indices[j];
                 // Shell indices
-                for (int i=0; i<2; i++){
+                for (int i = 0; i < 2; i++){
                     int atom_idx = shell_atom_index_list[i];
                     if (atom_idx == desired_atom_idx) { 
                         int tmp = 3 * i + desired_coordinates[j];
                         indices[j].push_back(tmp);
                     }
                 }
-                // TODO weird action here by libint, theres a NCART block of zeros introduced between shell derivs and real NCART derivs
-                // So we compensate by starting from 2 + natom
-                // If this is ever changed, this needs to be edited.
-                for (int i=0; i<natom; i++){
+                
+                for (int i = 0; i < natom; i++){
                     // i = shell_atom_index_list[i];
                     if (i == desired_atom_idx) { 
-                        int offset_i = i + 2 + natom;
+                        int offset_i = i + 2;
                         int tmp = 3 * offset_i + desired_coordinates[j];
                         indices[j].push_back(tmp);
                     }
@@ -547,20 +543,20 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
             // Loop over every subvector of index_combos and lookup buffer index.
             std::vector<int> buffer_indices;
             if (deriv_order == 1){
-                for (int i=0; i < index_combos.size(); i++){
+                for (int i = 0; i < index_combos.size(); i++){
                     int idx1 = index_combos[i][0];
                     buffer_indices.push_back(buffer_index_potential1d[idx1]);
                 }
             }
             else if (deriv_order == 2){
-                for (int i=0; i < index_combos.size(); i++){
+                for (int i = 0; i < index_combos.size(); i++){
                     int idx1 = index_combos[i][0];
                     int idx2 = index_combos[i][1];
                     buffer_indices.push_back(buffer_index_potential2d[idx1][idx2]);
                 }
             }
             else if (deriv_order == 3){
-                for (int i=0; i < index_combos.size(); i++){
+                for (int i = 0; i < index_combos.size(); i++){
                     int idx1 = index_combos[i][0];
                     int idx2 = index_combos[i][1];
                     int idx3 = index_combos[i][2];
@@ -568,7 +564,7 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
                 }
             }
             else if (deriv_order == 4){
-                for (int i=0; i < index_combos.size(); i++){
+                for (int i = 0; i < index_combos.size(); i++){
                     int idx1 = index_combos[i][0];
                     int idx2 = index_combos[i][1];
                     int idx3 = index_combos[i][2];
@@ -578,11 +574,11 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
             }
 
             // Loop over every buffer index and accumulate for every shell set.
-            for(auto i=0; i<buffer_indices.size(); ++i) {
+            for(auto i = 0; i < buffer_indices.size(); ++i) {
               auto ints_shellset = buf_vec[buffer_indices[i]]; 
               if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
-              for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                for(auto f2=0; f2!=n2; ++f2, ++idx) {
+              for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                   result[(bf1 + f1) * nbf + bf2 + f2] += ints_shellset[idx]; 
                 }
               }
@@ -604,24 +600,24 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
     assert(3 * atoms.size() == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
 
     // ERI derivative integral engine
-    libint2::Engine eri_engine(libint2::Operator::coulomb,obs.max_nprim(),obs.max_l(),deriv_order);
+    libint2::Engine eri_engine(libint2::Operator::coulomb, obs.max_nprim(), obs.max_l(), deriv_order);
     const auto& buf_vec = eri_engine.results(); // will point to computed shell sets
     size_t length = nbf * nbf * nbf * nbf;
     std::vector<double> result(length);
 
-    for(auto s1=0; s1!=obs.size(); ++s1) {
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
         auto atom1 = shell2atom[s1]; // Atom index of shell 1
         auto n1 = obs[s1].size();    // number of basis functions in shell 1
-        for(auto s2=0; s2!=obs.size(); ++s2) {
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
             auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
             auto atom2 = shell2atom[s2]; // Atom index of shell 2
             auto n2 = obs[s2].size();    // number of basis functions in shell 2
-            for(auto s3=0; s3!=obs.size(); ++s3) {
+            for(auto s3 = 0; s3 != obs.size(); ++s3) {
                 auto bf3 = shell2bf[s3];     // Index of first basis function in shell 3
                 auto atom3 = shell2atom[s3]; // Atom index of shell 3
                 auto n3 = obs[s3].size();    // number of basis functions in shell 3
-                for(auto s4=0; s4!=obs.size(); ++s4) {
+                for(auto s4 = 0; s4 != obs.size(); ++s4) {
                     auto bf4 = shell2bf[s4];     // Index of first basis function in shell 4
                     auto atom4 = shell2atom[s4]; // Atom index of shell 4
                     auto n4 = obs[s4].size();    // number of basis functions in shell 4
@@ -630,7 +626,7 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
                     if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
                     // Ensure all desired_atoms correspond to at least one shell atom to ensure desired derivative exists. else, skip this shell quartet.
                     bool atoms_not_present = false;
-                    for (int i=0; i < deriv_order; i++){
+                    for (int i = 0; i < deriv_order; i++){
                         if (atom1 == desired_atom_indices[i]) continue; 
                         else if (atom2 == desired_atom_indices[i]) continue;
                         else if (atom3 == desired_atom_indices[i]) continue;
@@ -640,24 +636,24 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
                     if (atoms_not_present) continue;
 
                     // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
-                    std::vector<long> shell_atom_index_list{atom1,atom2,atom3,atom4};
+                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
 
                     // Initialize 2d vector, with DERIV_ORDER subvectors
                     // Each subvector contains index candidates which are possible choices for each partial derivative operator
                     // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
                     // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
                     std::vector<std::vector<int>> indices;
-                    for (int i=0;i<deriv_order; i++){
+                    for (int i = 0; i < deriv_order; i++){
                         std::vector<int> new_vec;
                         indices.push_back(new_vec);
                     }
                 
                     // For every desired atom derivative, check shell indices for a match, add it to subvector for that derivative
                     // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
-                    for (int j=0; j < desired_atom_indices.size(); j++){
+                    for (int j = 0; j < desired_atom_indices.size(); j++){
                         int desired_atom_idx = desired_atom_indices[j];
                         // Shell indices
-                        for (int i=0; i<4; i++){
+                        for (int i = 0; i < 4; i++){
                             int atom_idx = shell_atom_index_list[i];
                             if (atom_idx == desired_atom_idx) {
                                 int tmp = 3 * i + desired_coordinates[j];
@@ -675,20 +671,20 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
                     // Now create buffer_indices from these index combos using lookup array
                     std::vector<int> buffer_indices;
                     if (deriv_order == 1){ 
-                        for (int i=0; i < index_combos.size(); i++){
+                        for (int i = 0; i < index_combos.size(); i++){
                             int idx1 = index_combos[i][0];
                             buffer_indices.push_back(buffer_index_eri1d[idx1]);
                         }
                     }
                     else if (deriv_order == 2){ 
-                        for (int i=0; i < index_combos.size(); i++){
+                        for (int i = 0; i < index_combos.size(); i++){
                             int idx1 = index_combos[i][0];
                             int idx2 = index_combos[i][1];
                             buffer_indices.push_back(buffer_index_eri2d[idx1][idx2]);
                         }
                     }
                     else if (deriv_order == 3){ 
-                        for (int i=0; i < index_combos.size(); i++){
+                        for (int i = 0; i < index_combos.size(); i++){
                             int idx1 = index_combos[i][0];
                             int idx2 = index_combos[i][1];
                             int idx3 = index_combos[i][2];
@@ -696,7 +692,7 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
                         }
                     }
                     else if (deriv_order == 4){ 
-                        for (int i=0; i < index_combos.size(); i++){
+                        for (int i = 0; i < index_combos.size(); i++){
                             int idx1 = index_combos[i][0];
                             int idx2 = index_combos[i][1];
                             int idx3 = index_combos[i][2];
@@ -708,16 +704,16 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
                     // If we made it this far, the shell derivative we want is contained in the buffer. 
                     eri_engine.compute(obs[s1], obs[s2], obs[s3], obs[s4]); // Compute shell set, fills buf_vec
 
-                    for(auto i=0; i<buffer_indices.size(); ++i) {
+                    for(auto i = 0; i<buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
                         if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
-                        for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                             size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
-                            for(auto f2=0; f2!=n2; ++f2) {
+                            for(auto f2 = 0; f2 != n2; ++f2) {
                                 size_t offset_2 = (bf2 + f2) * nbf * nbf;
-                                for(auto f3=0; f3!=n3; ++f3) {
+                                for(auto f3 = 0; f3 != n3; ++f3) {
                                     size_t offset_3 = (bf3 + f3) * nbf;
-                                    for(auto f4=0; f4!=n4; ++f4, ++idx) {
+                                    for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
                                         result[offset_1 + offset_2 + offset_3 + bf4 + f4] += ints_shellset[idx];
                                     }
                                 }
@@ -759,7 +755,7 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
 void oei_deriv_disk(int max_deriv_order) {
     std::cout << "Writing one-electron integral derivative tensors up to order " << max_deriv_order << " to disk...";
     long total_deriv_slices = 0;
-    for (int i=1; i<= max_deriv_order; i++){
+    for (int i = 1; i <= max_deriv_order; i++){
         total_deriv_slices += how_many_derivs(natom, i);
         }
 
@@ -780,9 +776,8 @@ void oei_deriv_disk(int max_deriv_order) {
         // Create mappings from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
         // Overlap and kinetic have different mappings than potential since potential has more elements in the buffer 
         const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
-        // Potential integrals buffer is flattened upper triangle of (6 + NCART + NCART) dimensional deriv_order tensor
-        // TODO if libint ever fixes the erroneous NCART + NCART buffer dimension size, this needs to be changed (remove *2)
-        int dimensions = 6 + 2 * 3 * natom;
+        // Potential integrals buffer is flattened upper triangle of (6 + NCART) dimensional deriv_order tensor
+        int dimensions = 6 + 3 * natom;
         const std::vector<std::vector<int>> potential_buffer_multidim_lookup = generate_multi_index_lookup(dimensions, deriv_order);
 
         // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
@@ -809,19 +804,18 @@ void oei_deriv_disk(int max_deriv_order) {
         DataSet* overlap_dataset = new DataSet(file->createDataSet(overlap_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
         DataSet* kinetic_dataset = new DataSet(file->createDataSet(kinetic_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
         DataSet* potential_dataset = new DataSet(file->createDataSet(potential_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
-        hsize_t stride[3] = {1,1,1}; // stride and block can be used to 
-        hsize_t block[3] = {1,1,1};  // add values to multiple places, useful if symmetry ever used.
-        hsize_t zerostart[3] = {0,0,0};
+        hsize_t stride[3] = {1, 1, 1}; // stride and block can be used to 
+        hsize_t block[3] = {1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
+        hsize_t zerostart[3] = {0, 0, 0};
 
-        for(auto s1=0; s1!=obs.size(); ++s1) {
+        for(auto s1 = 0; s1 != obs.size(); ++s1) {
             auto bf1 = shell2bf[s1];  // first basis function in first shell
             auto atom1 = shell2atom[s1]; // Atom index of shell 1
             auto n1 = obs[s1].size(); // number of basis functions in first shell
-            for(auto s2=0; s2!=obs.size(); ++s2) {
+            for(auto s2 = 0; s2 != obs.size(); ++s2) {
                 auto bf2 = shell2bf[s2];  // first basis function in second shell
                 auto atom2 = shell2atom[s2]; // Atom index of shell 2
                 auto n2 = obs[s2].size(); // number of basis functions in second shell
-                //if (atom1 == atom2) continue;
                 std::vector<long> shell_atom_index_list{atom1,atom2};
 
                 overlap_engine.compute(obs[s1], obs[s2]);
@@ -835,7 +829,7 @@ void oei_deriv_disk(int max_deriv_order) {
                 
                 // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
                 // For 1st derivatives of 2 atom system, this is 6. 2nd derivatives of 2 atom system: 21, etc
-                for(int nuc_idx=0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
                     // Look up multidimensional cartesian derivative index
                     auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
                     // For overlap/kinetic and potential sepearately, create a vector of vectors called `indices`, where each subvector
@@ -846,7 +840,7 @@ void oei_deriv_disk(int max_deriv_order) {
                 
                     // Loop over each cartesian coordinate index which we are differentiating wrt for this nuclear cartesian derivative index
                     // and check to see if it is present in the shell duet, and where it is present in the potential operator 
-                    for (int j=0; j < multi_cart_idx.size(); j++){
+                    for (int j = 0; j < multi_cart_idx.size(); j++){
                         int desired_atom_idx = multi_cart_idx[j] / 3;
                         int desired_coord = multi_cart_idx[j] % 3;
                         // Loop over shell indices
@@ -860,10 +854,9 @@ void oei_deriv_disk(int max_deriv_order) {
                         }
                         // Now for potentials only, loop over each atom in molecule, and if this derivative
                         // differentiates wrt that atom, we also need to collect that index.
-                        // If libint ever removes that extra NCART dimension, remove the `+ natom`
-                        for (int i=0; i<natom; i++){
+                        for (int i = 0; i < natom; i++){
                             if (i == desired_atom_idx) {
-                                int offset_i = i + 2 + natom;
+                                int offset_i = i + 2;
                                 int tmp = 3 * offset_i + desired_coord;
                                 potential_indices[j].push_back(tmp);
                             }
@@ -896,21 +889,21 @@ void oei_deriv_disk(int max_deriv_order) {
 
                     // Loop over shell block for each buffer index which contributes to this derivative
                     // Overlap and Kinetic
-                    for(auto i=0; i<buffer_indices.size(); ++i) {
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto overlap_shellset = overlap_buffer[buffer_indices[i]];
                         auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
-                        for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                            for(auto f2=0; f2!=n2; ++f2, ++idx) {
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                                 overlap_shellset_slab[f1][f2][nuc_idx] += overlap_shellset[idx];
                                 kinetic_shellset_slab[f1][f2][nuc_idx] += kinetic_shellset[idx];
                             }
                         }
                     }
                     // Potential
-                    for(auto i=0; i<potential_buffer_indices.size(); ++i) {
+                    for(auto i = 0; i < potential_buffer_indices.size(); ++i) {
                         auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
-                        for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                            for(auto f2=0; f2!=n2; ++f2, ++idx) {
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                                 potential_shellset_slab[f1][f2][nuc_idx] += potential_shellset[idx];
                             }
                         }
@@ -963,7 +956,7 @@ void eri_deriv_disk(int max_deriv_order) {
 
     // Check to make sure you are not flooding the disk.
     long total_deriv_slices = 0;
-    for (int i=1; i<= max_deriv_order; i++){
+    for (int i = 1; i <= max_deriv_order; i++){
         total_deriv_slices += how_many_derivs(natom, i);
         }
     double check = (nbf * nbf * nbf * nbf * total_deriv_slices * 8) * (1e-9);
@@ -982,7 +975,7 @@ void eri_deriv_disk(int max_deriv_order) {
         const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(natom * 3, deriv_order);
 
         // Libint engine for computing shell quartet derivatives
-        libint2::Engine eri_engine(libint2::Operator::coulomb,obs.max_nprim(),obs.max_l(), deriv_order);
+        libint2::Engine eri_engine(libint2::Operator::coulomb, obs.max_nprim(), obs.max_l(), deriv_order);
         const auto& eri_buffer = eri_engine.results(); // will point to computed shell sets
 
         // Define HDF5 dataset name
@@ -991,47 +984,47 @@ void eri_deriv_disk(int max_deriv_order) {
         DataSpace fspace(5, file_dims);
         // Create dataset for each integral type and write 0.0's into the file 
         DataSet* eri_dataset = new DataSet(file->createDataSet(eri_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
-        hsize_t stride[5] = {1,1,1,1,1}; // stride and block can be used to 
-        hsize_t block[5] = {1,1,1,1,1};  // add values to multiple places, useful if symmetry ever used.
-        hsize_t zerostart[5] = {0,0,0,0,0};
+        hsize_t stride[5] = {1, 1, 1, 1, 1}; // stride and block can be used to 
+        hsize_t block[5] = {1, 1, 1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
+        hsize_t zerostart[5] = {0, 0, 0, 0, 0};
 
         // Begin shell quartet loops
-        for(auto s1=0; s1!=obs.size(); ++s1) {
+        for(auto s1 = 0; s1 != obs.size(); ++s1) {
             auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
             auto atom1 = shell2atom[s1]; // Atom index of shell 1
             auto n1 = obs[s1].size();    // number of basis functions in shell 1
-            for(auto s2=0; s2!=obs.size(); ++s2) {
+            for(auto s2 = 0; s2 != obs.size(); ++s2) {
                 auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
                 auto atom2 = shell2atom[s2]; // Atom index of shell 2
                 auto n2 = obs[s2].size();    // number of basis functions in shell 2
-                for(auto s3=0; s3!=obs.size(); ++s3) {
+                for(auto s3 = 0; s3 != obs.size(); ++s3) {
                     auto bf3 = shell2bf[s3];     // Index of first basis function in shell 3
                     auto atom3 = shell2atom[s3]; // Atom index of shell 3
                     auto n3 = obs[s3].size();    // number of basis functions in shell 3
-                    for(auto s4=0; s4!=obs.size(); ++s4) {
+                    for(auto s4 = 0; s4 != obs.size(); ++s4) {
                         auto bf4 = shell2bf[s4];     // Index of first basis function in shell 4
                         auto atom4 = shell2atom[s4]; // Atom index of shell 4
                         auto n4 = obs[s4].size();    // number of basis functions in shell 4
 
                         if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
-                        std::vector<long> shell_atom_index_list{atom1,atom2,atom3,atom4};
+                        std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
 
                         eri_engine.compute(obs[s1], obs[s2], obs[s3], obs[s4]); // Compute shell set
 
                         // Define shell set slab, with extra dimension for unique derivatives, initialized with 0.0's
                         double eri_shellset_slab [n1][n2][n3][n4][nderivs_triu] = {};
                         // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
-                        for(int nuc_idx=0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                        for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
                             // Look up multidimensional cartesian derivative index
                             auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
     
                             std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
     
                             // Find out which 
-                            for (int j=0; j < multi_cart_idx.size(); j++){
+                            for (int j = 0; j < multi_cart_idx.size(); j++){
                                 int desired_atom_idx = multi_cart_idx[j] / 3;
                                 int desired_coord = multi_cart_idx[j] % 3;
-                                for (int i=0; i<4; i++){
+                                for (int i = 0; i < 4; i++){
                                     int atom_idx = shell_atom_index_list[i];
                                     if (atom_idx == desired_atom_idx) {
                                         int tmp = 3 * i + desired_coord;
@@ -1065,13 +1058,13 @@ void eri_deriv_disk(int max_deriv_order) {
                             }
 
                             // Loop over shell block, keeping a total count idx for the size of shell set
-                            for(auto i=0; i<buffer_indices.size(); ++i) {
+                            for(auto i = 0; i < buffer_indices.size(); ++i) {
                                 auto eri_shellset = eri_buffer[buffer_indices[i]];
                                 if (eri_shellset == nullptr) continue;
-                                for(auto f1=0, idx=0; f1!=n1; ++f1) {
-                                    for(auto f2=0; f2!=n2; ++f2) {
-                                        for(auto f3=0; f3!=n3; ++f3) {
-                                            for(auto f4=0; f4!=n4; ++f4, ++idx) {
+                                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                                    for(auto f2 = 0; f2 != n2; ++f2) {
+                                        for(auto f3 = 0; f3 != n3; ++f3) {
+                                            for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
                                                 eri_shellset_slab[f1][f2][f3][f4][nuc_idx] += eri_shellset[idx];
                                             }
                                         }
@@ -1116,37 +1109,37 @@ py::array eri_deriv_core(int deriv_order) {
     const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(natom * 3, deriv_order);
 
     // Libint engine for computing shell quartet derivatives
-    libint2::Engine eri_engine(libint2::Operator::coulomb,obs.max_nprim(),obs.max_l(), deriv_order);
+    libint2::Engine eri_engine(libint2::Operator::coulomb, obs.max_nprim(), obs.max_l(), deriv_order);
     const auto& eri_buffer = eri_engine.results(); // will point to computed shell sets
 
     size_t length = nbf * nbf * nbf * nbf * nderivs_triu;
     std::vector<double> result(length);
 
     // Begin shell quartet loops
-    for(auto s1=0; s1!=obs.size(); ++s1) {
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
         auto atom1 = shell2atom[s1]; // Atom index of shell 1
         auto n1 = obs[s1].size();    // number of basis functions in shell 1
-        for(auto s2=0; s2!=obs.size(); ++s2) {
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
             auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
             auto atom2 = shell2atom[s2]; // Atom index of shell 2
             auto n2 = obs[s2].size();    // number of basis functions in shell 2
-            for(auto s3=0; s3!=obs.size(); ++s3) {
+            for(auto s3 = 0; s3 != obs.size(); ++s3) {
                 auto bf3 = shell2bf[s3];     // Index of first basis function in shell 3
                 auto atom3 = shell2atom[s3]; // Atom index of shell 3
                 auto n3 = obs[s3].size();    // number of basis functions in shell 3
-                for(auto s4=0; s4!=obs.size(); ++s4) {
+                for(auto s4 = 0; s4 != obs.size(); ++s4) {
                     auto bf4 = shell2bf[s4];     // Index of first basis function in shell 4
                     auto atom4 = shell2atom[s4]; // Atom index of shell 4
                     auto n4 = obs[s4].size();    // number of basis functions in shell 4
 
                     if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
-                    std::vector<long> shell_atom_index_list{atom1,atom2,atom3,atom4};
+                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
 
                     eri_engine.compute(obs[s1], obs[s2], obs[s3], obs[s4]); // Compute shell set
 
                     // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
-                    for(int nuc_idx=0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                    for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
                         size_t offset_nuc_idx = nuc_idx * nbf * nbf * nbf * nbf;
 
                         // Look up multidimensional cartesian derivative index
@@ -1154,10 +1147,10 @@ py::array eri_deriv_core(int deriv_order) {
     
                         // Find out which shell derivatives provided by Libint correspond to this nuclear cartesian derivative
                         std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
-                        for (int j=0; j < multi_cart_idx.size(); j++){
+                        for (int j = 0; j < multi_cart_idx.size(); j++){
                             int desired_atom_idx = multi_cart_idx[j] / 3;
                             int desired_coord = multi_cart_idx[j] % 3;
-                            for (int i=0; i<4; i++){
+                            for (int i = 0; i<4; i++){
                                 int atom_idx = shell_atom_index_list[i];
                                 if (atom_idx == desired_atom_idx) {
                                     int tmp = 3 * i + desired_coord;
@@ -1191,19 +1184,18 @@ py::array eri_deriv_core(int deriv_order) {
                         }
 
                         // Loop over shell block, keeping a total count idx for the size of shell set
-                        for(auto i=0; i<buffer_indices.size(); ++i) {
+                        for(auto i = 0; i < buffer_indices.size(); ++i) {
                             auto eri_shellset = eri_buffer[buffer_indices[i]];
                             if (eri_shellset == nullptr) continue;
-                            for(auto f1=0, idx=0; f1!=n1; ++f1) {
+                            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                                 size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
-                                for(auto f2=0; f2!=n2; ++f2) {
+                                for(auto f2 = 0; f2 != n2; ++f2) {
                                     size_t offset_2 = (bf2 + f2) * nbf * nbf;
-                                    for(auto f3=0; f3!=n3; ++f3) {
+                                    for(auto f3 = 0; f3 != n3; ++f3) {
                                         size_t offset_3 = (bf3 + f3) * nbf;
-                                        for(auto f4=0; f4!=n4; ++f4, ++idx) {
+                                        for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
                                             size_t offset_4 = bf4 + f4;
                                             result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += eri_shellset[idx];
-                                            //eri_shellset_slab[f1][f2][f3][f4][nuc_idx] += eri_shellset[idx];
                                         }
                                     }
                                 }
@@ -1216,7 +1208,6 @@ py::array eri_deriv_core(int deriv_order) {
     } // shell quartet loops
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 } // eri_deriv_disk function
-
 
 // Define module named 'libint_interface' which can be imported with python
 // The second arg, 'm' defines a variable py::module_ which can be used to create

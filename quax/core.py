@@ -180,7 +180,7 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
         else:
             print("Error: Order {} partial derivatives are not exposed to the API.".format(deriv_order))
             partial_deriv = 0
-        return jnp.round(partial_deriv,10)
+        return jnp.round(partial_deriv, 10)
 
 def energy(molecule, basis_name, method, options=None):
     """

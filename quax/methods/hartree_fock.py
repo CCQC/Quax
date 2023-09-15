@@ -20,9 +20,9 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
 
     # If we are doing MP2 or CCSD after, might as well use jit-compiled JK-build, since HF will not be memory bottleneck
     if return_aux_data:
-        jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None)))
+        jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0, 1), (0, 1)]), in_axes=(0, None)), in_axes=(0, None)))
     else: 
-        jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1),(0,1)]), in_axes=(0,None)), in_axes=(0,None))
+        jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0, 1), (0, 1)]), in_axes=(0, None)), in_axes=(0, None))
 
     S, T, V, G = compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order, options)
     # Canonical orthogonalization via cholesky decomposition
@@ -49,7 +49,7 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
         Fp = jnp.dot(A.T, jnp.dot(F, A))
         Fp = Fp + shift 
         eps, C2 = jnp.linalg.eigh(Fp)
-        C = jnp.dot(A,C2)
+        C = jnp.dot(A, C2)
         Cocc = C[:, :ndocc]
         D = jnp.dot(Cocc, Cocc.T)
         return E_scf, D, C, eps
@@ -70,23 +70,23 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
                 Dold = D * 1
         # Build JK matrix: 2 * J - K
         JK = 2 * jk_build(G, D)
-        JK -= jk_build(G.transpose((0,2,1,3)), D)
+        JK -= jk_build(G.transpose((0, 2, 1, 3)), D)
         # Build Fock
         F = H + JK
         # Update convergence error
         if iteration > 1:
             diis_e = jnp.einsum('ij,jk,kl->il', F, D, S) - jnp.einsum('ij,jk,kl->il', S, D, F)
             diis_e = A.dot(diis_e).dot(A)
-            dRMS = jnp.mean(diis_e**2)**0.5
+            dRMS = jnp.mean(diis_e ** 2) ** 0.5
         # Compute energy, transform Fock and diagonalize, get new density
-        E_scf, D, C, eps = rhf_iter(F,D)
+        E_scf, D, C, eps = rhf_iter(F, D)
         iteration += 1
         if iteration == maxit:
             break
     print(iteration, " RHF iterations performed")
 
     # If many orbitals are degenerate, warn that higher order derivatives may be unstable 
-    tmp = jnp.round(eps,6)
+    tmp = jnp.round(eps, 6)
     ndegen_orbs =  tmp.shape[0] - jnp.unique(tmp).shape[0] 
     if (ndegen_orbs / nbf) > 0.20:
         print("Hartree-Fock warning: More than 20% of orbitals have degeneracies. Higher order derivatives may be unstable due to eigendecomposition AD rule")
