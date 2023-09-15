@@ -10,8 +10,8 @@ import os
 from ..utils import get_deriv_vec_idx, get_required_deriv_vecs
 
 # Check for Libint interface
-from ..integrals import TEI 
-from ..integrals import OEI 
+from ..integrals import TEI
+from ..integrals import OEI
 from ..integrals import libint_interface
      
 
@@ -20,7 +20,7 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
     algo = options['integral_algo']
 
     if algo == 'libint_disk':
-        # Check disk for currently existing integral derivatives 
+        # Check disk for currently existing integral derivatives
         check = check_disk(geom,basis_name,xyz_path,deriv_order)
 
         tei_obj = TEI(basis_name, xyz_path, deriv_order, 'disk')
@@ -45,7 +45,7 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
 
     else:
         libint_interface.initialize(xyz_path, basis_name)
-        # Precompute TEI derivatives 
+        # Precompute TEI derivatives
         tei_obj = TEI(basis_name, xyz_path, deriv_order, 'core')
         oei_obj = OEI(basis_name, xyz_path, deriv_order, 'core')
         # Compute integrals
