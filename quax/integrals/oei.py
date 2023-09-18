@@ -19,9 +19,22 @@ class OEI(object):
         natoms = molecule.natom()
         nbf = basis_set.nbf()
 
-        # TODO implement core-algo for OEI's in libint_interface.cc
-        #if mode == 'core' and max_deriv_order > 0:
-            #self.oei_derivatives = {}
+        if mode == 'core' and max_deriv_order > 0:
+            # A list of OEI derivative tensors, containing only unique elements
+            # corresponding to upper hypertriangle (since derivative tensors are symmetric)
+            # Length of tuple is maximum deriv order, each array is (upper triangle derivatives,nbf,nbf)
+            # Then when JAX calls JVP, read appropriate slice
+            self.overlap_derivatives = []
+            self.kinetic_derivatives = []
+            self.potential_derivatives = []
+            for i in range(max_deriv_order):
+                n_unique_derivs = how_many_derivs(natoms, i + 1)
+                overlap_deriv = libint_interface.overlap_deriv_core(i + 1).reshape(n_unique_derivs,nbf,nbf)
+                kinetic_deriv = libint_interface.kinetic_deriv_core(i + 1).reshape(n_unique_derivs,nbf,nbf)
+                potential_deriv = libint_interface.potential_deriv_core(i + 1).reshape(n_unique_derivs,nbf,nbf)
+                self.overlap_derivatives.append(overlap_deriv)
+                self.kinetic_derivatives.append(kinetic_deriv)
+                self.potential_derivatives.append(potential_deriv)
 
         self.mode = mode
         self.nbf = nbf
@@ -93,13 +106,12 @@ class OEI(object):
     def overlap_deriv_impl(self, geom, deriv_vec):
         deriv_vec = np.asarray(deriv_vec, int)
         deriv_order = np.sum(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
 
-        #TODO update once core algo in libint is computed, this just computes one slice at a time
         if self.mode == 'core':
-            S = libint_interface.overlap_deriv(np.asarray(deriv_vec, int))
-            return jnp.asarray(S).reshape(self.nbf,self.nbf)
+            S = self.overlap_derivatives[deriv_order-1][idx,:,:]
+            return jnp.asarray(S)
         else:
-            idx = get_deriv_vec_idx(deriv_vec)
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
                 dataset_name = "overlap_deriv" + str(deriv_order)
@@ -121,13 +133,12 @@ class OEI(object):
     def kinetic_deriv_impl(self, geom, deriv_vec):
         deriv_vec = np.asarray(deriv_vec, int)
         deriv_order = np.sum(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
 
-        #TODO update once core algo in libint is computed, this just computes one slice at a time
         if self.mode == 'core':
-            T = libint_interface.kinetic_deriv(np.asarray(deriv_vec, int))
-            return jnp.asarray(T).reshape(self.nbf,self.nbf)
+            T = self.kinetic_derivatives[deriv_order-1][idx,:,:]
+            return jnp.asarray(T)
         else:
-            idx = get_deriv_vec_idx(deriv_vec)
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
                 dataset_name = "kinetic_deriv" + str(deriv_order)
@@ -149,13 +160,12 @@ class OEI(object):
     def potential_deriv_impl(self, geom, deriv_vec):
         deriv_vec = np.asarray(deriv_vec, int)
         deriv_order = np.sum(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
 
-        #TODO update once core algo in libint is computed, this just computes one slice at a time
         if self.mode == 'core':
-            V = libint_interface.potential_deriv(np.asarray(deriv_vec, int))
-            return jnp.asarray(V).reshape(self.nbf,self.nbf)
+            V = self.potential_derivatives[deriv_order-1][idx,:,:]
+            return jnp.asarray(V)
         else:
-            idx = get_deriv_vec_idx(deriv_vec)
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
                 dataset_name = "potential_deriv" + str(deriv_order)

@@ -48,12 +48,12 @@ def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
                  a_2, b_2, c_2, delta_vir_2, pT_contribution_2 = arr2
                  delta_vir_2 = delta_vir_2 + delta_v[b_2,c_2]
                  Dd = Dd_occ - (fock_Vd[a_2] + fock_Vd[b_2] + fock_Vd[c_2])
-                 X = W[a_2, b_2, c_2]*V[a_2, b_2, c_2] + W[a_2, c_2, b_2]*V[a_2, c_2, b_2] + W[b_2, a_2, c_2]*V[b_2, a_2, c_2]  \
-                   + W[b_2, c_2, a_2]*V[b_2, c_2, a_2] + W[c_2, a_2, b_2]*V[c_2, a_2, b_2] + W[c_2, b_2, a_2]*V[c_2, b_2, a_2]
+                 X = W[a_2, b_2, c_2] * V[a_2, b_2, c_2] + W[a_2, c_2, b_2] * V[a_2, c_2, b_2] + W[b_2, a_2, c_2] * V[b_2, a_2, c_2]  \
+                   + W[b_2, c_2, a_2] * V[b_2, c_2, a_2] + W[c_2, a_2, b_2] * V[c_2, a_2, b_2] + W[c_2, b_2, a_2] * V[c_2, b_2, a_2]
                  Y = (V[a_2, b_2, c_2] + V[b_2, c_2, a_2] + V[c_2, a_2, b_2])
                  Z = (V[a_2, c_2, b_2] + V[b_2, a_2, c_2] + V[c_2, b_2, a_2])
                  E = (Y - 2 * Z) * (W[a_2, b_2, c_2] + W[b_2, c_2, a_2] + W[c_2, a_2, b_2]) \
-                   + (Z - 2 * Y) * (W[a_2, c_2, b_2] + W[b_2, a_2, c_2]+W[c_2, b_2, a_2]) + 3 * X
+                   + (Z - 2 * Y) * (W[a_2, c_2, b_2] + W[b_2, a_2, c_2] + W[c_2, b_2, a_2]) + 3 * X
                  pT_contribution_2 += E * delta_occ / (Dd * delta_vir_2)
                  c_2 += 1
                  return (a_2, b_2, c_2, delta_vir_2, pT_contribution_2)

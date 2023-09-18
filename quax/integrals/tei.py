@@ -20,14 +20,14 @@ class TEI(object):
         nbf = basis_set.nbf()
 
         if mode == 'core' and max_deriv_order > 0:
-            # An list of ERI derivative tensors, containing only unique elements
+            # A list of ERI derivative tensors, containing only unique elements
             # corresponding to upper hypertriangle (since derivative tensors are symmetric)
             # Length of tuple is maximum deriv order, each array is (upper triangle derivatives,nbf,nbf,nbf,nbf)
             # Then when JAX calls JVP, read appropriate slice
             self.eri_derivatives = []
             for i in range(max_deriv_order):
                 n_unique_derivs = how_many_derivs(natoms, i + 1)
-                eri_deriv = libint_interface.eri_deriv_core(i+1).reshape(n_unique_derivs,nbf,nbf,nbf,nbf)
+                eri_deriv = libint_interface.eri_deriv_core(i + 1).reshape(n_unique_derivs,nbf,nbf,nbf,nbf)
                 self.eri_derivatives.append(eri_deriv)
 
         self.mode = mode

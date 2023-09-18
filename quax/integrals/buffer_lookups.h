@@ -19,7 +19,7 @@ std::vector<std::vector<int>> generate_2d_lookup(int dim_size) {
     vector<vector<int>> lookup(dim_size, vector<int> (dim_size, 0));
     vector<vector<int>> combos; // always the same, list of lists
 
-    // Collect multidimensional indices corresponding to generalized upper triangle 
+    // Collect multidimensional indices corresponding to generalized upper triangle
     for (int i = 0; i < dim_size; i++) {
       for (int j = i; j < dim_size; j++) {
         vector<int> tmp = {i, j};
@@ -39,11 +39,10 @@ std::vector<std::vector<int>> generate_2d_lookup(int dim_size) {
 }
 
 std::vector<std::vector<std::vector<int>>> generate_3d_lookup(int dim_size) { 
-    //TODO test this.
     using namespace std;
     vector<vector<vector<int>>> lookup(dim_size, vector<vector<int>>(dim_size, vector<int>(dim_size)));
     vector<vector<int>> combos; // always the same, list of lists
-    // Collect multidimensional indices corresponding to generalized upper triangle 
+    // Collect multidimensional indices corresponding to generalized upper triangle
     for (int i = 0; i < dim_size; i++) {
       for (int j = i; j < dim_size; j++) {
         for (int k = j; k < dim_size; k++) {
@@ -65,11 +64,10 @@ std::vector<std::vector<std::vector<int>>> generate_3d_lookup(int dim_size) {
 }
 
 std::vector<std::vector<std::vector<std::vector<int>>>> generate_4d_lookup(int dim_size) { 
-    //TODO test this.
     using namespace std;
     vector<vector<vector<vector<int>>>> lookup(dim_size, vector<vector<vector<int>>>(dim_size, vector<vector<int>>(dim_size, vector<int>(dim_size))));
     vector<vector<int>> combos; // always the same, list of lists
-    // Collect multidimensional indices corresponding to generalized upper triangle 
+    // Collect multidimensional indices corresponding to generalized upper triangle
     for (int i = 0; i < dim_size; i++) {
       for (int j = i; j < dim_size; j++) {
         for (int k = j; k < dim_size; k++) {
@@ -91,3 +89,65 @@ std::vector<std::vector<std::vector<std::vector<int>>>> generate_4d_lookup(int d
     }
     return lookup;
 }
+
+/*
+std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>> generate_5d_lookup(int dim_size) {
+    using namespace std;
+    vector<vector<vector<vector<int>>>> lookup(dim_size, vector<vector<vector<int>>>(dim_size, vector<vector<int>>(dim_size, vector<int>(dim_size))));
+    vector<vector<int>> combos; // always the same, list of lists
+    // Collect multidimensional indices corresponding to generalized upper triangle
+    for (int i = 0; i < dim_size; i++) {
+      for (int j = i; j < dim_size; j++) {
+        for (int k = j; k < dim_size; k++) {
+          for (int l = k; l < dim_size; l++) {
+            for (int m = l; m < dim_size; m++) {
+                vector<int> tmp = {i, j, k, l, m};
+                combos.push_back(tmp);
+            }
+          }
+        }
+      }
+    }
+    // Build lookup array and return
+    for (int i = 0; i < combos.size(); i++){
+        auto multi_idx = combos[i];
+        // Loop over all permutations, assign 1d buffer index to appropriate addresses in totally symmetric lookup array
+        do {
+        lookup[multi_idx[0]][multi_idx[1]][multi_idx[2]][multi_idx[3]][multi_idx[4]] = i;
+        }
+        while (next_permutation(multi_idx.begin(),multi_idx.end()));
+    }
+    return lookup;
+}
+
+std::vector<std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>>> generate_6d_lookup(int dim_size) {
+    using namespace std;
+    vector<vector<vector<vector<int>>>> lookup(dim_size, vector<vector<vector<int>>>(dim_size, vector<vector<int>>(dim_size, vector<int>(dim_size))));
+    vector<vector<int>> combos; // always the same, list of lists
+    // Collect multidimensional indices corresponding to generalized upper triangle
+    for (int i = 0; i < dim_size; i++) {
+      for (int j = i; j < dim_size; j++) {
+        for (int k = j; k < dim_size; k++) {
+          for (int l = k; l < dim_size; l++) {
+            for (int m = l; m < dim_size; m++) {
+              for (int n = m; n < dim_size; n++) {
+                vector<int> tmp = {i, j, k, l, m, n};
+                combos.push_back(tmp);
+              }
+            }
+          }
+        }
+      }
+    }
+    // Build lookup array and return
+    for (int i = 0; i < combos.size(); i++){
+        auto multi_idx = combos[i];
+        // Loop over all permutations, assign 1d buffer index to appropriate addresses in totally symmetric lookup array
+        do {
+        lookup[multi_idx[0]][multi_idx[1]][multi_idx[2]][multi_idx[3]][multi_idx[4]][multi_idx[5]] = i;
+        }
+        while (next_permutation(multi_idx.begin(),multi_idx.end()));
+    }
+    return lookup;
+}
+*/

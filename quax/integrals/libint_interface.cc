@@ -32,10 +32,14 @@ static const std::vector<int> buffer_index_eri1d = generate_1d_lookup(12);
 static const std::vector<std::vector<int>> buffer_index_eri2d = generate_2d_lookup(12);
 static const std::vector<std::vector<std::vector<int>>> buffer_index_eri3d = generate_3d_lookup(12);
 static const std::vector<std::vector<std::vector<std::vector<int>>>> buffer_index_eri4d = generate_4d_lookup(12);
+//static const std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>> buffer_index_eri5d = generate_5d_lookup(12);
+//static const std::vector<std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>>> buffer_index_eri6d = generate_6d_lookup(12);
 static const std::vector<int> buffer_index_oei1d = generate_1d_lookup(6);
 static const std::vector<std::vector<int>> buffer_index_oei2d = generate_2d_lookup(6);
 static const std::vector<std::vector<std::vector<int>>> buffer_index_oei3d = generate_3d_lookup(6);
 static const std::vector<std::vector<std::vector<std::vector<int>>>> buffer_index_oei4d = generate_4d_lookup(6);
+//static const std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>> buffer_index_oei5d = generate_5d_lookup(6);
+//static const std::vector<std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>>> buffer_index_oei6d = generate_6d_lookup(6);
 
 // Creates atom objects from xyz file path
 std::vector<libint2::Atom> get_atoms(std::string xyzfilename) 
@@ -221,7 +225,7 @@ py::array potential() {
 
     size_t length = nbf * nbf;
     std::vector<double> result(length);
-    
+
     for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];  // first basis function in first shell
         auto n1 = obs[s1].size(); // number of basis functions in first shell
@@ -293,7 +297,7 @@ py::array eri() {
 
 // Computes nuclear derivatives of overlap integrals
 py::array overlap_deriv(std::vector<int> deriv_vec) {
-    assert(3 * atoms.size() == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+    assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
@@ -310,12 +314,12 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
     std::vector<double> result(length);
 
     const auto& buf_vec = s_engine.results(); // will point to computed shell sets
-    
+
     for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
         auto atom1 = shell2atom[s1]; // Atom index of shell 1
         auto n1 = obs[s1].size();    // number of basis functions in shell 1
-        for(auto s2=0; s2 != obs.size(); ++s2) {
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
             auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
             auto atom2 = shell2atom[s2]; // Atom index of shell 2
             auto n2 = obs[s2].size();    // number of basis functions in shell 2
@@ -379,7 +383,7 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
 
 // Computes nuclear derivatives of kinetic energy integrals
 py::array kinetic_deriv(std::vector<int> deriv_vec) {
-    assert(3 * atoms.size() == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+    assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
@@ -394,7 +398,7 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
 
     size_t length = nbf * nbf;
     std::vector<double> result(length);
-    
+
     for(auto s1 = 0; s1 != obs.size(); ++s1) {
         auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
         auto atom1 = shell2atom[s1]; // Atom index of shell 1
@@ -463,13 +467,13 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
 
 // Computes nuclear derivatives of potential energy integrals 
 py::array potential_deriv(std::vector<int> deriv_vec) {
-    assert(3 * atoms.size() == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+    assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
     // Lookup arrays for mapping shell derivative index to buffer index 
     // Potential lookup arrays depend on atom size
-    int dimensions = 6 + 3 * atoms.size();
+    int dimensions = 6 + ncart;
     static const std::vector<int> buffer_index_potential1d = generate_1d_lookup(dimensions);
     static const std::vector<std::vector<int>> buffer_index_potential2d = generate_2d_lookup(dimensions);
     static const std::vector<std::vector<std::vector<int>>> buffer_index_potential3d = generate_3d_lookup(dimensions);
@@ -575,13 +579,13 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
 
             // Loop over every buffer index and accumulate for every shell set.
             for(auto i = 0; i < buffer_indices.size(); ++i) {
-              auto ints_shellset = buf_vec[buffer_indices[i]]; 
-              if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
-              for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                  result[(bf1 + f1) * nbf + bf2 + f2] += ints_shellset[idx]; 
+                auto ints_shellset = buf_vec[buffer_indices[i]];
+                if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                    for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                        result[(bf1 + f1) * nbf + bf2 + f2] += ints_shellset[idx];
+                    }
                 }
-              }
             }
         }
     }
@@ -597,7 +601,7 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
     std::vector<int> desired_coordinates;
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
-    assert(3 * atoms.size() == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+    assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
 
     // ERI derivative integral engine
     libint2::Engine eri_engine(libint2::Operator::coulomb, obs.max_nprim(), obs.max_l(), deriv_order);
@@ -777,11 +781,11 @@ void oei_deriv_disk(int max_deriv_order) {
         // Overlap and kinetic have different mappings than potential since potential has more elements in the buffer 
         const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
         // Potential integrals buffer is flattened upper triangle of (6 + NCART) dimensional deriv_order tensor
-        int dimensions = 6 + 3 * natom;
+        int dimensions = 6 + ncart;
         const std::vector<std::vector<int>> potential_buffer_multidim_lookup = generate_multi_index_lookup(dimensions, deriv_order);
 
         // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
-        const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(natom * 3, deriv_order);
+        const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
 
         // Define engines and buffers
         libint2::Engine overlap_engine(libint2::Operator::overlap,obs.max_nprim(),obs.max_l(),deriv_order);
@@ -844,7 +848,7 @@ void oei_deriv_disk(int max_deriv_order) {
                         int desired_atom_idx = multi_cart_idx[j] / 3;
                         int desired_coord = multi_cart_idx[j] % 3;
                         // Loop over shell indices
-                        for (int i=0; i<2; i++){
+                        for (int i = 0; i < 2; i++){
                             int atom_idx = shell_atom_index_list[i];
                             if (atom_idx == desired_atom_idx) {
                                 int tmp = 3 * i + desired_coord;
@@ -972,7 +976,7 @@ void eri_deriv_disk(int max_deriv_order) {
         const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
         // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
-        const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(natom * 3, deriv_order);
+        const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
 
         // Libint engine for computing shell quartet derivatives
         libint2::Engine eri_engine(libint2::Operator::coulomb, obs.max_nprim(), obs.max_l(), deriv_order);
@@ -1094,6 +1098,278 @@ delete file;
 std::cout << " done" << std::endl;
 } // eri_deriv_disk function
 
+// Computes a single 'deriv_order' derivative tensor of overlap integrals, keeps everything in core memory
+py::array overlap_deriv_core(int deriv_order) {
+    int nshell_derivs = how_many_derivs(2, deriv_order);
+    // how many unique cartesian nuclear derivatives (e.g., so we only save one of d^2/dx1dx2 and d^2/dx2dx1, etc)
+    unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+    // Create mappings from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
+
+    // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+    const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+    // Define engines and buffers
+    libint2::Engine overlap_engine(libint2::Operator::overlap, obs.max_nprim(), obs.max_l(), deriv_order);
+    const auto& overlap_buffer = overlap_engine.results();
+
+    size_t length = nbf * nbf * nderivs_triu;
+    std::vector<double> result(length);
+
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
+        auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
+        auto atom1 = shell2atom[s1]; // Atom index of shell 1
+        auto n1 = obs[s1].size();    // number of basis functions in shell 1
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
+            auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
+            auto atom2 = shell2atom[s2]; // Atom index of shell 2
+            auto n2 = obs[s2].size();    // number of basis functions in shell 2
+            std::vector<long> shell_atom_index_list{atom1, atom2};
+
+            overlap_engine.compute(obs[s1], obs[s2]);
+
+            // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+            // For 1st derivatives of 2 atom system, this is 6. 2nd derivatives of 2 atom system: 21, etc
+            for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                size_t offset_nuc_idx = nuc_idx * nbf * nbf;
+                // Look up multidimensional cartesian derivative index
+                auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+                // Create a vector of vectors called `indices`, where each subvector is your possible choices
+                // for the first derivative operator, second, third, etc and the total number of subvectors is order of differentiation
+                // What follows fills these indices
+                std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+
+                // Loop over each cartesian coordinate index which we are differentiating wrt for this nuclear cartesian derivative index
+                // and check to see if it is present in the shell duet
+                for (int j = 0; j < multi_cart_idx.size(); j++){
+                    int desired_atom_idx = multi_cart_idx[j] / 3;
+                    int desired_coord = multi_cart_idx[j] % 3;
+                    // Loop over shell indices
+                    for (int i = 0; i < 2; i++){
+                        int atom_idx = shell_atom_index_list[i];
+                        if (atom_idx == desired_atom_idx) {
+                            int tmp = 3 * i + desired_coord;
+                            indices[j].push_back(tmp);
+                        }
+                    }
+                }
+
+                // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                // and the total number of subvectors is the order of differentiation
+                // Now we want all combinations where we pick exactly one index from each subvector.
+                // This is achievable through a cartesian product
+                std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                std::vector<int> buffer_indices;
+                // Collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+                for (auto vec : index_combos)  {
+                    std::sort(vec.begin(), vec.end());
+                    int buf_idx = 0;
+                    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                    buffer_indices.push_back(buf_idx);
+                }
+
+                // Loop over shell block for each buffer index which contributes to this derivative
+                // Overlap and Kinetic
+                for(auto i = 0; i < buffer_indices.size(); ++i) {
+                    auto overlap_shellset = overlap_buffer[buffer_indices[i]];
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                            result[(bf1 + f1) * nbf + bf2 + f2 + offset_nuc_idx] += overlap_shellset[idx];
+                        }
+                    }
+                }
+            } // Unique nuclear cartesian derivative indices loop
+        }
+    } // shell duet loops
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+} // overlap_deriv_core function
+
+// Computes a single 'deriv_order' derivative tensor of kinetic integrals, keeps everything in core memory
+py::array kinetic_deriv_core(int deriv_order) {
+    int nshell_derivs = how_many_derivs(2, deriv_order);
+    // how many unique cartesian nuclear derivatives (e.g., so we only save one of d^2/dx1dx2 and d^2/dx2dx1, etc)
+    unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+    // Create mappings from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
+
+    // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+    const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+    // Define engines and buffers
+    libint2::Engine kinetic_engine(libint2::Operator::kinetic, obs.max_nprim(), obs.max_l(), deriv_order);
+    const auto& kinetic_buffer = kinetic_engine.results();
+
+    size_t length = nbf * nbf * nderivs_triu;
+    std::vector<double> result(length);
+
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
+        auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
+        auto atom1 = shell2atom[s1]; // Atom index of shell 1
+        auto n1 = obs[s1].size();    // number of basis functions in shell 1
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
+            auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
+            auto atom2 = shell2atom[s2]; // Atom index of shell 2
+            auto n2 = obs[s2].size();    // number of basis functions in shell 2
+            std::vector<long> shell_atom_index_list{atom1, atom2};
+
+            kinetic_engine.compute(obs[s1], obs[s2]);
+
+            // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+            // For 1st derivatives of 2 atom system, this is 6. 2nd derivatives of 2 atom system: 21, etc
+            for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                size_t offset_nuc_idx = nuc_idx * nbf * nbf;
+                // Look up multidimensional cartesian derivative index
+                auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+                // Create a vector of vectors called `indices`, where each subvector is your possible choices
+                // for the first derivative operator, second, third, etc and the total number of subvectors is order of differentiation
+                // What follows fills these indices
+                std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+
+                // Loop over each cartesian coordinate index which we are differentiating wrt for this nuclear cartesian derivative index
+                // and check to see if it is present in the shell duet
+                for (int j = 0; j < multi_cart_idx.size(); j++){
+                    int desired_atom_idx = multi_cart_idx[j] / 3;
+                    int desired_coord = multi_cart_idx[j] % 3;
+                    // Loop over shell indices
+                    for (int i = 0; i < 2; i++){
+                        int atom_idx = shell_atom_index_list[i];
+                        if (atom_idx == desired_atom_idx) {
+                            int tmp = 3 * i + desired_coord;
+                            indices[j].push_back(tmp);
+                        }
+                    }
+                }
+
+                // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                // and the total number of subvectors is the order of differentiation
+                // Now we want all combinations where we pick exactly one index from each subvector.
+                // This is achievable through a cartesian product
+                std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                std::vector<int> buffer_indices;
+                // Collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+                for (auto vec : index_combos)  {
+                    std::sort(vec.begin(), vec.end());
+                    int buf_idx = 0;
+                    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                    buffer_indices.push_back(buf_idx);
+                }
+
+                // Loop over shell block for each buffer index which contributes to this derivative
+                // Overlap and Kinetic
+                for(auto i = 0; i < buffer_indices.size(); ++i) {
+                    auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                            result[(bf1 + f1) * nbf + bf2 + f2 + offset_nuc_idx] += kinetic_shellset[idx];
+                        }
+                    }
+                }
+            } // Unique nuclear cartesian derivative indices loop
+        }
+    } // shell duet loops
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+} // kinetic_deriv_core function
+
+// Computes a single 'deriv_order' derivative tensor of potential integrals, keeps everything in core memory
+py::array potential_deriv_core(int deriv_order) {
+    int nshell_derivs = how_many_derivs(2, deriv_order, natom);
+    // how many unique cartesian nuclear derivatives (e.g., so we only save one of d^2/dx1dx2 and d^2/dx2dx1, etc)
+    unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+    // Potential integrals buffer is flattened upper triangle of (6 + NCART) dimensional deriv_order tensor
+    int dimensions = 6 + ncart;
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(dimensions, deriv_order);
+
+    // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+    const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+    // Define engines and buffers
+    libint2::Engine potential_engine(libint2::Operator::nuclear, obs.max_nprim(), obs.max_l(), deriv_order);
+    potential_engine.set_params(libint2::make_point_charges(atoms));
+    const auto& potential_buffer = potential_engine.results();
+
+    size_t length = nbf * nbf * nderivs_triu;
+    std::vector<double> result(length);
+
+    for(auto s1 = 0; s1 != obs.size(); ++s1) {
+        auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
+        auto atom1 = shell2atom[s1]; // Atom index of shell 1
+        auto n1 = obs[s1].size();    // number of basis functions in shell 1
+        for(auto s2 = 0; s2 != obs.size(); ++s2) {
+            auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
+            auto atom2 = shell2atom[s2]; // Atom index of shell 2
+            auto n2 = obs[s2].size();    // number of basis functions in shell 2
+            std::vector<long> shell_atom_index_list{atom1, atom2};
+
+            potential_engine.compute(obs[s1], obs[s2]);
+
+            // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+            // For 1st derivatives of 2 atom system, this is 6. 2nd derivatives of 2 atom system: 21, etc
+            for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                size_t offset_nuc_idx = nuc_idx * nbf * nbf;
+                // Look up multidimensional cartesian derivative index
+                auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+                // Create a vector of vectors called `indices`, where each subvector is your possible choices
+                // for the first derivative operator, second, third, etc and the total number of subvectors is order of differentiation
+                // What follows fills these indices
+                std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+
+                // Loop over each cartesian coordinate index which we are differentiating wrt for this nuclear cartesian derivative index
+                // and check to see if it is present in the shell duet, and where it is present in the potential operator
+                for (int j = 0; j < multi_cart_idx.size(); j++){
+                    int desired_atom_idx = multi_cart_idx[j] / 3;
+                    int desired_coord = multi_cart_idx[j] % 3;
+                    // Loop over shell indices
+                    for (int i=0; i < 2; i++){
+                        int atom_idx = shell_atom_index_list[i];
+                        if (atom_idx == desired_atom_idx) {
+                            int tmp = 3 * i + desired_coord;
+                            indices[j].push_back(tmp);
+                        }
+                    }
+                    // Loop over each atom in molecule, and if this derivative
+                    // differentiates wrt that atom, we also need to collect that index.
+                    for (int i = 0; i < natom; i++){
+                        if (i == desired_atom_idx) {
+                            int offset_i = i + 2;
+                            int tmp = 3 * offset_i + desired_coord;
+                            indices[j].push_back(tmp);
+                        }
+                    }
+                }
+
+                // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                // and the total number of subvectors is the order of differentiation
+                // Now we want all combinations where we pick exactly one index from each subvector.
+                // This is achievable through a cartesian product
+                std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                std::vector<int> buffer_indices;
+                // Collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+                for (auto vec : index_combos)  {
+                    std::sort(vec.begin(), vec.end());
+                    int buf_idx = 0;
+                    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                    buffer_indices.push_back(buf_idx);
+                }
+
+                for(auto i = 0; i < buffer_indices.size(); ++i) {
+                    auto potential_shellset = potential_buffer[buffer_indices[i]];
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                            result[(bf1 + f1) * nbf + bf2 + f2  + offset_nuc_idx] += potential_shellset[idx];
+                        }
+                    }
+                }
+            } // Unique nuclear cartesian derivative indices loop
+        }
+    } // shell duet loops
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+} // potential_deriv_core function
 
 // Computes a single 'deriv_order' derivative tensor of electron repulsion integrals, keeps everything in core memory
 py::array eri_deriv_core(int deriv_order) {
@@ -1106,7 +1382,7 @@ py::array eri_deriv_core(int deriv_order) {
     const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
-    const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(natom * 3, deriv_order);
+    const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
 
     // Libint engine for computing shell quartet derivatives
     libint2::Engine eri_engine(libint2::Operator::coulomb, obs.max_nprim(), obs.max_l(), deriv_order);
@@ -1150,7 +1426,7 @@ py::array eri_deriv_core(int deriv_order) {
                         for (int j = 0; j < multi_cart_idx.size(); j++){
                             int desired_atom_idx = multi_cart_idx[j] / 3;
                             int desired_coord = multi_cart_idx[j] % 3;
-                            for (int i = 0; i<4; i++){
+                            for (int i = 0; i < 4; i++){
                                 int atom_idx = shell_atom_index_list[i];
                                 if (atom_idx == desired_atom_idx) {
                                     int tmp = 3 * i + desired_coord;
@@ -1207,7 +1483,7 @@ py::array eri_deriv_core(int deriv_order) {
         }
     } // shell quartet loops
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
-} // eri_deriv_disk function
+} // eri_deriv_core function
 
 // Define module named 'libint_interface' which can be imported with python
 // The second arg, 'm' defines a variable py::module_ which can be used to create
@@ -1224,8 +1500,11 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("kinetic_deriv", &kinetic_deriv, "Computes kinetic integral nuclear derivatives with libint");
     m.def("potential_deriv", &potential_deriv, "Computes potential integral nuclear derivatives with libint");
     m.def("eri_deriv", &eri_deriv, "Computes electron repulsion integral nuclear derivatives with libint");
-    m.def("eri_deriv_disk", &eri_deriv_disk, "Computes coulomb integral nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
     m.def("oei_deriv_disk", &oei_deriv_disk, "Computes overlap, kinetic, and potential integral derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
+    m.def("eri_deriv_disk", &eri_deriv_disk, "Computes coulomb integral nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
+    m.def("overlap_deriv_core", &overlap_deriv_core, "Computes a single overlap integral derivative tensor, in memory.");
+    m.def("kinetic_deriv_core", &kinetic_deriv_core, "Computes a single kinetic integral derivative tensor, in memory.");
+    m.def("potential_deriv_core", &potential_deriv_core, "Computes a single potential integral nuclear derivative tensor, in memory.");
     m.def("eri_deriv_core", &eri_deriv_core, "Computes a single coulomb integral nuclear derivative tensor, in memory.");
     //TODO partial derivative impl's
     //m.def("eri_partial_deriv_disk", &eri_partial_deriv_disk, "Computes a subset of the full coulomb integral nuclear derivative tensor and writes them to disk with HDF5");
