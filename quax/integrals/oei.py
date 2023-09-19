@@ -29,12 +29,10 @@ class OEI(object):
             self.potential_derivatives = []
             for i in range(max_deriv_order):
                 n_unique_derivs = how_many_derivs(natoms, i + 1)
-                overlap_deriv = libint_interface.overlap_deriv_core(i + 1).reshape(n_unique_derivs,nbf,nbf)
-                kinetic_deriv = libint_interface.kinetic_deriv_core(i + 1).reshape(n_unique_derivs,nbf,nbf)
-                potential_deriv = libint_interface.potential_deriv_core(i + 1).reshape(n_unique_derivs,nbf,nbf)
-                self.overlap_derivatives.append(overlap_deriv)
-                self.kinetic_derivatives.append(kinetic_deriv)
-                self.potential_derivatives.append(potential_deriv)
+                oei_deriv = libint_interface.oei_deriv_core(i + 1)
+                self.overlap_derivatives.append(oei_deriv[0].reshape(n_unique_derivs,nbf,nbf))
+                self.kinetic_derivatives.append(oei_deriv[1].reshape(n_unique_derivs,nbf,nbf))
+                self.potential_derivatives.append(oei_deriv[2].reshape(n_unique_derivs,nbf,nbf))
 
         self.mode = mode
         self.nbf = nbf
