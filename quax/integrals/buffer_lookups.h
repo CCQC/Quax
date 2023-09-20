@@ -1,10 +1,10 @@
-// These functions, generate_*_lookup, create the buffer index lookup arrays. 
+// These functions, generate_*_lookup, create the buffer index lookup arrays.
 // When given a set of indices which represent a Shell derivative operator, e.g. 0,0 == d/dx1 d/dx1, 0,1 = d/dx1 d/dx2, etc
 // these arrays, when indexed with those indices, give the flattened buffer index according to the order these shell derivatives
-// are packed into a Libint integral Engine buffer.  
-// These arrays are always the same for finding the shell derivative mapping for overlap, kinetic, and ERI for a given derivative order. 
+// are packed into a Libint integral Engine buffer.
+// These arrays are always the same for finding the shell derivative mapping for overlap, kinetic, and ERI for a given derivative order.
 // These are also used for nuclear derivatives of nuclear attraction integrals,
-// which vary in size dynamically due to the presence of additional nuclear derivatives 
+// which vary in size dynamically due to the presence of additional nuclear derivatives
 
 std::vector<int> generate_1d_lookup(int dim_size) { 
     std::vector<int> lookup(dim_size, 0);

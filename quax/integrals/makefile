@@ -1,6 +1,8 @@
 # NOTE: These paths below need to be edited such that they point to a set of 
 # Eigen headers, Python headers, Pybind11 headers, Libint API headers libint2.h libint2.hpp, the rest of the Libint2 headers, and the library location of libint2.a,
 CC      := g++
+# Options passed to compiler
+CFLAGS  := -O3 -fPIC -fopenmp
 # Libint prefix location (where /include, /include/libint2, /lib, /share are located) 
 LIBINT_PREFIX := /home/ecm23353/psi_env
 
@@ -33,7 +35,7 @@ clean:
 	rm -f $(OBJ)
 
 $(OBJ): %.o : %.cc $(DEPS)
-	$(CC) -c $< -o $@ -O3 -fPIC -I $(I1) -I $(I2) -I $(I3) -I $(I4) -I $(I5) -I $(I6) -lint2 -L $(L1) -lhdf5 -lhdf5_cpp -L $(L2) $(RPATH)
+	$(CC) -c $< -o $@ $(CFLAGS) -I $(I1) -I $(I2) -I $(I3) -I $(I4) -I $(I5) -I $(I6) -lint2 -L $(L1) -lhdf5 -lhdf5_cpp -L $(L2) $(RPATH)
 $(TARGETS): $(OBJ)
-	$(CC) $^ -o $@ -O3 -fPIC -shared -I $(I1) -I $(I2) -I $(I3) -I $(I4) -I $(I5) -I $(I6) -lint2 -L $(L1) -lhdf5 -lhdf5_cpp -L $(L2) $(RPATH)
+	$(CC) $^ -o $@ $(CFLAGS) -shared -I $(I1) -I $(I2) -I $(I3) -I $(I4) -I $(I5) -I $(I6) -lint2 -L $(L1) -lhdf5 -lhdf5_cpp -L $(L2) $(RPATH)
 
