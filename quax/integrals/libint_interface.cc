@@ -19,12 +19,12 @@ namespace py = pybind11;
 using namespace H5;
 
 std::vector<libint2::Atom> atoms;
-libint2::BasisSet obs;
-unsigned int nbf;
 unsigned int natom;
 unsigned int ncart;
-std::vector<size_t> shell2bf;
-std::vector<long> shell2atom;
+libint2::BasisSet bs1, bs2, bs3, bs4;
+unsigned int nbf1, nbf2, nbf3, nbf4;
+std::vector<size_t> shell2bf_1, shell2bf_2, shell2bf_3, shell2bf_4;
+std::vector<long> shell2atom_1, shell2atom_2, shell2atom_3, shell2atom_4;
 int nthreads;
 
 // These lookup arrays are for mapping Libint's computed shell-set integrals and integral derivatives to the proper index 
@@ -55,18 +55,36 @@ std::vector<libint2::Atom> get_atoms(std::string xyzfilename)
 }
 
 // Must call initialize before computing ints 
-void initialize(std::string xyzfilename, std::string basis_name) {
+void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
+                std::string basis3, std::string basis4) {
     libint2::initialize();
     atoms = get_atoms(xyzfilename);
-    // Move harddrive load of basis and xyz to happen only once
-    obs = libint2::BasisSet(basis_name, atoms);
-    obs.set_pure(false); // use cartesian gaussians
-    // Get size of potential derivative array and allocate 
-    nbf = obs.nbf();
     natom = atoms.size();
     ncart = natom * 3;
-    shell2bf = obs.shell2bf(); // maps shell index to basis function index
-    shell2atom = obs.shell2atom(atoms); // maps shell index to atom index
+
+    // Move harddrive load of basis and xyz to happen only once
+    bs1 = libint2::BasisSet(basis1, atoms);
+    bs1.set_pure(false); // use cartesian gaussians
+    bs2 = libint2::BasisSet(basis2, atoms);
+    bs2.set_pure(false); // use cartesian gaussians
+    bs3 = libint2::BasisSet(basis3, atoms);
+    bs3.set_pure(false); // use cartesian gaussians
+    bs4 = libint2::BasisSet(basis4, atoms);
+    bs4.set_pure(false); // use cartesian gaussians
+
+    nbf1 = bs1.nbf();
+    nbf2 = bs2.nbf();
+    nbf3 = bs3.nbf();
+    nbf4 = bs4.nbf();
+    shell2bf_1 = bs1.shell2bf();
+    shell2bf_2 = bs2.shell2bf();
+    shell2bf_3 = bs3.shell2bf();
+    shell2bf_4 = bs4.shell2bf();
+    shell2atom_1 = bs1.shell2atom(atoms);
+    shell2atom_2 = bs2.shell2atom(atoms);
+    shell2atom_3 = bs3.shell2atom(atoms);
+    shell2atom_4 = bs4.shell2atom(atoms);
+
     // Get number of OMP threads
     nthreads = 1;
 #ifdef _OPENMP
@@ -171,29 +189,31 @@ std::vector<std::vector<int>> generate_multi_index_lookup(int nparams, int deriv
 py::array overlap() {
     // Overlap integral engine
     std::vector<libint2::Engine> s_engines(nthreads);
-    s_engines[0] = libint2::Engine(libint2::Operator::overlap, obs.max_nprim(), obs.max_l());
+    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
+    int max_l = std::max(bs1.max_l(), bs2.max_l());
+    s_engines[0] = libint2::Engine(libint2::Operator::overlap, max_nprim, max_l);
     for (size_t i = 1; i != nthreads; ++i) {
         s_engines[i] = s_engines[0];
     }
 
-    size_t length = nbf * nbf;
+    size_t length = nbf1 * nbf2;
     std::vector<double> result(length); // vector to store integral array
 
 #pragma omp parallel for collapse(2) num_threads(nthreads)
-    for(auto s1 = 0; s1 != obs.size(); ++s1) {
-        for(auto s2 = 0; s2 != obs.size(); ++s2) {
-            auto bf1 = shell2bf[s1];  // first basis function in first shell
-            auto n1 = obs[s1].size(); // number of basis functions in first shell
-            auto bf2 = shell2bf[s2];  // first basis function in second shell
-            auto n2 = obs[s2].size(); // number of basis functions in second shell
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            auto bf1 = shell2bf_1[s1];  // first basis function in first shell
+            auto n1 = bs1[s1].size(); // number of basis functions in first shell
+            auto bf2 = shell2bf_2[s2];  // first basis function in second shell
+            auto n2 = bs2[s2].size(); // number of basis functions in second shell
 
             size_t thread_id = 0;
 #ifdef _OPENMP
             thread_id = omp_get_thread_num();
 #endif
-            s_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
+            s_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
             const auto& buf_vec = s_engines[thread_id].results(); // will point to computed shell sets
-            
+
             auto ints_shellset = buf_vec[0];    // Location of the computed integrals
             if (ints_shellset == nullptr)
                 continue;  // nullptr returned if the entire shell-set was screened out
@@ -201,7 +221,7 @@ py::array overlap() {
             // Loop over shell block, keeping a total count idx for the size of shell set
             for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                 for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                    result[(bf1 + f1) * nbf + bf2 + f2] = ints_shellset[idx];
+                    result[(bf1 + f1) * nbf2 + bf2 + f2] = ints_shellset[idx];
                 }
             }
         }
@@ -213,27 +233,29 @@ py::array overlap() {
 py::array kinetic() {
     // Kinetic energy integral engine
     std::vector<libint2::Engine> t_engines(nthreads);
-    t_engines[0] = libint2::Engine(libint2::Operator::kinetic, obs.max_nprim(), obs.max_l());
+    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
+    int max_l = std::max(bs1.max_l(), bs2.max_l());
+    t_engines[0] = libint2::Engine(libint2::Operator::kinetic, max_nprim, max_l);
     for (size_t i = 1; i != nthreads; ++i) {
         t_engines[i] = t_engines[0];
     }
 
-    size_t length = nbf * nbf;
+    size_t length = nbf1 * nbf2;
     std::vector<double> result(length);
 
 #pragma omp parallel for collapse(2) num_threads(nthreads)
-    for(auto s1 = 0; s1 != obs.size(); ++s1) {
-        for(auto s2 = 0; s2 != obs.size(); ++s2) {
-            auto bf1 = shell2bf[s1];  // first basis function in first shell
-            auto n1 = obs[s1].size(); // number of basis functions in first shell
-            auto bf2 = shell2bf[s2];  // first basis function in second shell
-            auto n2 = obs[s2].size(); // number of basis functions in second shell
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            auto bf1 = shell2bf_1[s1];  // first basis function in first shell
+            auto n1 = bs1[s1].size(); // number of basis functions in first shell
+            auto bf2 = shell2bf_2[s2];  // first basis function in second shell
+            auto n2 = bs2[s2].size(); // number of basis functions in second shell
 
             size_t thread_id = 0;
 #ifdef _OPENMP
             thread_id = omp_get_thread_num();
 #endif
-            t_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
+            t_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
             const auto& buf_vec = t_engines[thread_id].results(); // will point to computed shell sets
 
             auto ints_shellset = buf_vec[0];    // Location of the computed integrals
@@ -243,7 +265,7 @@ py::array kinetic() {
             // Loop over shell block, keeping a total count idx for the size of shell set
             for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                 for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                    result[(bf1 + f1) * nbf + bf2 + f2] = ints_shellset[idx];
+                    result[(bf1 + f1) * nbf2 + bf2 + f2] = ints_shellset[idx];
                 }
             }
         }
@@ -255,28 +277,30 @@ py::array kinetic() {
 py::array potential() {
     // Potential integral engine
     std::vector<libint2::Engine> v_engines(nthreads);
-    v_engines[0] = libint2::Engine(libint2::Operator::nuclear, obs.max_nprim(), obs.max_l());
+    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
+    int max_l = std::max(bs1.max_l(), bs2.max_l());
+    v_engines[0] = libint2::Engine(libint2::Operator::nuclear, max_nprim, max_l);
     v_engines[0].set_params(make_point_charges(atoms));
     for (size_t i = 1; i != nthreads; ++i) {
         v_engines[i] = v_engines[0];
     }
 
-    size_t length = nbf * nbf;
+    size_t length = nbf1 * nbf2;
     std::vector<double> result(length);
 
 #pragma omp parallel for collapse(2) num_threads(nthreads)
-    for(auto s1 = 0; s1 != obs.size(); ++s1) {
-        for(auto s2 = 0; s2 != obs.size(); ++s2) {
-            auto bf1 = shell2bf[s1];  // first basis function in first shell
-            auto n1 = obs[s1].size(); // number of basis functions in first shell
-            auto bf2 = shell2bf[s2];  // first basis function in second shell
-            auto n2 = obs[s2].size(); // number of basis functions in second shell
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            auto bf1 = shell2bf_1[s1];  // first basis function in first shell
+            auto n1 = bs1[s1].size(); // number of basis functions in first shell
+            auto bf2 = shell2bf_2[s2];  // first basis function in second shell
+            auto n2 = bs2[s2].size(); // number of basis functions in second shell
 
             size_t thread_id = 0;
 #ifdef _OPENMP
             thread_id = omp_get_thread_num();
 #endif
-            v_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
+            v_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
             const auto& buf_vec = v_engines[thread_id].results(); // will point to computed shell sets
 
             auto ints_shellset = buf_vec[0];    // Location of the computed integrals
@@ -287,7 +311,7 @@ py::array potential() {
             for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                 for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                     // idx = x + (y * width) where x = bf2 + f2 and y = bf1 + f1 
-                    result[ (bf1 + f1) * nbf + bf2 + f2 ] = ints_shellset[idx];
+                    result[(bf1 + f1) * nbf2 + bf2 + f2] = ints_shellset[idx];
                 }
             }
         }
@@ -299,33 +323,35 @@ py::array potential() {
 py::array eri() {
     // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
     std::vector<libint2::Engine> eri_engines(nthreads);
-    eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, obs.max_nprim(), obs.max_l());
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l);
     for (size_t i = 1; i != nthreads; ++i) {
         eri_engines[i] = eri_engines[0];
     }
 
-    size_t length = nbf * nbf * nbf * nbf;
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4;
     std::vector<double> result(length);
     
 #pragma omp parallel for collapse(4) num_threads(nthreads)
-    for(auto s1 = 0; s1 != obs.size(); ++s1) {
-        for(auto s2 = 0; s2 != obs.size(); ++s2) {
-            for(auto s3=0; s3 != obs.size(); ++s3) {
-                for(auto s4 = 0; s4 != obs.size(); ++s4) {
-                    auto bf1 = shell2bf[s1];  // first basis function in first shell
-                    auto n1 = obs[s1].size(); // number of basis functions in first shell
-                    auto bf2 = shell2bf[s2];  // first basis function in second shell
-                    auto n2 = obs[s2].size(); // number of basis functions in second shell
-                    auto bf3 = shell2bf[s3];  // first basis function in third shell
-                    auto n3 = obs[s3].size(); // number of basis functions in third shell
-                    auto bf4 = shell2bf[s4];  // first basis function in fourth shell
-                    auto n4 = obs[s4].size(); // number of basis functions in fourth shell
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3=0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];  // first basis function in first shell
+                    auto n1 = bs1[s1].size(); // number of basis functions in first shell
+                    auto bf2 = shell2bf_2[s2];  // first basis function in second shell
+                    auto n2 = bs2[s2].size(); // number of basis functions in second shell
+                    auto bf3 = shell2bf_3[s3];  // first basis function in third shell
+                    auto n3 = bs3[s3].size(); // number of basis functions in third shell
+                    auto bf4 = shell2bf_4[s4];  // first basis function in fourth shell
+                    auto n4 = bs4[s4].size(); // number of basis functions in fourth shell
 
                     size_t thread_id = 0;
 #ifdef _OPENMP
                     thread_id = omp_get_thread_num();
 #endif
-                    eri_engines[thread_id].compute(obs[s1], obs[s2], obs[s3], obs[s4]); // Compute shell set
+                    eri_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
                     const auto& buf_vec = eri_engines[thread_id].results(); // will point to computed shell sets
 
                     auto ints_shellset = buf_vec[0];    // Location of the computed integrals
@@ -334,11 +360,11 @@ py::array eri() {
 
                     // Loop over shell block, keeping a total count idx for the size of shell set
                     for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                        size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
+                        size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
                         for(auto f2 = 0; f2 != n2; ++f2) {
-                            size_t offset_2 = (bf2 + f2) * nbf * nbf;
+                            size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
                             for(auto f3 = 0; f3 != n3; ++f3) {
-                                size_t offset_3 = (bf3 + f3) * nbf;
+                                size_t offset_3 = (bf3 + f3) * nbf4;
                                 for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
                                     result[offset_1 + offset_2 + offset_3 + bf4 + f4] = ints_shellset[idx];
                                 }
@@ -365,24 +391,26 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
 
     // Overlap integral derivative engine
     std::vector<libint2::Engine> s_engines(nthreads);
-    s_engines[0] = libint2::Engine(libint2::Operator::overlap, obs.max_nprim(), obs.max_l(), deriv_order);
+    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
+    int max_l = std::max(bs1.max_l(), bs2.max_l());
+    s_engines[0] = libint2::Engine(libint2::Operator::overlap, max_nprim, max_l, deriv_order);
     for (size_t i = 1; i != nthreads; ++i) {
         s_engines[i] = s_engines[0];
     }
 
     // Get size of overlap derivative array and allocate 
-    size_t length = nbf * nbf;
+    size_t length = nbf1 * nbf2;
     std::vector<double> result(length);
 
 #pragma omp parallel for collapse(2) num_threads(nthreads)
-    for(auto s1 = 0; s1 != obs.size(); ++s1) {
-        for(auto s2 = 0; s2 != obs.size(); ++s2) {
-            auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
-            auto atom1 = shell2atom[s1]; // Atom index of shell 1
-            auto n1 = obs[s1].size();    // number of basis functions in shell 1
-            auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
-            auto atom2 = shell2atom[s2]; // Atom index of shell 2
-            auto n2 = obs[s2].size();    // number of basis functions in shell 2
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+            auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+            auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+            auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+            auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+            auto n2 = bs2[s2].size();    // number of basis functions in shell 2
             // If the atoms are the same we ignore it as the derivatives will be zero.
             if (atom1 == atom2) continue;
 
@@ -406,7 +434,7 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
 #ifdef _OPENMP
             thread_id = omp_get_thread_num();
 #endif
-            s_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
+            s_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
             const auto& buf_vec = s_engines[thread_id].results(); // will point to computed shell sets
 
             // Now convert these shell atom indices into a shell derivative index, a set of indices length deriv_order with values between 0 and 5, corresponding to 6 possible shell center coordinates
@@ -438,7 +466,7 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
             // Loop over shell block, keeping a total count idx for the size of shell set
             for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                 for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                    result[(bf1 + f1) * nbf + bf2 + f2 ] = ints_shellset[idx];
+                    result[(bf1 + f1) * nbf2 + bf2 + f2 ] = ints_shellset[idx];
                 }
             }
         }
@@ -459,23 +487,25 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
 
     // Kinetic integral derivative engine
     std::vector<libint2::Engine> t_engines(nthreads);
-    t_engines[0] = libint2::Engine(libint2::Operator::kinetic, obs.max_nprim(), obs.max_l(), deriv_order);
+    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
+    int max_l = std::max(bs1.max_l(), bs2.max_l());
+    t_engines[0] = libint2::Engine(libint2::Operator::kinetic, max_nprim, max_l, deriv_order);
     for (size_t i = 1; i != nthreads; ++i) {
         t_engines[i] = t_engines[0];
     }
 
-    size_t length = nbf * nbf;
+    size_t length = nbf1 * nbf2;
     std::vector<double> result(length);
 
 #pragma omp parallel for collapse(2) num_threads(nthreads)
-    for(auto s1 = 0; s1 != obs.size(); ++s1) {
-        for(auto s2 = 0; s2 != obs.size(); ++s2) {
-            auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
-            auto atom1 = shell2atom[s1]; // Atom index of shell 1
-            auto n1 = obs[s1].size();    // number of basis functions in shell 1
-            auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
-            auto atom2 = shell2atom[s2]; // Atom index of shell 2
-            auto n2 = obs[s2].size();    // number of basis functions in shell 2
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+            auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+            auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+            auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+            auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+            auto n2 = bs2[s2].size();    // number of basis functions in shell 2
             // If the atoms are the same we ignore it as the derivatives will be zero.
             if (atom1 == atom2) continue;
 
@@ -499,7 +529,7 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
 #ifdef _OPENMP
             thread_id = omp_get_thread_num();
 #endif
-            t_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
+            t_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
             const auto& buf_vec = t_engines[thread_id].results(); // will point to computed shell sets
 
             // Now convert these shell atom indices into a shell derivative index, a set of indices length deriv_order with values between 0 and 5, corresponding to 6 possible shell center coordinates
@@ -531,7 +561,7 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
             // Loop over shell block, keeping a total count idx for the size of shell set
             for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                 for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                    result[(bf1 + f1) * nbf + bf2 + f2 ] = ints_shellset[idx];
+                    result[(bf1 + f1) * nbf2 + bf2 + f2] = ints_shellset[idx];
                 }
             }
         }
@@ -560,25 +590,27 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
 
     // Potential integral derivative engine
     std::vector<libint2::Engine> v_engines(nthreads);
-    v_engines[0] = libint2::Engine(libint2::Operator::nuclear, obs.max_nprim(), obs.max_l(), deriv_order);
+    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
+    int max_l = std::max(bs1.max_l(), bs2.max_l());
+    v_engines[0] = libint2::Engine(libint2::Operator::nuclear, max_nprim, max_l, deriv_order);
     v_engines[0].set_params(make_point_charges(atoms));
     for (size_t i = 1; i != nthreads; ++i) {
         v_engines[i] = v_engines[0];
     }
 
-    // Get size of potential derivative array and allocate 
-    size_t length = nbf * nbf;
+    // Get size of potential derivative array and allocate
+    size_t length = nbf1 * nbf2;
     std::vector<double> result(length);
 
 #pragma omp parallel for collapse(2) num_threads(nthreads)
-    for(auto s1 = 0; s1 != obs.size(); ++s1) {
-        for(auto s2 = 0; s2 != obs.size(); ++s2) {
-            auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
-            auto atom1 = shell2atom[s1]; // Atom index of shell 1
-            auto n1 = obs[s1].size();    // number of basis functions in shell 1
-            auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
-            auto atom2 = shell2atom[s2]; // Atom index of shell 2
-            auto n2 = obs[s2].size();    // number of basis functions in shell 2
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+            auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+            auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+            auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+            auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+            auto n2 = bs2[s2].size();    // number of basis functions in shell 2
 
             // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
             std::vector<long> shell_atom_index_list{atom1, atom2};
@@ -623,7 +655,7 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
 #ifdef _OPENMP
             thread_id = omp_get_thread_num();
 #endif
-            v_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
+            v_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
             const auto& buf_vec = v_engines[thread_id].results(); // will point to computed shell sets
             
             // Loop over every subvector of index_combos and lookup buffer index.
@@ -665,7 +697,7 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
                 if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
                 for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                     for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                        result[(bf1 + f1) * nbf + bf2 + f2] += ints_shellset[idx];
+                        result[(bf1 + f1) * nbf2 + bf2 + f2] += ints_shellset[idx];
                     }
                 }
             }
@@ -687,31 +719,33 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
 
     // ERI derivative integral engine
     std::vector<libint2::Engine> eri_engines(nthreads);
-    eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, obs.max_nprim(), obs.max_l(), deriv_order);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
     for (size_t i = 1; i != nthreads; ++i) {
         eri_engines[i] = eri_engines[0];
     }
 
-    size_t length = nbf * nbf * nbf * nbf;
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4;
     std::vector<double> result(length);
 
 #pragma omp parallel for collapse(4) num_threads(nthreads)
-    for(auto s1 = 0; s1 != obs.size(); ++s1) {
-        for(auto s2 = 0; s2 != obs.size(); ++s2) {
-            for(auto s3 = 0; s3 != obs.size(); ++s3) {
-                for(auto s4 = 0; s4 != obs.size(); ++s4) {
-                    auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
-                    auto atom1 = shell2atom[s1]; // Atom index of shell 1
-                    auto n1 = obs[s1].size();    // number of basis functions in shell 1
-                    auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
-                    auto atom2 = shell2atom[s2]; // Atom index of shell 2
-                    auto n2 = obs[s2].size();    // number of basis functions in shell 2
-                    auto bf3 = shell2bf[s3];     // Index of first basis function in shell 3
-                    auto atom3 = shell2atom[s3]; // Atom index of shell 3
-                    auto n3 = obs[s3].size();    // number of basis functions in shell 3
-                    auto bf4 = shell2bf[s4];     // Index of first basis function in shell 4
-                    auto atom4 = shell2atom[s4]; // Atom index of shell 4
-                    auto n4 = obs[s4].size();    // number of basis functions in shell 4
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
 
                     // If the atoms are the same we ignore it as the derivatives will be zero.
                     if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
@@ -797,18 +831,18 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
 #ifdef _OPENMP
                     thread_id = omp_get_thread_num();
 #endif
-                    eri_engines[thread_id].compute(obs[s1], obs[s2], obs[s3], obs[s4]); // Compute shell set
+                    eri_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
                     const auto& buf_vec = eri_engines[thread_id].results(); // will point to computed shell sets
 
                     for(auto i = 0; i<buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
                         if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
                         for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                            size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
+                            size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
                             for(auto f2 = 0; f2 != n2; ++f2) {
-                                size_t offset_2 = (bf2 + f2) * nbf * nbf;
+                                size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
                                 for(auto f3 = 0; f3 != n3; ++f3) {
-                                    size_t offset_3 = (bf3 + f3) * nbf;
+                                    size_t offset_3 = (bf3 + f3) * nbf4;
                                     for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
                                         result[offset_1 + offset_2 + offset_3 + bf4 + f4] += ints_shellset[idx];
                                     }
@@ -853,7 +887,10 @@ void oei_deriv_disk(int max_deriv_order) {
     long total_deriv_slices = 0;
     for (int i = 1; i <= max_deriv_order; i++){
         total_deriv_slices += how_many_derivs(natom, i);
-        }
+    }
+
+    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
+    int max_l = std::max(bs1.max_l(), bs2.max_l());
 
     // Create H5 File and prepare to fill with 0.0's
     const H5std_string file_name("oei_derivs.h5");
@@ -881,9 +918,9 @@ void oei_deriv_disk(int max_deriv_order) {
 
         // Define engines and buffers
         std::vector<libint2::Engine> s_engines(nthreads), t_engines(nthreads), v_engines(nthreads);
-        s_engines[0] = libint2::Engine(libint2::Operator::overlap, obs.max_nprim(), obs.max_l(), deriv_order);
-        t_engines[0] = libint2::Engine(libint2::Operator::kinetic, obs.max_nprim(), obs.max_l(), deriv_order);
-        v_engines[0] = libint2::Engine(libint2::Operator::nuclear, obs.max_nprim(), obs.max_l(), deriv_order);
+        s_engines[0] = libint2::Engine(libint2::Operator::overlap, max_nprim, max_l, deriv_order);
+        t_engines[0] = libint2::Engine(libint2::Operator::kinetic, max_nprim, max_l, deriv_order);
+        v_engines[0] = libint2::Engine(libint2::Operator::nuclear, max_nprim, max_l, deriv_order);
         v_engines[0].set_params(make_point_charges(atoms));
         for (size_t i = 1; i != nthreads; ++i) {
             s_engines[i] = s_engines[0];
@@ -897,7 +934,7 @@ void oei_deriv_disk(int max_deriv_order) {
         const H5std_string potential_dset_name("potential_deriv" + std::to_string(deriv_order));
 
         // Define rank and dimensions of data that will be written to the file
-        hsize_t file_dims[] = {nbf, nbf, nderivs_triu};
+        hsize_t file_dims[] = {nbf1, nbf2, nderivs_triu};
         DataSpace fspace(3, file_dims);
         // Create dataset for each integral type and write 0.0's into the file 
         DataSet* overlap_dataset = new DataSet(file->createDataSet(overlap_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
@@ -907,23 +944,24 @@ void oei_deriv_disk(int max_deriv_order) {
         hsize_t block[3] = {1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
         hsize_t zerostart[3] = {0, 0, 0};
 
-        for(auto s1 = 0; s1 != obs.size(); ++s1) {
-            auto bf1 = shell2bf[s1];  // first basis function in first shell
-            auto atom1 = shell2atom[s1]; // Atom index of shell 1
-            auto n1 = obs[s1].size(); // number of basis functions in first shell
-            for(auto s2 = 0; s2 != obs.size(); ++s2) {
-                auto bf2 = shell2bf[s2];  // first basis function in second shell
-                auto atom2 = shell2atom[s2]; // Atom index of shell 2
-                auto n2 = obs[s2].size(); // number of basis functions in second shell
+#pragma omp parallel for collapse(2) num_threads(nthreads)
+        for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+            for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+                auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                auto n2 = bs2[s2].size();    // number of basis functions in shell 2
                 std::vector<long> shell_atom_index_list{atom1, atom2};
 
                 size_t thread_id = 0;
 #ifdef _OPENMP
                 thread_id = omp_get_thread_num();
 #endif
-                s_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
-                t_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
-                v_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
+                s_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
+                t_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
+                v_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
                 const auto& overlap_buffer = s_engines[thread_id].results(); // will point to computed shell sets
                 const auto& kinetic_buffer = t_engines[thread_id].results(); // will point to computed shell sets
                 const auto& potential_buffer = v_engines[thread_id].results(); // will point to computed shell sets;
@@ -1060,12 +1098,15 @@ void eri_deriv_disk(int max_deriv_order) {
     DSetCreatPropList plist;
     plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
 
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+
     // Check to make sure you are not flooding the disk.
     long total_deriv_slices = 0;
     for (int i = 1; i <= max_deriv_order; i++){
         total_deriv_slices += how_many_derivs(natom, i);
-        }
-    double check = (nbf * nbf * nbf * nbf * total_deriv_slices * 8) * (1e-9);
+    }
+    double check = (nbf1 * nbf2 * nbf3 * nbf4 * total_deriv_slices * 8) * (1e-9);
     assert(check < 10 && "Total disk space required for ERI's exceeds 10 GB. Increase threshold and recompile to proceed.");
 
     for (int deriv_order = 1; deriv_order <= max_deriv_order; deriv_order++){
@@ -1083,14 +1124,14 @@ void eri_deriv_disk(int max_deriv_order) {
 
         // Libint engine for computing shell quartet derivatives
         std::vector<libint2::Engine> eri_engines(nthreads);
-        eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, obs.max_nprim(), obs.max_l(), deriv_order);
+        eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
         for (size_t i = 1; i != nthreads; ++i) {
             eri_engines[i] = eri_engines[0];
         }
 
         // Define HDF5 dataset name
         const H5std_string eri_dset_name("eri_deriv" + std::to_string(deriv_order));
-        hsize_t file_dims[] = {nbf, nbf, nbf, nbf, nderivs_triu};
+        hsize_t file_dims[] = {nbf1, nbf2, nbf3, nbf4, nderivs_triu};
         DataSpace fspace(5, file_dims);
         // Create dataset for each integral type and write 0.0's into the file 
         DataSet* eri_dataset = new DataSet(file->createDataSet(eri_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
@@ -1099,22 +1140,22 @@ void eri_deriv_disk(int max_deriv_order) {
         hsize_t zerostart[5] = {0, 0, 0, 0, 0};
 
 #pragma omp parallel for collapse(4) num_threads(nthreads)
-        for(auto s1 = 0; s1 != obs.size(); ++s1) {
-            for(auto s2 = 0; s2 != obs.size(); ++s2) {
-                for(auto s3 = 0; s3 != obs.size(); ++s3) {
-                    for(auto s4 = 0; s4 != obs.size(); ++s4) {
-                        auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
-                        auto atom1 = shell2atom[s1]; // Atom index of shell 1
-                        auto n1 = obs[s1].size();    // number of basis functions in shell 1
-                        auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
-                        auto atom2 = shell2atom[s2]; // Atom index of shell 2
-                        auto n2 = obs[s2].size();    // number of basis functions in shell 2
-                        auto bf3 = shell2bf[s3];     // Index of first basis function in shell 3
-                        auto atom3 = shell2atom[s3]; // Atom index of shell 3
-                        auto n3 = obs[s3].size();    // number of basis functions in shell 3
-                        auto bf4 = shell2bf[s4];     // Index of first basis function in shell 4
-                        auto atom4 = shell2atom[s4]; // Atom index of shell 4
-                        auto n4 = obs[s4].size();    // number of basis functions in shell 4
+        for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+            for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+                for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                    for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                        auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                        auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                        auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                        auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                        auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                        auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                        auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                        auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                        auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                        auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                        auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                        auto n4 = bs4[s4].size();    // number of basis functions in shell 4
 
                         if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
                         std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
@@ -1123,7 +1164,7 @@ void eri_deriv_disk(int max_deriv_order) {
 #ifdef _OPENMP
                         thread_id = omp_get_thread_num();
 #endif
-                        eri_engines[thread_id].compute(obs[s1], obs[s2], obs[s3], obs[s4]); // Compute shell set
+                        eri_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
                         const auto& eri_buffer = eri_engines[thread_id].results(); // will point to computed shell sets
 
                         // Define shell set slab, with extra dimension for unique derivatives, initialized with 0.0's
@@ -1230,9 +1271,11 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
 
     // Define engines and buffers
     std::vector<libint2::Engine> s_engines(nthreads), t_engines(nthreads), v_engines(nthreads);
-    s_engines[0] = libint2::Engine(libint2::Operator::overlap, obs.max_nprim(), obs.max_l(), deriv_order);
-    t_engines[0] = libint2::Engine(libint2::Operator::kinetic, obs.max_nprim(), obs.max_l(), deriv_order);
-    v_engines[0] = libint2::Engine(libint2::Operator::nuclear, obs.max_nprim(), obs.max_l(), deriv_order);
+    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
+    int max_l = std::max(bs1.max_l(), bs2.max_l());
+    s_engines[0] = libint2::Engine(libint2::Operator::overlap, max_nprim, max_l, deriv_order);
+    t_engines[0] = libint2::Engine(libint2::Operator::kinetic, max_nprim, max_l, deriv_order);
+    v_engines[0] = libint2::Engine(libint2::Operator::nuclear, max_nprim, max_l, deriv_order);
     v_engines[0].set_params(make_point_charges(atoms));
     for (size_t i = 1; i != nthreads; ++i) {
         s_engines[i] = s_engines[0];
@@ -1240,29 +1283,29 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
         v_engines[i] = v_engines[0];
     }
 
-    size_t length = nbf * nbf * nderivs_triu;
+    size_t length = nbf1 * nbf2 * nderivs_triu;
     std::vector<double> S(length);
     std::vector<double> T(length);
     std::vector<double> V(length);
 
 #pragma omp parallel for collapse(2) num_threads(nthreads)
-    for(auto s1 = 0; s1 != obs.size(); ++s1) {
-        for(auto s2 = 0; s2 != obs.size(); ++s2) {
-            auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
-            auto atom1 = shell2atom[s1]; // Atom index of shell 1
-            auto n1 = obs[s1].size();    // number of basis functions in shell 1
-            auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
-            auto atom2 = shell2atom[s2]; // Atom index of shell 2
-            auto n2 = obs[s2].size();    // number of basis functions in shell 2
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+            auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+            auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+            auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+            auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+            auto n2 = bs2[s2].size();    // number of basis functions in shell 2
             std::vector<long> shell_atom_index_list{atom1, atom2};
 
             size_t thread_id = 0;
 #ifdef _OPENMP
             thread_id = omp_get_thread_num();
 #endif
-            s_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
-            t_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
-            v_engines[thread_id].compute(obs[s1], obs[s2]); // Compute shell set
+            s_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
+            t_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
+            v_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
             const auto& overlap_buffer = s_engines[thread_id].results(); // will point to computed shell sets
             const auto& kinetic_buffer = t_engines[thread_id].results(); // will point to computed shell sets
             const auto& potential_buffer = v_engines[thread_id].results(); // will point to computed shell sets
@@ -1270,7 +1313,7 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
             // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
             // For 1st derivatives of 2 atom system, this is 6. 2nd derivatives of 2 atom system: 21, etc
             for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
-                size_t offset_nuc_idx = nuc_idx * nbf * nbf;
+                size_t offset_nuc_idx = nuc_idx * nbf1 * nbf2;
 
                 // Look up multidimensional cartesian derivative index
                 auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
@@ -1342,8 +1385,8 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
                     auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
                     for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                         for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                            S[(bf1 + f1) * nbf + bf2 + f2 + offset_nuc_idx] += overlap_shellset[idx];
-                            T[(bf1 + f1) * nbf + bf2 + f2 + offset_nuc_idx] += kinetic_shellset[idx];
+                            S[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] += overlap_shellset[idx];
+                            T[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] += kinetic_shellset[idx];
                         }
                     }
                 }
@@ -1352,7 +1395,7 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
                     auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
                     for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                         for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                            V[(bf1 + f1) * nbf + bf2 + f2 + offset_nuc_idx] += potential_shellset[idx];
+                            V[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] += potential_shellset[idx];
                         }
                     }
                 }
@@ -1378,32 +1421,34 @@ py::array eri_deriv_core(int deriv_order) {
 
     // Libint engine for computing shell quartet derivatives
     std::vector<libint2::Engine> eri_engines(nthreads);
-    eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, obs.max_nprim(), obs.max_l(), deriv_order);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
     for (size_t i = 1; i != nthreads; ++i) {
         eri_engines[i] = eri_engines[0];
     }
 
-    size_t length = nbf * nbf * nbf * nbf * nderivs_triu;
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4 * nderivs_triu;
     std::vector<double> result(length);
 
     // Begin shell quartet loops
 #pragma omp parallel for collapse(4) num_threads(nthreads)
-    for(auto s1 = 0; s1 != obs.size(); ++s1) {
-        for(auto s2 = 0; s2 != obs.size(); ++s2) {
-            for(auto s3 = 0; s3 != obs.size(); ++s3) {
-                for(auto s4 = 0; s4 != obs.size(); ++s4) {
-                    auto bf1 = shell2bf[s1];     // Index of first basis function in shell 1
-                    auto atom1 = shell2atom[s1]; // Atom index of shell 1
-                    auto n1 = obs[s1].size();    // number of basis functions in shell 1
-                    auto bf2 = shell2bf[s2];     // Index of first basis function in shell 2
-                    auto atom2 = shell2atom[s2]; // Atom index of shell 2
-                    auto n2 = obs[s2].size();    // number of basis functions in shell 2
-                    auto bf3 = shell2bf[s3];     // Index of first basis function in shell 3
-                    auto atom3 = shell2atom[s3]; // Atom index of shell 3
-                    auto n3 = obs[s3].size();    // number of basis functions in shell 3
-                    auto bf4 = shell2bf[s4];     // Index of first basis function in shell 4
-                    auto atom4 = shell2atom[s4]; // Atom index of shell 4
-                    auto n4 = obs[s4].size();    // number of basis functions in shell 4
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
 
                     if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
                     std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
@@ -1412,12 +1457,12 @@ py::array eri_deriv_core(int deriv_order) {
 #ifdef _OPENMP
                     thread_id = omp_get_thread_num();
 #endif
-                    eri_engines[thread_id].compute(obs[s1], obs[s2], obs[s3], obs[s4]); // Compute shell set
+                    eri_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
                     const auto& eri_buffer = eri_engines[thread_id].results(); // will point to computed shell sets
 
                     // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
                     for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
-                        size_t offset_nuc_idx = nuc_idx * nbf * nbf * nbf * nbf;
+                        size_t offset_nuc_idx = nuc_idx * nbf1 * nbf2 * nbf3 * nbf4;
 
                         // Look up multidimensional cartesian derivative index
                         auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
@@ -1465,11 +1510,11 @@ py::array eri_deriv_core(int deriv_order) {
                             auto eri_shellset = eri_buffer[buffer_indices[i]];
                             if (eri_shellset == nullptr) continue;
                             for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                                size_t offset_1 = (bf1 + f1) * nbf * nbf * nbf;
+                                size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
                                 for(auto f2 = 0; f2 != n2; ++f2) {
-                                    size_t offset_2 = (bf2 + f2) * nbf * nbf;
+                                    size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
                                     for(auto f3 = 0; f3 != n3; ++f3) {
-                                        size_t offset_3 = (bf3 + f3) * nbf;
+                                        size_t offset_3 = (bf3 + f3) * nbf4;
                                         for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
                                             size_t offset_4 = bf4 + f4;
                                             result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += eri_shellset[idx];

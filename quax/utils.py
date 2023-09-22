@@ -7,7 +7,7 @@ def how_many_derivs(k,n):
     fact = 1
     for i in range(n):
         val *= 3 * k + i
-        fact *= i + 1;
+        fact *= i + 1
     val /= fact
     return int(val)
 
