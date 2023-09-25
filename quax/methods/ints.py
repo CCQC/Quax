@@ -31,7 +31,7 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
             S = oei_obj.overlap(geom)
             T = oei_obj.kinetic(geom)
             V = oei_obj.potential(geom)
-            G = tei_obj.tei(geom)
+            G = tei_obj.eri(geom)
             libint_interface.finalize()
         else:
             libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name)
@@ -40,7 +40,7 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
             S = oei_obj.overlap(geom)
             T = oei_obj.kinetic(geom)
             V = oei_obj.potential(geom)
-            G = tei_obj.tei(geom)
+            G = tei_obj.eri(geom)
             libint_interface.finalize()
 
     else:
@@ -52,7 +52,7 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
         S = oei_obj.overlap(geom)
         T = oei_obj.kinetic(geom)
         V = oei_obj.potential(geom)
-        G = tei_obj.tei(geom)
+        G = tei_obj.eri(geom)
         libint_interface.finalize()
 
     return S, T, V, G
