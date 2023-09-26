@@ -11,15 +11,15 @@ jax.config.update("jax_enable_x64", True)
 
 class TEI(object):
 
-    def __init__(self, basis_name, xyz_path, max_deriv_order, mode):
+    def __init__(self, basis1, basis2, basis3, basis4, xyz_path, max_deriv_order, mode):
         with open(xyz_path, 'r') as f:
             tmp = f.read()
         molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-        basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
+        basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis1, puream=0) # Not generalized yet
         natoms = molecule.natom()
         nbf = basis_set.nbf()
 
-        if mode == 'core' and max_deriv_order > 0:
+        if 'core' in mode and max_deriv_order > 0:
             # A list of ERI derivative tensors, containing only unique elements
             # corresponding to upper hypertriangle (since derivative tensors are symmetric)
             # Length of tuple is maximum deriv order, each array is (upper triangle derivatives,nbf,nbf,nbf,nbf)
@@ -36,17 +36,45 @@ class TEI(object):
         # Create new JAX primitive for TEI evaluation
         self.eri_p = jax.core.Primitive("eri")
         self.eri_deriv_p = jax.core.Primitive("eri_deriv")
+        self.f12_p = jax.core.Primitive("f12")
+        self.f12_deriv_p = jax.core.Primitive("f12_deriv")
+        self.f12_squared_p = jax.core.Primitive("f12_squared")
+        self.f12_squared_deriv_p = jax.core.Primitive("f12_squared_deriv")
+        self.f12g12_p = jax.core.Primitive("f12g12")
+        self.f12g12_deriv_p = jax.core.Primitive("f12g12_deriv")
+        self.f12_double_commutator_p = jax.core.Primitive("f12_double_commutator")
+        self.f12_double_commutator_deriv_p = jax.core.Primitive("f12_double_commutator_deriv")
 
         # Register primitive evaluation rules
         self.eri_p.def_impl(self.eri_impl)
         self.eri_deriv_p.def_impl(self.eri_deriv_impl)
+        self.f12_p.def_impl(self.f12_impl)
+        self.f12_deriv_p.def_impl(self.f12_deriv_impl)
+        self.f12_squared_p.def_impl(self.f12_squared_impl)
+        self.f12_squared_deriv_p.def_impl(self.f12_squared_deriv_impl)
+        self.f12g12_p.def_impl(self.f12g12_impl)
+        self.f12g12_deriv_p.def_impl(self.f12g12_deriv_impl)
+        self.f12_double_commutator_p.def_impl(self.f12_double_commutator_impl)
+        self.f12_double_commutator_deriv_p.def_impl(self.f12_double_commutator_deriv_impl)
 
         # Register the JVP rules with JAX
         jax.interpreters.ad.primitive_jvps[self.eri_p] = self.eri_jvp
         jax.interpreters.ad.primitive_jvps[self.eri_deriv_p] = self.eri_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.f12_p] = self.f12_jvp
+        jax.interpreters.ad.primitive_jvps[self.f12_deriv_p] = self.f12_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.f12_squared_p] = self.f12_squared_jvp
+        jax.interpreters.ad.primitive_jvps[self.f12_squared_deriv_p] = self.f12_squared_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.f12g12_p] = self.f12g12_jvp
+        jax.interpreters.ad.primitive_jvps[self.f12g12_deriv_p] = self.f12g12_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.f12_double_commutator_p] = self.f12_double_commutator_jvp
+        jax.interpreters.ad.primitive_jvps[self.f12_double_commutator_deriv_p] = self.f12_double_commutator_deriv_jvp
 
         # Register tei_deriv batching rule with JAX
         jax.interpreters.batching.primitive_batchers[self.eri_deriv_p] = self.eri_deriv_batch
+        jax.interpreters.batching.primitive_batchers[self.f12_deriv_p] = self.f12_deriv_batch
+        jax.interpreters.batching.primitive_batchers[self.f12_squared_deriv_p] = self.f12_squared_deriv_batch
+        jax.interpreters.batching.primitive_batchers[self.f12g12_deriv_p] = self.f12g12_deriv_batch
+        jax.interpreters.batching.primitive_batchers[self.f12_double_commutator_deriv_p] = self.f12_double_commutator_deriv_batch
 
     # Create functions to call primitives
     def eri(self, geom):
@@ -55,12 +83,60 @@ class TEI(object):
     def eri_deriv(self, geom, deriv_vec):
         return self.eri_deriv_p.bind(geom, deriv_vec)
 
+    def f12(self, geom, beta):
+        return self.f12_p.bind(geom, beta)
+
+    def f12_deriv(self, geom, beta, deriv_vec):
+        return self.f12_deriv_p.bind(geom, beta, deriv_vec)
+
+    def f12_squared(self, geom, beta):
+        return self.f12_squared_p.bind(geom, beta)
+
+    def f12_squared_deriv(self, geom, beta, deriv_vec):
+        return self.f12_squared_deriv_p.bind(geom, beta, deriv_vec)
+
+    def f12g12(self, geom, beta):
+        return self.f12g12_p.bind(geom, beta)
+
+    def f12g12_deriv(self, geom, beta, deriv_vec):
+        return self.f12g12_deriv_p.bind(geom, beta, deriv_vec)
+
+    def f12_double_commutator(self, geom, beta):
+        return self.f12_double_commutator_p.bind(geom, beta)
+
+    def f12_double_commutator_deriv(self, geom, beta, deriv_vec):
+        return self.f12_double_commutator_deriv_p.bind(geom, beta, deriv_vec)
+
     # Create primitive evaluation rules
     def eri_impl(self, geom):
         G = libint_interface.eri()
         #d = int(np.sqrt(np.sqrt(G.shape[0])))
         G = G.reshape(self.nbf,self.nbf,self.nbf,self.nbf)
         return jnp.asarray(G)
+
+    def f12_impl(self, geom, beta):
+        F = libint_interface.f12(beta)
+        #d = int(np.sqrt(np.sqrt(G.shape[0])))
+        F = F.reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+        return jnp.asarray(F)
+
+    def f12_squared_impl(self, geom, beta):
+        F = libint_interface.f12_squared(beta)
+        #d = int(np.sqrt(np.sqrt(G.shape[0])))
+        F = F.reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+        return jnp.asarray(F)
+
+    def f12g12_impl(self, geom, beta):
+        F = libint_interface.f12g12(beta)
+        #d = int(np.sqrt(np.sqrt(G.shape[0])))
+        F = F.reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+        return jnp.asarray(F)
+    
+    def f12_double_commutator_impl(self, geom, beta):
+        F = libint_interface.f12_double_commutator(beta)
+        #d = int(np.sqrt(np.sqrt(G.shape[0])))
+        F = F.reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+        return jnp.asarray(F)
 
     def eri_deriv_impl(self, geom, deriv_vec):
         deriv_vec = np.asarray(deriv_vec, int)
@@ -95,12 +171,51 @@ class TEI(object):
                     raise Exception("Something went wrong reading integral derivative file")
             return jnp.asarray(G)
 
+    def f12_deriv_impl(self, geom, beta, deriv_vec):
+        deriv_vec = np.asarray(deriv_vec, int)
+        deriv_order = np.sum(deriv_vec)
+        #idx = get_deriv_vec_idx(deriv_vec)
+
+        # Use eri derivatives in memory
+        if self.mode == 'core':
+            F = libint_interface.f12_deriv(beta, deriv_vec)
+            return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+
+    def f12_squared_deriv_impl(self, geom, beta, deriv_vec):
+        deriv_vec = np.asarray(deriv_vec, int)
+        deriv_order = np.sum(deriv_vec)
+        #idx = get_deriv_vec_idx(deriv_vec)
+
+        # Use eri derivatives in memory
+        if self.mode == 'core':
+            F = libint_interface.f12_squared_deriv(beta, deriv_vec)
+            return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+
+    def f12g12_deriv_impl(self, geom, beta, deriv_vec):
+        deriv_vec = np.asarray(deriv_vec, int)
+        deriv_order = np.sum(deriv_vec)
+        #idx = get_deriv_vec_idx(deriv_vec)
+
+        # Use eri derivatives in memory
+        if self.mode == 'core':
+            F = libint_interface.f12g12_deriv(beta, deriv_vec)
+            return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+
+    def f12_double_commutator_deriv_impl(self, geom, beta, deriv_vec):
+        deriv_vec = np.asarray(deriv_vec, int)
+        deriv_order = np.sum(deriv_vec)
+        #idx = get_deriv_vec_idx(deriv_vec)
+
+        # Use eri derivatives in memory
+        if self.mode == 'core':
+            F = libint_interface.f12_double_commutator_deriv(beta, deriv_vec)
+            return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
 
     # Create Jacobian-vector product rule, which given some input args (primals)
     # and a tangent std basis vector (tangent), returns the function evaluated at that point (primals_out)
     # and the slice of the Jacobian (tangents_out)
     def eri_jvp(self, primals, tangents):
-        geom, = primals
+        geom = primals
         primals_out = self.eri(geom)
         tangents_out = self.eri_deriv(geom, tangents[0])
         return primals_out, tangents_out
@@ -111,6 +226,62 @@ class TEI(object):
         # Here we add the current value of deriv_vec to the incoming tangent vector,
         # so that nested higher order differentiation works
         tangents_out = self.eri_deriv(geom, deriv_vec + tangents[0])
+        return primals_out, tangents_out
+
+    def f12_jvp(self, primals, tangents):
+        geom, beta = primals
+        primals_out = self.f12(geom, beta)
+        tangents_out = self.f12_deriv(geom, beta, tangents[0])
+        return primals_out, tangents_out
+
+    def f12_deriv_jvp(self, primals, tangents):
+        geom, beta, deriv_vec = primals
+        primals_out = self.f12_deriv(geom, beta, deriv_vec)
+        # Here we add the current value of deriv_vec to the incoming tangent vector,
+        # so that nested higher order differentiation works
+        tangents_out = self.f12_deriv(geom, beta, deriv_vec + tangents[0])
+        return primals_out, tangents_out
+
+    def f12_squared_jvp(self, primals, tangents):
+        geom, beta = primals
+        primals_out = self.f12_squared(geom, beta)
+        tangents_out = self.f12_squared_deriv(geom, beta, tangents[0])
+        return primals_out, tangents_out
+
+    def f12_squared_deriv_jvp(self, primals, tangents):
+        geom, beta, deriv_vec = primals
+        primals_out = self.f12_squared_deriv(geom, beta, deriv_vec)
+        # Here we add the current value of deriv_vec to the incoming tangent vector,
+        # so that nested higher order differentiation works
+        tangents_out = self.f12_squared_deriv(geom, beta, deriv_vec + tangents[0])
+        return primals_out, tangents_out
+
+    def f12g12_jvp(self, primals, tangents):
+        geom, beta = primals
+        primals_out = self.f12g12(geom, beta)
+        tangents_out = self.f12g12_deriv(geom, beta, tangents[0])
+        return primals_out, tangents_out
+
+    def f12g12_deriv_jvp(self, primals, tangents):
+        geom, beta, deriv_vec = primals
+        primals_out = self.f12g12_deriv(geom, beta, deriv_vec)
+        # Here we add the current value of deriv_vec to the incoming tangent vector,
+        # so that nested higher order differentiation works
+        tangents_out = self.f12g12_deriv(geom, beta, deriv_vec + tangents[0])
+        return primals_out, tangents_out
+
+    def f12_double_commutator_jvp(self, primals, tangents):
+        geom, beta = primals
+        primals_out = self.f12_double_commutator(geom, beta)
+        tangents_out = self.f12_double_commutator_deriv(geom, beta, tangents[0])
+        return primals_out, tangents_out
+
+    def f12_double_commutator_deriv_jvp(self, primals, tangents):
+        geom, beta, deriv_vec = primals
+        primals_out = self.f12_double_commutator_deriv(geom, beta, deriv_vec)
+        # Here we add the current value of deriv_vec to the incoming tangent vector,
+        # so that nested higher order differentiation works
+        tangents_out = self.f12_double_commutator_deriv(geom, beta, deriv_vec + tangents[0])
         return primals_out, tangents_out
 
     # Define Batching rules, this is only needed since jax.jacfwd will call vmap on the JVP of tei
@@ -125,6 +296,66 @@ class TEI(object):
         results = []
         for i in deriv_batch:
             tmp = self.eri_deriv(geom_batch, i)
+            results.append(jnp.expand_dims(tmp, axis=0))
+        results = jnp.concatenate(results, axis=0)
+        return results, 0
+    
+    def f12_deriv_batch(self, batched_args, batch_dims):
+        # When the input argument of deriv_batch is batched along the 0'th axis
+        # we want to evaluate every 4d slice, gather up a (ncart, n,n,n,n) array,
+        # (expand dims at 0 and concatenate at 0)
+        # and then return the results, indicating the out batch axis
+        # is in the 0th position (return results, 0)
+        geom_batch, beta_batch, deriv_batch = batched_args
+        geom_dim, beta_dim, deriv_dim = batch_dims
+        results = []
+        for i in deriv_batch:
+            tmp = self.f12_deriv(geom_batch, beta_batch, i)
+            results.append(jnp.expand_dims(tmp, axis=0))
+        results = jnp.concatenate(results, axis=0)
+        return results, 0
+
+    def f12_squared_deriv_batch(self, batched_args, batch_dims):
+        # When the input argument of deriv_batch is batched along the 0'th axis
+        # we want to evaluate every 4d slice, gather up a (ncart, n,n,n,n) array,
+        # (expand dims at 0 and concatenate at 0)
+        # and then return the results, indicating the out batch axis
+        # is in the 0th position (return results, 0)
+        geom_batch, beta_batch, deriv_batch = batched_args
+        geom_dim, beta_dim, deriv_dim = batch_dims
+        results = []
+        for i in deriv_batch:
+            tmp = self.f12_squared_deriv(geom_batch, beta_batch, i)
+            results.append(jnp.expand_dims(tmp, axis=0))
+        results = jnp.concatenate(results, axis=0)
+        return results, 0
+
+    def f12g12_deriv_batch(self, batched_args, batch_dims):
+        # When the input argument of deriv_batch is batched along the 0'th axis
+        # we want to evaluate every 4d slice, gather up a (ncart, n,n,n,n) array,
+        # (expand dims at 0 and concatenate at 0)
+        # and then return the results, indicating the out batch axis
+        # is in the 0th position (return results, 0)
+        geom_batch, beta_batch, deriv_batch = batched_args
+        geom_dim, beta_dim, deriv_dim = batch_dims
+        results = []
+        for i in deriv_batch:
+            tmp = self.f12g12_deriv(geom_batch, beta_batch, i)
+            results.append(jnp.expand_dims(tmp, axis=0))
+        results = jnp.concatenate(results, axis=0)
+        return results, 0
+
+    def f12_double_commutator_deriv_batch(self, batched_args, batch_dims):
+        # When the input argument of deriv_batch is batched along the 0'th axis
+        # we want to evaluate every 4d slice, gather up a (ncart, n,n,n,n) array,
+        # (expand dims at 0 and concatenate at 0)
+        # and then return the results, indicating the out batch axis
+        # is in the 0th position (return results, 0)
+        geom_batch, beta_batch, deriv_batch = batched_args
+        geom_dim, beta_dim, deriv_dim = batch_dims
+        results = []
+        for i in deriv_batch:
+            tmp = self.f12_double_commutator_deriv(geom_batch, beta_batch, i)
             results.append(jnp.expand_dims(tmp, axis=0))
         results = jnp.concatenate(results, axis=0)
         return results, 0

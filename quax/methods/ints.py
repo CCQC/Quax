@@ -18,23 +18,22 @@ from ..integrals import libint_interface
 def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order, options):
     # Load integral algo, decides to compute integrals in memory or use disk 
     algo = options['integral_algo']
+    libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name)
 
     if algo == 'libint_disk':
         # Check disk for currently existing integral derivatives
         check = check_disk(geom,basis_name,xyz_path,deriv_order)
 
-        tei_obj = TEI(basis_name, xyz_path, deriv_order, 'disk')
-        oei_obj = OEI(basis_name, xyz_path, deriv_order, 'disk')
+        tei_obj = TEI(basis_name, basis_name, basis_name, basis_name, xyz_path, deriv_order, 'disk')
+        oei_obj = OEI(basis_name, basis_name, xyz_path, deriv_order, 'disk')
         # If disk integral derivs are right, nothing to do
         if check:
-            libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name)
             S = oei_obj.overlap(geom)
             T = oei_obj.kinetic(geom)
             V = oei_obj.potential(geom)
             G = tei_obj.eri(geom)
             libint_interface.finalize()
         else:
-            libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name)
             libint_interface.oei_deriv_disk(deriv_order)
             libint_interface.eri_deriv_disk(deriv_order)
             S = oei_obj.overlap(geom)
@@ -44,17 +43,16 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
             libint_interface.finalize()
 
     else:
-        libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name)
         # Precompute TEI derivatives
-        tei_obj = TEI(basis_name, xyz_path, deriv_order, 'core')
-        oei_obj = OEI(basis_name, xyz_path, deriv_order, 'core')
+        tei_obj = TEI(basis_name, basis_name, basis_name, basis_name, xyz_path, deriv_order, 'core')
+        oei_obj = OEI(basis_name, basis_name, xyz_path, deriv_order, 'core')
         # Compute integrals
         S = oei_obj.overlap(geom)
         T = oei_obj.kinetic(geom)
         V = oei_obj.potential(geom)
         G = tei_obj.eri(geom)
-        libint_interface.finalize()
 
+    libint_interface.finalize()
     return S, T, V, G
 
 def check_disk(geom,basis_name,xyz_path,deriv_order,address=None):

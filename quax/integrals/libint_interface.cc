@@ -97,6 +97,40 @@ void finalize() {
     libint2::finalize();
 }
 
+// Used to make contracted Gaussian-type geminal for F12 methods
+std::vector<std::pair<double, double>> make_cgtg(double exponent) {
+    // The fitting coefficients and the exponents from MPQC
+    std::vector<std::pair<double, double>> exp_coeff = {};
+    std::vector<double> coeffs = {-0.31442480597241274, -0.30369575353387201, -0.16806968430232927,
+                                  -0.098115812152857612, -0.060246640234342785, -0.037263541968504843};
+    std::vector<double> exps = {0.22085085450735284, 1.0040191632019282, 3.6212173098378728,
+                                12.162483236221904, 45.855332448029337, 254.23460688554644};
+
+    for (int i = 0; i < exps.size(); i++){
+        auto exp_scaled = (exponent * exponent) * exps[i];
+        exp_coeff.push_back(std::make_pair(exp_scaled, coeffs[i]));
+    }
+    
+    return exp_coeff;
+}
+
+// Returns square of cgtg
+std::vector<std::pair<double, double>> take_square(std::vector<std::pair<double, double>> input) {
+    auto n = input.size();
+    std::vector<std::pair<double, double>> output;
+    for (int i = 0; i < n; ++i) {
+        auto e_i = input[i].first;
+        auto c_i = input[i].second;
+        for (int j = i; j < n; ++j) {
+            auto e_j = input[j].first;
+            auto c_j = input[j].second;
+            double scale = i == j ? 1.0 : 2.0;
+            output.emplace_back(std::make_pair(e_i + e_j, scale * c_i * c_j));
+        }
+    }
+    return output;
+}
+
 // Cartesian product of arbitrary number of vectors, given a vector of vectors
 // Used to find all possible combinations of indices which correspond to desired nuclear derivatives
 // For example, if molecule has two atoms, A and B, and we want nuclear derivative d^2/dAz dBz, represented by deriv_vec = [0,0,1,0,0,1], 
@@ -353,6 +387,250 @@ py::array eri() {
 #endif
                     eri_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
                     const auto& buf_vec = eri_engines[thread_id].results(); // will point to computed shell sets
+
+                    auto ints_shellset = buf_vec[0];    // Location of the computed integrals
+                    if (ints_shellset == nullptr)
+                        continue;  // nullptr returned if the entire shell-set was screened out
+
+                    // Loop over shell block, keeping a total count idx for the size of shell set
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                        for(auto f2 = 0; f2 != n2; ++f2) {
+                            size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                            for(auto f3 = 0; f3 != n3; ++f3) {
+                                size_t offset_3 = (bf3 + f3) * nbf4;
+                                for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                    result[offset_1 + offset_2 + offset_3 + bf4 + f4] = ints_shellset[idx];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+}
+
+// Computes integrals of contracted Gaussian-type geminal
+py::array f12(double beta) {
+    // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
+    auto cgtg_params = make_cgtg(beta);
+    std::vector<libint2::Engine> cgtg_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    cgtg_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l);
+    cgtg_engines[0].set_params(cgtg_params);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_engines[i] = cgtg_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4;
+    std::vector<double> result(length);
+    
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3=0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];  // first basis function in first shell
+                    auto n1 = bs1[s1].size(); // number of basis functions in first shell
+                    auto bf2 = shell2bf_2[s2];  // first basis function in second shell
+                    auto n2 = bs2[s2].size(); // number of basis functions in second shell
+                    auto bf3 = shell2bf_3[s3];  // first basis function in third shell
+                    auto n3 = bs3[s3].size(); // number of basis functions in third shell
+                    auto bf4 = shell2bf_4[s4];  // first basis function in fourth shell
+                    auto n4 = bs4[s4].size(); // number of basis functions in fourth shell
+
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& buf_vec = cgtg_engines[thread_id].results(); // will point to computed shell sets
+
+                    auto ints_shellset = buf_vec[0];    // Location of the computed integrals
+                    if (ints_shellset == nullptr)
+                        continue;  // nullptr returned if the entire shell-set was screened out
+
+                    // Loop over shell block, keeping a total count idx for the size of shell set
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                        for(auto f2 = 0; f2 != n2; ++f2) {
+                            size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                            for(auto f3 = 0; f3 != n3; ++f3) {
+                                size_t offset_3 = (bf3 + f3) * nbf4;
+                                for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                    result[offset_1 + offset_2 + offset_3 + bf4 + f4] = ints_shellset[idx];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+}
+
+// Computes integrals of squared contracted Gaussian-type geminal
+py::array f12_squared(double beta) {
+    // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
+    auto cgtg_params = take_square(make_cgtg(beta));
+    std::vector<libint2::Engine> cgtg_squared_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    cgtg_squared_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l);
+    cgtg_squared_engines[0].set_params(cgtg_params);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_squared_engines[i] = cgtg_squared_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4;
+    std::vector<double> result(length);
+    
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3=0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];  // first basis function in first shell
+                    auto n1 = bs1[s1].size(); // number of basis functions in first shell
+                    auto bf2 = shell2bf_2[s2];  // first basis function in second shell
+                    auto n2 = bs2[s2].size(); // number of basis functions in second shell
+                    auto bf3 = shell2bf_3[s3];  // first basis function in third shell
+                    auto n3 = bs3[s3].size(); // number of basis functions in third shell
+                    auto bf4 = shell2bf_4[s4];  // first basis function in fourth shell
+                    auto n4 = bs4[s4].size(); // number of basis functions in fourth shell
+
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_squared_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& buf_vec = cgtg_squared_engines[thread_id].results(); // will point to computed shell sets
+
+                    auto ints_shellset = buf_vec[0];    // Location of the computed integrals
+                    if (ints_shellset == nullptr)
+                        continue;  // nullptr returned if the entire shell-set was screened out
+
+                    // Loop over shell block, keeping a total count idx for the size of shell set
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                        for(auto f2 = 0; f2 != n2; ++f2) {
+                            size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                            for(auto f3 = 0; f3 != n3; ++f3) {
+                                size_t offset_3 = (bf3 + f3) * nbf4;
+                                for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                    result[offset_1 + offset_2 + offset_3 + bf4 + f4] = ints_shellset[idx];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+}
+
+// Computes electron repulsion integrals of contracted Gaussian-type geminal
+py::array f12g12(double beta) {
+    // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
+    auto cgtg_params = make_cgtg(beta);
+    std::vector<libint2::Engine> cgtg_coulomb_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    cgtg_coulomb_engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l);
+    cgtg_coulomb_engines[0].set_params(cgtg_params);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_coulomb_engines[i] = cgtg_coulomb_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4;
+    std::vector<double> result(length);
+    
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3=0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];  // first basis function in first shell
+                    auto n1 = bs1[s1].size(); // number of basis functions in first shell
+                    auto bf2 = shell2bf_2[s2];  // first basis function in second shell
+                    auto n2 = bs2[s2].size(); // number of basis functions in second shell
+                    auto bf3 = shell2bf_3[s3];  // first basis function in third shell
+                    auto n3 = bs3[s3].size(); // number of basis functions in third shell
+                    auto bf4 = shell2bf_4[s4];  // first basis function in fourth shell
+                    auto n4 = bs4[s4].size(); // number of basis functions in fourth shell
+
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_coulomb_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& buf_vec = cgtg_coulomb_engines[thread_id].results(); // will point to computed shell sets
+
+                    auto ints_shellset = buf_vec[0];    // Location of the computed integrals
+                    if (ints_shellset == nullptr)
+                        continue;  // nullptr returned if the entire shell-set was screened out
+
+                    // Loop over shell block, keeping a total count idx for the size of shell set
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                        for(auto f2 = 0; f2 != n2; ++f2) {
+                            size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                            for(auto f3 = 0; f3 != n3; ++f3) {
+                                size_t offset_3 = (bf3 + f3) * nbf4;
+                                for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                    result[offset_1 + offset_2 + offset_3 + bf4 + f4] = ints_shellset[idx];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+}
+
+// Computes gradient norm of contracted Gaussian-type geminal
+py::array f12_double_commutator(double beta) {
+    // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
+    auto cgtg_params = make_cgtg(beta);
+    std::vector<libint2::Engine> cgtg_del_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    // Returns Runtime Error: bad any_cast if shorthand version is used, may be an error on the Libint side since Psi4 works with this as well
+    cgtg_del_engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, 0, 0., cgtg_params, libint2::BraKet::xx_xx);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_del_engines[i] = cgtg_del_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4;
+    std::vector<double> result(length);
+    
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3=0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];  // first basis function in first shell
+                    auto n1 = bs1[s1].size(); // number of basis functions in first shell
+                    auto bf2 = shell2bf_2[s2];  // first basis function in second shell
+                    auto n2 = bs2[s2].size(); // number of basis functions in second shell
+                    auto bf3 = shell2bf_3[s3];  // first basis function in third shell
+                    auto n3 = bs3[s3].size(); // number of basis functions in third shell
+                    auto bf4 = shell2bf_4[s4];  // first basis function in fourth shell
+                    auto n4 = bs4[s4].size(); // number of basis functions in fourth shell
+
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_del_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& buf_vec = cgtg_del_engines[thread_id].results(); // will point to computed shell sets
 
                     auto ints_shellset = buf_vec[0];    // Location of the computed integrals
                     if (ints_shellset == nullptr)
@@ -858,6 +1136,622 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 }
 
+// Computes nuclear derivatives of contracted Gaussian-type geminal integrals
+py::array f12_deriv(double beta, std::vector<int> deriv_vec) {
+    int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
+
+    // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
+    std::vector<int> desired_atom_indices;
+    std::vector<int> desired_coordinates;
+    process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
+
+    assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+
+    // F12 derivative integral engine
+    auto cgtg_params = make_cgtg(beta);
+    std::vector<libint2::Engine> cgtg_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    cgtg_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
+    cgtg_engines[0].set_params(cgtg_params);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_engines[i] = cgtg_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4;
+    std::vector<double> result(length);
+
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                    // If the atoms are the same we ignore it as the derivatives will be zero.
+                    if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                    // Ensure all desired_atoms correspond to at least one shell atom to ensure desired derivative exists. else, skip this shell quartet.
+                    bool atoms_not_present = false;
+                    for (int i = 0; i < deriv_order; i++){
+                        if (atom1 == desired_atom_indices[i]) continue; 
+                        else if (atom2 == desired_atom_indices[i]) continue;
+                        else if (atom3 == desired_atom_indices[i]) continue;
+                        else if (atom4 == desired_atom_indices[i]) continue;
+                        else {atoms_not_present = true; break;}
+                    }
+                    if (atoms_not_present) continue;
+
+                    // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
+                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                    // Initialize 2d vector, with DERIV_ORDER subvectors
+                    // Each subvector contains index candidates which are possible choices for each partial derivative operator
+                    // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
+                    // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
+                    std::vector<std::vector<int>> indices;
+                    for (int i = 0; i < deriv_order; i++){
+                        std::vector<int> new_vec;
+                        indices.push_back(new_vec);
+                    }
+                
+                    // For every desired atom derivative, check shell indices for a match, add it to subvector for that derivative
+                    // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+                    for (int j = 0; j < desired_atom_indices.size(); j++){
+                        int desired_atom_idx = desired_atom_indices[j];
+                        // Shell indices
+                        for (int i = 0; i < 4; i++){
+                            int atom_idx = shell_atom_index_list[i];
+                            if (atom_idx == desired_atom_idx) {
+                                int tmp = 3 * i + desired_coordinates[j];
+                                indices[j].push_back(tmp);
+                            }
+                        }
+                    }
+                    
+                    // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                    // and the total number of subvectors is the order of differentiation
+                    // Now we want all combinations where we pick exactly one index from each subvector.
+                    // This is achievable through a cartesian product 
+                    std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+
+                    // Now create buffer_indices from these index combos using lookup array
+                    std::vector<int> buffer_indices;
+                    if (deriv_order == 1){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            buffer_indices.push_back(buffer_index_eri1d[idx1]);
+                        }
+                    }
+                    else if (deriv_order == 2){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            buffer_indices.push_back(buffer_index_eri2d[idx1][idx2]);
+                        }
+                    }
+                    else if (deriv_order == 3){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            int idx3 = index_combos[i][2];
+                            buffer_indices.push_back(buffer_index_eri3d[idx1][idx2][idx3]);
+                        }
+                    }
+                    else if (deriv_order == 4){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            int idx3 = index_combos[i][2];
+                            int idx4 = index_combos[i][3];
+                            buffer_indices.push_back(buffer_index_eri4d[idx1][idx2][idx3][idx4]);
+                        }
+                    }
+
+                    // If we made it this far, the shell derivative we want is contained in the buffer. 
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& buf_vec = cgtg_engines[thread_id].results(); // will point to computed shell sets
+
+                    for(auto i = 0; i<buffer_indices.size(); ++i) {
+                        auto ints_shellset = buf_vec[buffer_indices[i]];
+                        if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                            for(auto f2 = 0; f2 != n2; ++f2) {
+                                size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                for(auto f3 = 0; f3 != n3; ++f3) {
+                                    size_t offset_3 = (bf3 + f3) * nbf4;
+                                    for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                        result[offset_1 + offset_2 + offset_3 + bf4 + f4] += ints_shellset[idx];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // This is not the bottleneck
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+}
+
+// Computes nuclear derivatives of squared contracted Gaussian-type geminal integrals
+py::array f12_squared_deriv(double beta, std::vector<int> deriv_vec) {
+    int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
+
+    // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
+    std::vector<int> desired_atom_indices;
+    std::vector<int> desired_coordinates;
+    process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
+
+    assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+
+    // F12 Squared derivative integral engine
+    auto cgtg_params = take_square(make_cgtg(beta));
+    std::vector<libint2::Engine> cgtg_squared_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    cgtg_squared_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
+    cgtg_squared_engines[0].set_params(cgtg_params);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_squared_engines[i] = cgtg_squared_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4;
+    std::vector<double> result(length);
+
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                    // If the atoms are the same we ignore it as the derivatives will be zero.
+                    if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                    // Ensure all desired_atoms correspond to at least one shell atom to ensure desired derivative exists. else, skip this shell quartet.
+                    bool atoms_not_present = false;
+                    for (int i = 0; i < deriv_order; i++){
+                        if (atom1 == desired_atom_indices[i]) continue; 
+                        else if (atom2 == desired_atom_indices[i]) continue;
+                        else if (atom3 == desired_atom_indices[i]) continue;
+                        else if (atom4 == desired_atom_indices[i]) continue;
+                        else {atoms_not_present = true; break;}
+                    }
+                    if (atoms_not_present) continue;
+
+                    // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
+                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                    // Initialize 2d vector, with DERIV_ORDER subvectors
+                    // Each subvector contains index candidates which are possible choices for each partial derivative operator
+                    // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
+                    // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
+                    std::vector<std::vector<int>> indices;
+                    for (int i = 0; i < deriv_order; i++){
+                        std::vector<int> new_vec;
+                        indices.push_back(new_vec);
+                    }
+                
+                    // For every desired atom derivative, check shell indices for a match, add it to subvector for that derivative
+                    // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+                    for (int j = 0; j < desired_atom_indices.size(); j++){
+                        int desired_atom_idx = desired_atom_indices[j];
+                        // Shell indices
+                        for (int i = 0; i < 4; i++){
+                            int atom_idx = shell_atom_index_list[i];
+                            if (atom_idx == desired_atom_idx) {
+                                int tmp = 3 * i + desired_coordinates[j];
+                                indices[j].push_back(tmp);
+                            }
+                        }
+                    }
+                    
+                    // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                    // and the total number of subvectors is the order of differentiation
+                    // Now we want all combinations where we pick exactly one index from each subvector.
+                    // This is achievable through a cartesian product 
+                    std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+
+                    // Now create buffer_indices from these index combos using lookup array
+                    std::vector<int> buffer_indices;
+                    if (deriv_order == 1){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            buffer_indices.push_back(buffer_index_eri1d[idx1]);
+                        }
+                    }
+                    else if (deriv_order == 2){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            buffer_indices.push_back(buffer_index_eri2d[idx1][idx2]);
+                        }
+                    }
+                    else if (deriv_order == 3){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            int idx3 = index_combos[i][2];
+                            buffer_indices.push_back(buffer_index_eri3d[idx1][idx2][idx3]);
+                        }
+                    }
+                    else if (deriv_order == 4){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            int idx3 = index_combos[i][2];
+                            int idx4 = index_combos[i][3];
+                            buffer_indices.push_back(buffer_index_eri4d[idx1][idx2][idx3][idx4]);
+                        }
+                    }
+
+                    // If we made it this far, the shell derivative we want is contained in the buffer. 
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_squared_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& buf_vec = cgtg_squared_engines[thread_id].results(); // will point to computed shell sets
+
+                    for(auto i = 0; i<buffer_indices.size(); ++i) {
+                        auto ints_shellset = buf_vec[buffer_indices[i]];
+                        if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                            for(auto f2 = 0; f2 != n2; ++f2) {
+                                size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                for(auto f3 = 0; f3 != n3; ++f3) {
+                                    size_t offset_3 = (bf3 + f3) * nbf4;
+                                    for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                        result[offset_1 + offset_2 + offset_3 + bf4 + f4] += ints_shellset[idx];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // This is not the bottleneck
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+}
+
+// Computes nuclear derivatives of contracted Gaussian-type geminal times Coulomb replusion integrals
+py::array f12g12_deriv(double beta, std::vector<int> deriv_vec) {
+    int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
+
+    // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
+    std::vector<int> desired_atom_indices;
+    std::vector<int> desired_coordinates;
+    process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
+
+    assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+
+    // F12 derivative integral engine
+    auto cgtg_params = make_cgtg(beta);
+    std::vector<libint2::Engine> cgtg_coulomb_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    cgtg_coulomb_engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l, deriv_order);
+    cgtg_coulomb_engines[0].set_params(cgtg_params);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_coulomb_engines[i] = cgtg_coulomb_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4;
+    std::vector<double> result(length);
+
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                    // If the atoms are the same we ignore it as the derivatives will be zero.
+                    if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                    // Ensure all desired_atoms correspond to at least one shell atom to ensure desired derivative exists. else, skip this shell quartet.
+                    bool atoms_not_present = false;
+                    for (int i = 0; i < deriv_order; i++){
+                        if (atom1 == desired_atom_indices[i]) continue; 
+                        else if (atom2 == desired_atom_indices[i]) continue;
+                        else if (atom3 == desired_atom_indices[i]) continue;
+                        else if (atom4 == desired_atom_indices[i]) continue;
+                        else {atoms_not_present = true; break;}
+                    }
+                    if (atoms_not_present) continue;
+
+                    // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
+                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                    // Initialize 2d vector, with DERIV_ORDER subvectors
+                    // Each subvector contains index candidates which are possible choices for each partial derivative operator
+                    // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
+                    // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
+                    std::vector<std::vector<int>> indices;
+                    for (int i = 0; i < deriv_order; i++){
+                        std::vector<int> new_vec;
+                        indices.push_back(new_vec);
+                    }
+                
+                    // For every desired atom derivative, check shell indices for a match, add it to subvector for that derivative
+                    // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+                    for (int j = 0; j < desired_atom_indices.size(); j++){
+                        int desired_atom_idx = desired_atom_indices[j];
+                        // Shell indices
+                        for (int i = 0; i < 4; i++){
+                            int atom_idx = shell_atom_index_list[i];
+                            if (atom_idx == desired_atom_idx) {
+                                int tmp = 3 * i + desired_coordinates[j];
+                                indices[j].push_back(tmp);
+                            }
+                        }
+                    }
+                    
+                    // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                    // and the total number of subvectors is the order of differentiation
+                    // Now we want all combinations where we pick exactly one index from each subvector.
+                    // This is achievable through a cartesian product 
+                    std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+
+                    // Now create buffer_indices from these index combos using lookup array
+                    std::vector<int> buffer_indices;
+                    if (deriv_order == 1){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            buffer_indices.push_back(buffer_index_eri1d[idx1]);
+                        }
+                    }
+                    else if (deriv_order == 2){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            buffer_indices.push_back(buffer_index_eri2d[idx1][idx2]);
+                        }
+                    }
+                    else if (deriv_order == 3){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            int idx3 = index_combos[i][2];
+                            buffer_indices.push_back(buffer_index_eri3d[idx1][idx2][idx3]);
+                        }
+                    }
+                    else if (deriv_order == 4){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            int idx3 = index_combos[i][2];
+                            int idx4 = index_combos[i][3];
+                            buffer_indices.push_back(buffer_index_eri4d[idx1][idx2][idx3][idx4]);
+                        }
+                    }
+
+                    // If we made it this far, the shell derivative we want is contained in the buffer. 
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_coulomb_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& buf_vec = cgtg_coulomb_engines[thread_id].results(); // will point to computed shell sets
+
+                    for(auto i = 0; i<buffer_indices.size(); ++i) {
+                        auto ints_shellset = buf_vec[buffer_indices[i]];
+                        if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                            for(auto f2 = 0; f2 != n2; ++f2) {
+                                size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                for(auto f3 = 0; f3 != n3; ++f3) {
+                                    size_t offset_3 = (bf3 + f3) * nbf4;
+                                    for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                        result[offset_1 + offset_2 + offset_3 + bf4 + f4] += ints_shellset[idx];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // This is not the bottleneck
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+}
+
+// Computes nuclear derivatives of gradient norm of contracted Gaussian-type geminal integrals
+py::array f12_double_commutator_deriv(double beta, std::vector<int> deriv_vec) {
+    int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
+
+    // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
+    std::vector<int> desired_atom_indices;
+    std::vector<int> desired_coordinates;
+    process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
+
+    assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+
+    // F12 derivative integral engine
+    auto cgtg_params = make_cgtg(beta);
+    std::vector<libint2::Engine> cgtg_del_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    // Returns Runtime Error: bad any_cast if shorthand version is used, may be an error on the Libint side since Psi4 works with this as well
+    cgtg_del_engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, deriv_order, 0., cgtg_params, libint2::BraKet::xx_xx);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_del_engines[i] = cgtg_del_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4;
+    std::vector<double> result(length);
+
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                    // If the atoms are the same we ignore it as the derivatives will be zero.
+                    if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                    // Ensure all desired_atoms correspond to at least one shell atom to ensure desired derivative exists. else, skip this shell quartet.
+                    bool atoms_not_present = false;
+                    for (int i = 0; i < deriv_order; i++){
+                        if (atom1 == desired_atom_indices[i]) continue; 
+                        else if (atom2 == desired_atom_indices[i]) continue;
+                        else if (atom3 == desired_atom_indices[i]) continue;
+                        else if (atom4 == desired_atom_indices[i]) continue;
+                        else {atoms_not_present = true; break;}
+                    }
+                    if (atoms_not_present) continue;
+
+                    // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
+                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                    // Initialize 2d vector, with DERIV_ORDER subvectors
+                    // Each subvector contains index candidates which are possible choices for each partial derivative operator
+                    // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
+                    // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
+                    std::vector<std::vector<int>> indices;
+                    for (int i = 0; i < deriv_order; i++){
+                        std::vector<int> new_vec;
+                        indices.push_back(new_vec);
+                    }
+                
+                    // For every desired atom derivative, check shell indices for a match, add it to subvector for that derivative
+                    // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+                    for (int j = 0; j < desired_atom_indices.size(); j++){
+                        int desired_atom_idx = desired_atom_indices[j];
+                        // Shell indices
+                        for (int i = 0; i < 4; i++){
+                            int atom_idx = shell_atom_index_list[i];
+                            if (atom_idx == desired_atom_idx) {
+                                int tmp = 3 * i + desired_coordinates[j];
+                                indices[j].push_back(tmp);
+                            }
+                        }
+                    }
+                    
+                    // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                    // and the total number of subvectors is the order of differentiation
+                    // Now we want all combinations where we pick exactly one index from each subvector.
+                    // This is achievable through a cartesian product 
+                    std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+
+                    // Now create buffer_indices from these index combos using lookup array
+                    std::vector<int> buffer_indices;
+                    if (deriv_order == 1){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            buffer_indices.push_back(buffer_index_eri1d[idx1]);
+                        }
+                    }
+                    else if (deriv_order == 2){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            buffer_indices.push_back(buffer_index_eri2d[idx1][idx2]);
+                        }
+                    }
+                    else if (deriv_order == 3){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            int idx3 = index_combos[i][2];
+                            buffer_indices.push_back(buffer_index_eri3d[idx1][idx2][idx3]);
+                        }
+                    }
+                    else if (deriv_order == 4){ 
+                        for (int i = 0; i < index_combos.size(); i++){
+                            int idx1 = index_combos[i][0];
+                            int idx2 = index_combos[i][1];
+                            int idx3 = index_combos[i][2];
+                            int idx4 = index_combos[i][3];
+                            buffer_indices.push_back(buffer_index_eri4d[idx1][idx2][idx3][idx4]);
+                        }
+                    }
+
+                    // If we made it this far, the shell derivative we want is contained in the buffer. 
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_del_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& buf_vec = cgtg_del_engines[thread_id].results(); // will point to computed shell sets
+
+                    for(auto i = 0; i<buffer_indices.size(); ++i) {
+                        auto ints_shellset = buf_vec[buffer_indices[i]];
+                        if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                            for(auto f2 = 0; f2 != n2; ++f2) {
+                                size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                for(auto f3 = 0; f3 != n3; ++f3) {
+                                    size_t offset_3 = (bf3 + f3) * nbf4;
+                                    for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                        result[offset_1 + offset_2 + offset_3 + bf4 + f4] += ints_shellset[idx];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // This is not the bottleneck
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+}
+
 // The following function writes all overlap, kinetic, and potential derivatives up to `max_deriv_order` to disk
 // HDF5 File Name: oei_derivs.h5 
 //      HDF5 Dataset names within the file:
@@ -1250,6 +2144,700 @@ delete file;
 std::cout << " done" << std::endl;
 } // eri_deriv_disk function
 
+// Writes all F12 ints up to `max_deriv_order` to disk.
+// HDF5 File Name: f12_derivs.h5 
+//      HDF5 Dataset names within the file:
+//      f12_deriv1 
+//          shape (nbf,nbf,nbf,nbf,n_unique_1st_derivs)
+//      f12_deriv2
+//          shape (nbf,nbf,nbf,nbf,n_unique_2nd_derivs)
+//      f12_deriv3
+//          shape (nbf,nbf,nbf,nbf,n_unique_3rd_derivs)
+//      ...
+void f12_deriv_disk(double beta, int max_deriv_order) { 
+    std::cout << "Writing two-electron F12 integral derivative tensors up to order " << max_deriv_order << " to disk...";
+    const H5std_string file_name("f12_derivs.h5");
+    H5File* file = new H5File(file_name,H5F_ACC_TRUNC);
+    double fillvalue = 0.0;
+    DSetCreatPropList plist;
+    plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
+
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+
+    // Check to make sure you are not flooding the disk.
+    long total_deriv_slices = 0;
+    for (int i = 1; i <= max_deriv_order; i++){
+        total_deriv_slices += how_many_derivs(natom, i);
+    }
+    double check = (nbf1 * nbf2 * nbf3 * nbf4 * total_deriv_slices * 8) * (1e-9);
+    assert(check < 10 && "Total disk space required for ERI's exceeds 10 GB. Increase threshold and recompile to proceed.");
+
+    auto cgtg_params = make_cgtg(beta);
+    
+    for (int deriv_order = 1; deriv_order <= max_deriv_order; deriv_order++){
+        // Number of unique shell derivatives output by libint (number of indices in buffer)
+        int nshell_derivs = how_many_derivs(4, deriv_order);
+        // Number of unique nuclear derivatives of ERI's
+        unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+        // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+        // Currently not used due to predefined lookup arrays
+        //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+
+        // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+        const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+        // Libint engine for computing shell quartet derivatives
+        std::vector<libint2::Engine> cgtg_engines(nthreads);
+        cgtg_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
+        cgtg_engines[0].set_params(cgtg_params);
+        for (size_t i = 1; i != nthreads; ++i) {
+            cgtg_engines[i] = cgtg_engines[0];
+        }
+
+        // Define HDF5 dataset name
+        const H5std_string eri_dset_name("f12_deriv" + std::to_string(deriv_order));
+        hsize_t file_dims[] = {nbf1, nbf2, nbf3, nbf4, nderivs_triu};
+        DataSpace fspace(5, file_dims);
+        // Create dataset for each integral type and write 0.0's into the file 
+        DataSet* f12_dataset = new DataSet(file->createDataSet(eri_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        hsize_t stride[5] = {1, 1, 1, 1, 1}; // stride and block can be used to 
+        hsize_t block[5] = {1, 1, 1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
+        hsize_t zerostart[5] = {0, 0, 0, 0, 0};
+
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+        for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+            for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+                for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                    for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                        auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                        auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                        auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                        auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                        auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                        auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                        auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                        auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                        auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                        auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                        auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                        auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                        if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                        std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                        size_t thread_id = 0;
+#ifdef _OPENMP
+                        thread_id = omp_get_thread_num();
+#endif
+                        cgtg_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                        const auto& f12_buffer = cgtg_engines[thread_id].results(); // will point to computed shell sets
+
+                        // Define shell set slab, with extra dimension for unique derivatives, initialized with 0.0's
+                        double f12_shellset_slab [n1][n2][n3][n4][nderivs_triu] = {};
+                        // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+                        for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                            // Look up multidimensional cartesian derivative index
+                            auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+    
+                            std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+    
+                            // Find out which 
+                            for (int j = 0; j < multi_cart_idx.size(); j++){
+                                int desired_atom_idx = multi_cart_idx[j] / 3;
+                                int desired_coord = multi_cart_idx[j] % 3;
+                                for (int i = 0; i < 4; i++){
+                                    int atom_idx = shell_atom_index_list[i];
+                                    if (atom_idx == desired_atom_idx) {
+                                        int tmp = 3 * i + desired_coord;
+                                        indices[j].push_back(tmp);
+                                    }
+                                }
+                            }
+
+                            // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                            // and the total number of subvectors is the order of differentiation
+                            // Now we want all combinations where we pick exactly one index from each subvector.
+                            // This is achievable through a cartesian product 
+                            std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                            std::vector<int> buffer_indices;
+                            
+                            // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                            //for (auto vec : index_combos)  {
+                            //    std::sort(vec.begin(), vec.end());
+                            //    int buf_idx = 0;
+                            //    // buffer_multidim_lookup
+                            //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                            //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                            //    buffer_indices.push_back(buf_idx);
+                            //}
+                            // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
+                            for (auto vec : index_combos)  {
+                                if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
+                                else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
+                                else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
+                                else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                            }
+
+                            // Loop over shell block, keeping a total count idx for the size of shell set
+                            for(auto i = 0; i < buffer_indices.size(); ++i) {
+                                auto f12_shellset = f12_buffer[buffer_indices[i]];
+                                if (f12_shellset == nullptr) continue;
+                                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                                    for(auto f2 = 0; f2 != n2; ++f2) {
+                                        for(auto f3 = 0; f3 != n3; ++f3) {
+                                            for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                                f12_shellset_slab[f1][f2][f3][f4][nuc_idx] += f12_shellset[idx];
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } // For every nuc_idx 0, nderivs_triu
+                        // Now write this shell set slab to HDF5 file
+                        hsize_t count[5] = {n1, n2, n3, n4, nderivs_triu};
+                        hsize_t start[5] = {bf1, bf2, bf3, bf4, 0};
+                        fspace.selectHyperslab(H5S_SELECT_SET, count, start, stride, block);
+                        // Create dataspace defining for memory dataset to write to file
+                        hsize_t mem_dims[] = {n1, n2, n3, n4, nderivs_triu};
+                        DataSpace mspace(5, mem_dims);
+                        mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
+                        // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
+                        f12_dataset->write(f12_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+                    }
+                }
+            }
+        } // shell quartet loops
+    // Close the dataset for this derivative order
+    delete f12_dataset;
+    } // deriv order loop 
+// Close the file
+delete file;
+std::cout << " done" << std::endl;
+} // f12_deriv_disk function
+
+// Writes all F12 Squared ints up to `max_deriv_order` to disk.
+// HDF5 File Name: f12_squared_derivs.h5 
+//      HDF5 Dataset names within the file:
+//      f12_squared_deriv1 
+//          shape (nbf,nbf,nbf,nbf,n_unique_1st_derivs)
+//      f12_squared_deriv2
+//          shape (nbf,nbf,nbf,nbf,n_unique_2nd_derivs)
+//      f12_squared_deriv3
+//          shape (nbf,nbf,nbf,nbf,n_unique_3rd_derivs)
+//      ...
+void f12_squared_deriv_disk(double beta, int max_deriv_order) { 
+    std::cout << "Writing two-electron F12 squared integral derivative tensors up to order " << max_deriv_order << " to disk...";
+    const H5std_string file_name("f12_squared_derivs.h5");
+    H5File* file = new H5File(file_name,H5F_ACC_TRUNC);
+    double fillvalue = 0.0;
+    DSetCreatPropList plist;
+    plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
+
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+
+    // Check to make sure you are not flooding the disk.
+    long total_deriv_slices = 0;
+    for (int i = 1; i <= max_deriv_order; i++){
+        total_deriv_slices += how_many_derivs(natom, i);
+    }
+    double check = (nbf1 * nbf2 * nbf3 * nbf4 * total_deriv_slices * 8) * (1e-9);
+    assert(check < 10 && "Total disk space required for ERI's exceeds 10 GB. Increase threshold and recompile to proceed.");
+
+    auto cgtg_params = take_square(make_cgtg(beta));
+    
+    for (int deriv_order = 1; deriv_order <= max_deriv_order; deriv_order++){
+        // Number of unique shell derivatives output by libint (number of indices in buffer)
+        int nshell_derivs = how_many_derivs(4, deriv_order);
+        // Number of unique nuclear derivatives of ERI's
+        unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+        // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+        // Currently not used due to predefined lookup arrays
+        //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+
+        // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+        const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+        // Libint engine for computing shell quartet derivatives
+        std::vector<libint2::Engine> cgtg_squared_engines(nthreads);
+        size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+        int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+        cgtg_squared_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
+        cgtg_squared_engines[0].set_params(cgtg_params);
+        for (size_t i = 1; i != nthreads; ++i) {
+            cgtg_squared_engines[i] = cgtg_squared_engines[0];
+        }
+
+        // Define HDF5 dataset name
+        const H5std_string eri_dset_name("f12_squared_deriv" + std::to_string(deriv_order));
+        hsize_t file_dims[] = {nbf1, nbf2, nbf3, nbf4, nderivs_triu};
+        DataSpace fspace(5, file_dims);
+        // Create dataset for each integral type and write 0.0's into the file 
+        DataSet* f12_squared_dataset = new DataSet(file->createDataSet(eri_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        hsize_t stride[5] = {1, 1, 1, 1, 1}; // stride and block can be used to 
+        hsize_t block[5] = {1, 1, 1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
+        hsize_t zerostart[5] = {0, 0, 0, 0, 0};
+
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+        for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+            for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+                for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                    for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                        auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                        auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                        auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                        auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                        auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                        auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                        auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                        auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                        auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                        auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                        auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                        auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                        if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                        std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                        size_t thread_id = 0;
+#ifdef _OPENMP
+                        thread_id = omp_get_thread_num();
+#endif
+                        cgtg_squared_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                        const auto& f12_squared_buffer = cgtg_squared_engines[thread_id].results(); // will point to computed shell sets
+
+                        // Define shell set slab, with extra dimension for unique derivatives, initialized with 0.0's
+                        double f12_squared_shellset_slab [n1][n2][n3][n4][nderivs_triu] = {};
+                        // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+                        for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                            // Look up multidimensional cartesian derivative index
+                            auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+    
+                            std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+    
+                            // Find out which 
+                            for (int j = 0; j < multi_cart_idx.size(); j++){
+                                int desired_atom_idx = multi_cart_idx[j] / 3;
+                                int desired_coord = multi_cart_idx[j] % 3;
+                                for (int i = 0; i < 4; i++){
+                                    int atom_idx = shell_atom_index_list[i];
+                                    if (atom_idx == desired_atom_idx) {
+                                        int tmp = 3 * i + desired_coord;
+                                        indices[j].push_back(tmp);
+                                    }
+                                }
+                            }
+
+                            // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                            // and the total number of subvectors is the order of differentiation
+                            // Now we want all combinations where we pick exactly one index from each subvector.
+                            // This is achievable through a cartesian product 
+                            std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                            std::vector<int> buffer_indices;
+                            
+                            // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                            //for (auto vec : index_combos)  {
+                            //    std::sort(vec.begin(), vec.end());
+                            //    int buf_idx = 0;
+                            //    // buffer_multidim_lookup
+                            //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                            //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                            //    buffer_indices.push_back(buf_idx);
+                            //}
+                            // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
+                            for (auto vec : index_combos)  {
+                                if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
+                                else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
+                                else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
+                                else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                            }
+
+                            // Loop over shell block, keeping a total count idx for the size of shell set
+                            for(auto i = 0; i < buffer_indices.size(); ++i) {
+                                auto f12_squared_shellset = f12_squared_buffer[buffer_indices[i]];
+                                if (f12_squared_shellset == nullptr) continue;
+                                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                                    for(auto f2 = 0; f2 != n2; ++f2) {
+                                        for(auto f3 = 0; f3 != n3; ++f3) {
+                                            for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                                f12_squared_shellset_slab[f1][f2][f3][f4][nuc_idx] += f12_squared_shellset[idx];
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } // For every nuc_idx 0, nderivs_triu
+                        // Now write this shell set slab to HDF5 file
+                        hsize_t count[5] = {n1, n2, n3, n4, nderivs_triu};
+                        hsize_t start[5] = {bf1, bf2, bf3, bf4, 0};
+                        fspace.selectHyperslab(H5S_SELECT_SET, count, start, stride, block);
+                        // Create dataspace defining for memory dataset to write to file
+                        hsize_t mem_dims[] = {n1, n2, n3, n4, nderivs_triu};
+                        DataSpace mspace(5, mem_dims);
+                        mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
+                        // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
+                        f12_squared_dataset->write(f12_squared_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+                    }
+                }
+            }
+        } // shell quartet loops
+    // Close the dataset for this derivative order
+    delete f12_squared_dataset;
+    } // deriv order loop 
+// Close the file
+delete file;
+std::cout << " done" << std::endl;
+} // f12_squared_deriv_disk function
+
+// Writes all F12G12 ints up to `max_deriv_order` to disk.
+// HDF5 File Name: f12g12_derivs.h5 
+//      HDF5 Dataset names within the file:
+//      f12g12_deriv1 
+//          shape (nbf,nbf,nbf,nbf,n_unique_1st_derivs)
+//      f12g12_deriv2
+//          shape (nbf,nbf,nbf,nbf,n_unique_2nd_derivs)
+//      f12g12_deriv3
+//          shape (nbf,nbf,nbf,nbf,n_unique_3rd_derivs)
+//      ...
+void f12g12_deriv_disk(double beta, int max_deriv_order) { 
+    std::cout << "Writing two-electron F12G12 integral derivative tensors up to order " << max_deriv_order << " to disk...";
+    const H5std_string file_name("f12g12_derivs.h5");
+    H5File* file = new H5File(file_name,H5F_ACC_TRUNC);
+    double fillvalue = 0.0;
+    DSetCreatPropList plist;
+    plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
+
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+
+    // Check to make sure you are not flooding the disk.
+    long total_deriv_slices = 0;
+    for (int i = 1; i <= max_deriv_order; i++){
+        total_deriv_slices += how_many_derivs(natom, i);
+    }
+    double check = (nbf1 * nbf2 * nbf3 * nbf4 * total_deriv_slices * 8) * (1e-9);
+    assert(check < 10 && "Total disk space required for ERI's exceeds 10 GB. Increase threshold and recompile to proceed.");
+
+    auto cgtg_params = make_cgtg(beta);
+    
+    for (int deriv_order = 1; deriv_order <= max_deriv_order; deriv_order++){
+        // Number of unique shell derivatives output by libint (number of indices in buffer)
+        int nshell_derivs = how_many_derivs(4, deriv_order);
+        // Number of unique nuclear derivatives of ERI's
+        unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+        // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+        // Currently not used due to predefined lookup arrays
+        //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+
+        // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+        const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+        // Libint engine for computing shell quartet derivatives
+        std::vector<libint2::Engine> cgtg_coulomb_engines(nthreads);
+        cgtg_coulomb_engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l, deriv_order);
+        cgtg_coulomb_engines[0].set_params(cgtg_params);
+        for (size_t i = 1; i != nthreads; ++i) {
+            cgtg_coulomb_engines[i] = cgtg_coulomb_engines[0];
+        }
+
+        // Define HDF5 dataset name
+        const H5std_string eri_dset_name("f12g12_deriv" + std::to_string(deriv_order));
+        hsize_t file_dims[] = {nbf1, nbf2, nbf3, nbf4, nderivs_triu};
+        DataSpace fspace(5, file_dims);
+        // Create dataset for each integral type and write 0.0's into the file 
+        DataSet* f12g12_dataset = new DataSet(file->createDataSet(eri_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        hsize_t stride[5] = {1, 1, 1, 1, 1}; // stride and block can be used to 
+        hsize_t block[5] = {1, 1, 1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
+        hsize_t zerostart[5] = {0, 0, 0, 0, 0};
+
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+        for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+            for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+                for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                    for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                        auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                        auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                        auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                        auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                        auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                        auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                        auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                        auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                        auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                        auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                        auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                        auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                        if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                        std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                        size_t thread_id = 0;
+#ifdef _OPENMP
+                        thread_id = omp_get_thread_num();
+#endif
+                        cgtg_coulomb_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                        const auto& f12g12_buffer = cgtg_coulomb_engines[thread_id].results(); // will point to computed shell sets
+
+                        // Define shell set slab, with extra dimension for unique derivatives, initialized with 0.0's
+                        double f12g12_shellset_slab [n1][n2][n3][n4][nderivs_triu] = {};
+                        // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+                        for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                            // Look up multidimensional cartesian derivative index
+                            auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+    
+                            std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+    
+                            // Find out which 
+                            for (int j = 0; j < multi_cart_idx.size(); j++){
+                                int desired_atom_idx = multi_cart_idx[j] / 3;
+                                int desired_coord = multi_cart_idx[j] % 3;
+                                for (int i = 0; i < 4; i++){
+                                    int atom_idx = shell_atom_index_list[i];
+                                    if (atom_idx == desired_atom_idx) {
+                                        int tmp = 3 * i + desired_coord;
+                                        indices[j].push_back(tmp);
+                                    }
+                                }
+                            }
+
+                            // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                            // and the total number of subvectors is the order of differentiation
+                            // Now we want all combinations where we pick exactly one index from each subvector.
+                            // This is achievable through a cartesian product 
+                            std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                            std::vector<int> buffer_indices;
+                            
+                            // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                            //for (auto vec : index_combos)  {
+                            //    std::sort(vec.begin(), vec.end());
+                            //    int buf_idx = 0;
+                            //    // buffer_multidim_lookup
+                            //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                            //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                            //    buffer_indices.push_back(buf_idx);
+                            //}
+                            // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
+                            for (auto vec : index_combos)  {
+                                if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
+                                else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
+                                else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
+                                else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                            }
+
+                            // Loop over shell block, keeping a total count idx for the size of shell set
+                            for(auto i = 0; i < buffer_indices.size(); ++i) {
+                                auto f12g12_shellset = f12g12_buffer[buffer_indices[i]];
+                                if (f12g12_shellset == nullptr) continue;
+                                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                                    for(auto f2 = 0; f2 != n2; ++f2) {
+                                        for(auto f3 = 0; f3 != n3; ++f3) {
+                                            for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                                f12g12_shellset_slab[f1][f2][f3][f4][nuc_idx] += f12g12_shellset[idx];
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } // For every nuc_idx 0, nderivs_triu
+                        // Now write this shell set slab to HDF5 file
+                        hsize_t count[5] = {n1, n2, n3, n4, nderivs_triu};
+                        hsize_t start[5] = {bf1, bf2, bf3, bf4, 0};
+                        fspace.selectHyperslab(H5S_SELECT_SET, count, start, stride, block);
+                        // Create dataspace defining for memory dataset to write to file
+                        hsize_t mem_dims[] = {n1, n2, n3, n4, nderivs_triu};
+                        DataSpace mspace(5, mem_dims);
+                        mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
+                        // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
+                        f12g12_dataset->write(f12g12_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+                    }
+                }
+            }
+        } // shell quartet loops
+    // Close the dataset for this derivative order
+    delete f12g12_dataset;
+    } // deriv order loop 
+// Close the file
+delete file;
+std::cout << " done" << std::endl;
+} // f12g12_deriv_disk function
+
+// Writes all F12 Double Commutator ints up to `max_deriv_order` to disk.
+// HDF5 File Name: f12_derivs.h5 
+//      HDF5 Dataset names within the file:
+//      f12_double_commutator_deriv1 
+//          shape (nbf,nbf,nbf,nbf,n_unique_1st_derivs)
+//      f12_double_commutator_deriv2
+//          shape (nbf,nbf,nbf,nbf,n_unique_2nd_derivs)
+//      f12_double_commutator_deriv3
+//          shape (nbf,nbf,nbf,nbf,n_unique_3rd_derivs)
+//      ...
+void f12_double_commutator_deriv_disk(double beta, int max_deriv_order) { 
+    std::cout << "Writing two-electron F12 Double Commutator integral derivative tensors up to order " << max_deriv_order << " to disk...";
+    const H5std_string file_name("f12_double_commutator_derivs.h5");
+    H5File* file = new H5File(file_name,H5F_ACC_TRUNC);
+    double fillvalue = 0.0;
+    DSetCreatPropList plist;
+    plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
+
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+
+    // Check to make sure you are not flooding the disk.
+    long total_deriv_slices = 0;
+    for (int i = 1; i <= max_deriv_order; i++){
+        total_deriv_slices += how_many_derivs(natom, i);
+    }
+    double check = (nbf1 * nbf2 * nbf3 * nbf4 * total_deriv_slices * 8) * (1e-9);
+    assert(check < 10 && "Total disk space required for ERI's exceeds 10 GB. Increase threshold and recompile to proceed.");
+
+    auto cgtg_params = make_cgtg(beta);
+    
+    for (int deriv_order = 1; deriv_order <= max_deriv_order; deriv_order++){
+        // Number of unique shell derivatives output by libint (number of indices in buffer)
+        int nshell_derivs = how_many_derivs(4, deriv_order);
+        // Number of unique nuclear derivatives of ERI's
+        unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+        // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+        // Currently not used due to predefined lookup arrays
+        //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+
+        // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+        const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+        // Libint engine for computing shell quartet derivatives
+        std::vector<libint2::Engine> cgtg_del_engines(nthreads);
+        // Returns Runtime Error: bad any_cast if shorthand version is used, may be an error on the Libint side since Psi4 works with this as well
+        cgtg_del_engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, deriv_order, 0., cgtg_params, libint2::BraKet::xx_xx);
+        for (size_t i = 1; i != nthreads; ++i) {
+            cgtg_del_engines[i] = cgtg_del_engines[0];
+        }
+
+        // Define HDF5 dataset name
+        const H5std_string eri_dset_name("f12_double_commutator_deriv" + std::to_string(deriv_order));
+        hsize_t file_dims[] = {nbf1, nbf2, nbf3, nbf4, nderivs_triu};
+        DataSpace fspace(5, file_dims);
+        // Create dataset for each integral type and write 0.0's into the file 
+        DataSet* f12_double_commutator_dataset = new DataSet(file->createDataSet(eri_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        hsize_t stride[5] = {1, 1, 1, 1, 1}; // stride and block can be used to 
+        hsize_t block[5] = {1, 1, 1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
+        hsize_t zerostart[5] = {0, 0, 0, 0, 0};
+
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+        for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+            for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+                for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                    for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                        auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                        auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                        auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                        auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                        auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                        auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                        auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                        auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                        auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                        auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                        auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                        auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                        if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                        std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                        size_t thread_id = 0;
+#ifdef _OPENMP
+                        thread_id = omp_get_thread_num();
+#endif
+                        cgtg_del_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                        const auto& f12_double_commutator_buffer = cgtg_del_engines[thread_id].results(); // will point to computed shell sets
+
+                        // Define shell set slab, with extra dimension for unique derivatives, initialized with 0.0's
+                        double f12_double_commutator_shellset_slab [n1][n2][n3][n4][nderivs_triu] = {};
+                        // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+                        for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                            // Look up multidimensional cartesian derivative index
+                            auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+    
+                            std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+    
+                            // Find out which 
+                            for (int j = 0; j < multi_cart_idx.size(); j++){
+                                int desired_atom_idx = multi_cart_idx[j] / 3;
+                                int desired_coord = multi_cart_idx[j] % 3;
+                                for (int i = 0; i < 4; i++){
+                                    int atom_idx = shell_atom_index_list[i];
+                                    if (atom_idx == desired_atom_idx) {
+                                        int tmp = 3 * i + desired_coord;
+                                        indices[j].push_back(tmp);
+                                    }
+                                }
+                            }
+
+                            // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                            // and the total number of subvectors is the order of differentiation
+                            // Now we want all combinations where we pick exactly one index from each subvector.
+                            // This is achievable through a cartesian product 
+                            std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                            std::vector<int> buffer_indices;
+                            
+                            // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                            //for (auto vec : index_combos)  {
+                            //    std::sort(vec.begin(), vec.end());
+                            //    int buf_idx = 0;
+                            //    // buffer_multidim_lookup
+                            //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                            //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                            //    buffer_indices.push_back(buf_idx);
+                            //}
+                            // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
+                            for (auto vec : index_combos)  {
+                                if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
+                                else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
+                                else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
+                                else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                            }
+
+                            // Loop over shell block, keeping a total count idx for the size of shell set
+                            for(auto i = 0; i < buffer_indices.size(); ++i) {
+                                auto f12_double_commutator_shellset = f12_double_commutator_buffer[buffer_indices[i]];
+                                if (f12_double_commutator_shellset == nullptr) continue;
+                                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                                    for(auto f2 = 0; f2 != n2; ++f2) {
+                                        for(auto f3 = 0; f3 != n3; ++f3) {
+                                            for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                                f12_double_commutator_shellset_slab[f1][f2][f3][f4][nuc_idx] += f12_double_commutator_shellset[idx];
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } // For every nuc_idx 0, nderivs_triu
+                        // Now write this shell set slab to HDF5 file
+                        hsize_t count[5] = {n1, n2, n3, n4, nderivs_triu};
+                        hsize_t start[5] = {bf1, bf2, bf3, bf4, 0};
+                        fspace.selectHyperslab(H5S_SELECT_SET, count, start, stride, block);
+                        // Create dataspace defining for memory dataset to write to file
+                        hsize_t mem_dims[] = {n1, n2, n3, n4, nderivs_triu};
+                        DataSpace mspace(5, mem_dims);
+                        mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
+                        // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
+                        f12_double_commutator_dataset->write(f12_double_commutator_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+                    }
+                }
+            }
+        } // shell quartet loops
+    // Close the dataset for this derivative order
+    delete f12_double_commutator_dataset;
+    } // deriv order loop 
+// Close the file
+delete file;
+std::cout << " done" << std::endl;
+} // f12_double_commutator_deriv_disk function
+
 // Computes a single 'deriv_order' derivative tensor of OEIs, keeps everything in core memory
 std::vector<py::array> oei_deriv_core(int deriv_order) {
     // how many shell derivatives in the Libint buffer for overlap/kinetic integrals
@@ -1531,6 +3119,518 @@ py::array eri_deriv_core(int deriv_order) {
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 } // eri_deriv_core function
 
+// Computes a single 'deriv_order' derivative tensor of contracted Gaussian-type geminal integrals, keeps everything in core memory
+py::array f12_deriv_core(double beta, int deriv_order) {
+    // Number of unique shell derivatives output by libint (number of indices in buffer)
+    int nshell_derivs = how_many_derivs(4, deriv_order);
+    // Number of unique nuclear derivatives of ERI's
+    unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+    // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    // Currently unused due to predefined lookup arrays
+    //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+
+    // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+    const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+    // Libint engine for computing shell quartet derivatives
+    auto cgtg_params = make_cgtg(beta);
+    std::vector<libint2::Engine> cgtg_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    cgtg_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
+    cgtg_engines[0].set_params(cgtg_params);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_engines[i] = cgtg_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4 * nderivs_triu;
+    std::vector<double> result(length);
+
+    // Begin shell quartet loops
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                    if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& f12_buffer = cgtg_engines[thread_id].results(); // will point to computed shell sets
+
+                    // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+                    for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                        size_t offset_nuc_idx = nuc_idx * nbf1 * nbf2 * nbf3 * nbf4;
+
+                        // Look up multidimensional cartesian derivative index
+                        auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+    
+                        // Find out which shell derivatives provided by Libint correspond to this nuclear cartesian derivative
+                        std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+                        for (int j = 0; j < multi_cart_idx.size(); j++){
+                            int desired_atom_idx = multi_cart_idx[j] / 3;
+                            int desired_coord = multi_cart_idx[j] % 3;
+                            for (int i = 0; i < 4; i++){
+                                int atom_idx = shell_atom_index_list[i];
+                                if (atom_idx == desired_atom_idx) {
+                                    int tmp = 3 * i + desired_coord;
+                                    indices[j].push_back(tmp);
+                                }
+                            }
+                        }
+
+                        // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                        // and the total number of subvectors is the order of differentiation
+                        // Now we want all combinations where we pick exactly one index from each subvector.
+                        // This is achievable through a cartesian product 
+                        std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                        std::vector<int> buffer_indices;
+                        
+                        // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                        //for (auto vec : index_combos)  {
+                        //    std::sort(vec.begin(), vec.end());
+                        //    int buf_idx = 0;
+                        //    // buffer_multidim_lookup
+                        //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                        //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                        //    buffer_indices.push_back(buf_idx);
+                        //}
+                        // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
+                        for (auto vec : index_combos)  {
+                            if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
+                            else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
+                            else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
+                            else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                        }
+
+                        // Loop over shell block, keeping a total count idx for the size of shell set
+                        for(auto i = 0; i < buffer_indices.size(); ++i) {
+                            auto f12_shellset = f12_buffer[buffer_indices[i]];
+                            if (f12_shellset == nullptr) continue;
+                            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                                size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                                for(auto f2 = 0; f2 != n2; ++f2) {
+                                    size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                    for(auto f3 = 0; f3 != n3; ++f3) {
+                                        size_t offset_3 = (bf3 + f3) * nbf4;
+                                        for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                            size_t offset_4 = bf4 + f4;
+                                            result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += f12_shellset[idx];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } // For every nuc_idx 0, nderivs_triu
+                }
+            }
+        }
+    } // shell quartet loops
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+} // f12_deriv_core function
+
+// Computes a single 'deriv_order' derivative tensor of squared contracted Gaussian-type geminal integrals, keeps everything in core memory
+py::array f12_squared_deriv_core(double beta, int deriv_order) {
+    // Number of unique shell derivatives output by libint (number of indices in buffer)
+    int nshell_derivs = how_many_derivs(4, deriv_order);
+    // Number of unique nuclear derivatives of ERI's
+    unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+    // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    // Currently unused due to predefined lookup arrays
+    //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+
+    // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+    const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+    // Libint engine for computing shell quartet derivatives
+    auto cgtg_params = take_square(make_cgtg(beta));
+    std::vector<libint2::Engine> cgtg_squared_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    cgtg_squared_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
+    cgtg_squared_engines[0].set_params(cgtg_params);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_squared_engines[i] = cgtg_squared_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4 * nderivs_triu;
+    std::vector<double> result(length);
+
+    // Begin shell quartet loops
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                    if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_squared_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& f12_squared_buffer = cgtg_squared_engines[thread_id].results(); // will point to computed shell sets
+
+                    // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+                    for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                        size_t offset_nuc_idx = nuc_idx * nbf1 * nbf2 * nbf3 * nbf4;
+
+                        // Look up multidimensional cartesian derivative index
+                        auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+    
+                        // Find out which shell derivatives provided by Libint correspond to this nuclear cartesian derivative
+                        std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+                        for (int j = 0; j < multi_cart_idx.size(); j++){
+                            int desired_atom_idx = multi_cart_idx[j] / 3;
+                            int desired_coord = multi_cart_idx[j] % 3;
+                            for (int i = 0; i < 4; i++){
+                                int atom_idx = shell_atom_index_list[i];
+                                if (atom_idx == desired_atom_idx) {
+                                    int tmp = 3 * i + desired_coord;
+                                    indices[j].push_back(tmp);
+                                }
+                            }
+                        }
+
+                        // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                        // and the total number of subvectors is the order of differentiation
+                        // Now we want all combinations where we pick exactly one index from each subvector.
+                        // This is achievable through a cartesian product 
+                        std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                        std::vector<int> buffer_indices;
+                        
+                        // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                        //for (auto vec : index_combos)  {
+                        //    std::sort(vec.begin(), vec.end());
+                        //    int buf_idx = 0;
+                        //    // buffer_multidim_lookup
+                        //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                        //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                        //    buffer_indices.push_back(buf_idx);
+                        //}
+                        // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
+                        for (auto vec : index_combos)  {
+                            if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
+                            else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
+                            else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
+                            else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                        }
+
+                        // Loop over shell block, keeping a total count idx for the size of shell set
+                        for(auto i = 0; i < buffer_indices.size(); ++i) {
+                            auto f12_squared_shellset = f12_squared_buffer[buffer_indices[i]];
+                            if (f12_squared_shellset == nullptr) continue;
+                            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                                size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                                for(auto f2 = 0; f2 != n2; ++f2) {
+                                    size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                    for(auto f3 = 0; f3 != n3; ++f3) {
+                                        size_t offset_3 = (bf3 + f3) * nbf4;
+                                        for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                            size_t offset_4 = bf4 + f4;
+                                            result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += f12_squared_shellset[idx];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } // For every nuc_idx 0, nderivs_triu
+                }
+            }
+        }
+    } // shell quartet loops
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+} // f12_squared_deriv_core function
+
+// Computes a single 'deriv_order' derivative tensor of contracted Gaussian-type geminal times Coulomb replusion integrals, keeps everything in core memory
+py::array f12g12_deriv_core(double beta, int deriv_order) {
+    // Number of unique shell derivatives output by libint (number of indices in buffer)
+    int nshell_derivs = how_many_derivs(4, deriv_order);
+    // Number of unique nuclear derivatives of ERI's
+    unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+    // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    // Currently unused due to predefined lookup arrays
+    //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+
+    // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+    const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+    // Libint engine for computing shell quartet derivatives
+    auto cgtg_params = make_cgtg(beta);
+    std::vector<libint2::Engine> cgtg_coulomb_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    cgtg_coulomb_engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l, deriv_order);
+    cgtg_coulomb_engines[0].set_params(cgtg_params);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_coulomb_engines[i] = cgtg_coulomb_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4 * nderivs_triu;
+    std::vector<double> result(length);
+
+    // Begin shell quartet loops
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                    if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_coulomb_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& f12g12_buffer = cgtg_coulomb_engines[thread_id].results(); // will point to computed shell sets
+
+                    // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+                    for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                        size_t offset_nuc_idx = nuc_idx * nbf1 * nbf2 * nbf3 * nbf4;
+
+                        // Look up multidimensional cartesian derivative index
+                        auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+    
+                        // Find out which shell derivatives provided by Libint correspond to this nuclear cartesian derivative
+                        std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+                        for (int j = 0; j < multi_cart_idx.size(); j++){
+                            int desired_atom_idx = multi_cart_idx[j] / 3;
+                            int desired_coord = multi_cart_idx[j] % 3;
+                            for (int i = 0; i < 4; i++){
+                                int atom_idx = shell_atom_index_list[i];
+                                if (atom_idx == desired_atom_idx) {
+                                    int tmp = 3 * i + desired_coord;
+                                    indices[j].push_back(tmp);
+                                }
+                            }
+                        }
+
+                        // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                        // and the total number of subvectors is the order of differentiation
+                        // Now we want all combinations where we pick exactly one index from each subvector.
+                        // This is achievable through a cartesian product 
+                        std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                        std::vector<int> buffer_indices;
+                        
+                        // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                        //for (auto vec : index_combos)  {
+                        //    std::sort(vec.begin(), vec.end());
+                        //    int buf_idx = 0;
+                        //    // buffer_multidim_lookup
+                        //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                        //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                        //    buffer_indices.push_back(buf_idx);
+                        //}
+                        // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
+                        for (auto vec : index_combos)  {
+                            if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
+                            else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
+                            else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
+                            else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                        }
+
+                        // Loop over shell block, keeping a total count idx for the size of shell set
+                        for(auto i = 0; i < buffer_indices.size(); ++i) {
+                            auto f12g12_shellset = f12g12_buffer[buffer_indices[i]];
+                            if (f12g12_shellset == nullptr) continue;
+                            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                                size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                                for(auto f2 = 0; f2 != n2; ++f2) {
+                                    size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                    for(auto f3 = 0; f3 != n3; ++f3) {
+                                        size_t offset_3 = (bf3 + f3) * nbf4;
+                                        for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                            size_t offset_4 = bf4 + f4;
+                                            result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += f12g12_shellset[idx];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } // For every nuc_idx 0, nderivs_triu
+                }
+            }
+        }
+    } // shell quartet loops
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+} // f12g12_deriv_core function
+
+// Computes a single 'deriv_order' derivative tensor of gradient norm of contracted Gaussian-type geminal integrals, keeps everything in core memory
+py::array f12_double_commutator_deriv_core(double beta, int deriv_order) {
+    // Number of unique shell derivatives output by libint (number of indices in buffer)
+    int nshell_derivs = how_many_derivs(4, deriv_order);
+    // Number of unique nuclear derivatives of ERI's
+    unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+    // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    // Currently unused due to predefined lookup arrays
+    //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+
+    // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+    const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+    // Libint engine for computing shell quartet derivatives
+    auto cgtg_params = make_cgtg(beta);
+    std::vector<libint2::Engine> cgtg_del_engines(nthreads);
+    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+    // Returns Runtime Error: bad any_cast if shorthand version is used, may be an error on the Libint side since Psi4 works with this as well
+    cgtg_del_engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, deriv_order, 0., cgtg_params, libint2::BraKet::xx_xx);
+    for (size_t i = 1; i != nthreads; ++i) {
+        cgtg_del_engines[i] = cgtg_del_engines[0];
+    }
+
+    size_t length = nbf1 * nbf2 * nbf3 * nbf4 * nderivs_triu;
+    std::vector<double> result(length);
+
+    // Begin shell quartet loops
+#pragma omp parallel for collapse(4) num_threads(nthreads)
+    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
+        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
+            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
+                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
+                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
+                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
+                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
+                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
+                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
+                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
+                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
+                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
+                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
+                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
+                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
+                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+
+                    if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+                    size_t thread_id = 0;
+#ifdef _OPENMP
+                    thread_id = omp_get_thread_num();
+#endif
+                    cgtg_del_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& f12_double_commutator_buffer = cgtg_del_engines[thread_id].results(); // will point to computed shell sets
+
+                    // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+                    for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                        size_t offset_nuc_idx = nuc_idx * nbf1 * nbf2 * nbf3 * nbf4;
+
+                        // Look up multidimensional cartesian derivative index
+                        auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+    
+                        // Find out which shell derivatives provided by Libint correspond to this nuclear cartesian derivative
+                        std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+                        for (int j = 0; j < multi_cart_idx.size(); j++){
+                            int desired_atom_idx = multi_cart_idx[j] / 3;
+                            int desired_coord = multi_cart_idx[j] % 3;
+                            for (int i = 0; i < 4; i++){
+                                int atom_idx = shell_atom_index_list[i];
+                                if (atom_idx == desired_atom_idx) {
+                                    int tmp = 3 * i + desired_coord;
+                                    indices[j].push_back(tmp);
+                                }
+                            }
+                        }
+
+                        // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                        // and the total number of subvectors is the order of differentiation
+                        // Now we want all combinations where we pick exactly one index from each subvector.
+                        // This is achievable through a cartesian product 
+                        std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                        std::vector<int> buffer_indices;
+                        
+                        // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                        //for (auto vec : index_combos)  {
+                        //    std::sort(vec.begin(), vec.end());
+                        //    int buf_idx = 0;
+                        //    // buffer_multidim_lookup
+                        //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                        //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                        //    buffer_indices.push_back(buf_idx);
+                        //}
+                        // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
+                        for (auto vec : index_combos)  {
+                            if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
+                            else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
+                            else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
+                            else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                        }
+
+                        // Loop over shell block, keeping a total count idx for the size of shell set
+                        for(auto i = 0; i < buffer_indices.size(); ++i) {
+                            auto f12_double_commutator_shellset = f12_double_commutator_buffer[buffer_indices[i]];
+                            if (f12_double_commutator_shellset == nullptr) continue;
+                            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                                size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                                for(auto f2 = 0; f2 != n2; ++f2) {
+                                    size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                    for(auto f3 = 0; f3 != n3; ++f3) {
+                                        size_t offset_3 = (bf3 + f3) * nbf4;
+                                        for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                            size_t offset_4 = bf4 + f4;
+                                            result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += f12_double_commutator_shellset[idx];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } // For every nuc_idx 0, nderivs_triu
+                }
+            }
+        }
+    } // shell quartet loops
+    return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
+} // f12_double_commutator_deriv_core function
+
 // Define module named 'libint_interface' which can be imported with python
 // The second arg, 'm' defines a variable py::module_ which can be used to create
 // bindings. the def() methods generates binding code that exposes new functions to Python.
@@ -1542,14 +3642,30 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("kinetic", &kinetic, "Computes kinetic integrals with libint");
     m.def("potential", &potential, "Computes potential integrals with libint");
     m.def("eri", &eri, "Computes electron repulsion integrals with libint");
+    m.def("f12", &f12, "Computes contracted Gaussian-type geminal integrals with libint");
+    m.def("f12_squared", &f12_squared, "Computes sqaured contracted Gaussian-type geminal integrals with libint");
+    m.def("f12g12", &f12g12, "Computes contracted Gaussian-type geminal times Coulomb repulsion integrals with libint");
+    m.def("f12_double_commutator", &f12_double_commutator, "Computes gradient norm of contracted Gaussian-type geminal integrals with libint");
     m.def("overlap_deriv", &overlap_deriv, "Computes overlap integral nuclear derivatives with libint");
     m.def("kinetic_deriv", &kinetic_deriv, "Computes kinetic integral nuclear derivatives with libint");
     m.def("potential_deriv", &potential_deriv, "Computes potential integral nuclear derivatives with libint");
     m.def("eri_deriv", &eri_deriv, "Computes electron repulsion integral nuclear derivatives with libint");
+    m.def("f12_deriv", &f12_deriv, "Computes contracted Gaussian-type geminal integral nuclear derivatives with libint");
+    m.def("f12_squared_deriv", &f12_squared_deriv, "Computes sqaured contracted Gaussian-type geminal integral nuclear derivatives with libint");
+    m.def("f12g12_deriv", &f12g12_deriv, "Computes contracted Gaussian-type geminal times Coulomb repulsion integral nuclear derivatives with libint");
+    m.def("f12_double_commutator_deriv", &f12_double_commutator_deriv, "Computes gradient norm of contracted Gaussian-type geminal integral nuclear derivatives with libint");
     m.def("oei_deriv_disk", &oei_deriv_disk, "Computes overlap, kinetic, and potential integral derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
     m.def("eri_deriv_disk", &eri_deriv_disk, "Computes coulomb integral nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
+    m.def("f12_deriv_disk", &f12_deriv_disk, "Computes contracted Gaussian-type geminal integral nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
+    m.def("f12_squared_deriv_disk", &f12_squared_deriv_disk, "Computes sqaured contracted Gaussian-type geminal integral nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
+    m.def("f12g12_deriv_disk", &f12g12_deriv_disk, "Computes contracted Gaussian-type geminal times Coulomb repulsion integral nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
+    m.def("f12_double_commutator_deriv_disk", &f12_double_commutator_deriv_disk, "Computes gradient norm of contracted Gaussian-type geminal integral nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
     m.def("oei_deriv_core", &oei_deriv_core, "Computes a single OEI integral derivative tensor, in memory.");
     m.def("eri_deriv_core", &eri_deriv_core, "Computes a single coulomb integral nuclear derivative tensor, in memory.");
+    m.def("f12_deriv_core", &f12_deriv_core, "Computes a single contracted Gaussian-type geminal integral nuclear derivative tensor, in memory.");
+    m.def("f12_squared_deriv_core", &f12_squared_deriv_core, "Computes a single sqaured contracted Gaussian-type geminal integral nuclear derivative tensor, in memory.");
+    m.def("f12g12_deriv_core", &f12g12_deriv_core, "Computes a single contracted Gaussian-type geminal times Coulomb repulsion integral nuclear derivative tensor, in memory.");
+    m.def("f12_double_commutator_deriv_core", &f12_double_commutator_deriv_core, "Computes a single gradient norm of contracted Gaussian-type geminal integral nuclear derivative tensor, in memory.");
     //TODO partial derivative impl's
     //m.def("eri_partial_deriv_disk", &eri_partial_deriv_disk, "Computes a subset of the full coulomb integral nuclear derivative tensor and writes them to disk with HDF5");
      m.attr("LIBINT2_MAX_DERIV_ORDER") = LIBINT2_MAX_DERIV_ORDER;

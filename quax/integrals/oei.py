@@ -11,15 +11,15 @@ jax.config.update("jax_enable_x64", True)
 
 class OEI(object):
 
-    def __init__(self, basis_name, xyz_path, max_deriv_order, mode):
+    def __init__(self, basis1, basis2, xyz_path, max_deriv_order, mode):
         with open(xyz_path, 'r') as f:
             tmp = f.read()
         molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-        basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
+        basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis1, puream=0) # Not generalized yet
         natoms = molecule.natom()
         nbf = basis_set.nbf()
 
-        if mode == 'core' and max_deriv_order > 0:
+        if 'core' in mode and max_deriv_order > 0:
             # A list of OEI derivative tensors, containing only unique elements
             # corresponding to upper hypertriangle (since derivative tensors are symmetric)
             # Length of tuple is maximum deriv order, each array is (upper triangle derivatives,nbf,nbf)
