@@ -144,7 +144,7 @@ class TEI(object):
         idx = get_deriv_vec_idx(deriv_vec)
 
         # Use eri derivatives in memory
-        if self.mode == 'core':
+        if 'core' in self.mode:
             G = self.eri_derivatives[deriv_order-1][idx,:,:,:,:]
             return jnp.asarray(G)
 
@@ -177,7 +177,7 @@ class TEI(object):
         #idx = get_deriv_vec_idx(deriv_vec)
 
         # Use eri derivatives in memory
-        if self.mode == 'core':
+        if 'core' in self.mode:
             F = libint_interface.f12_deriv(beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
 
@@ -187,7 +187,7 @@ class TEI(object):
         #idx = get_deriv_vec_idx(deriv_vec)
 
         # Use eri derivatives in memory
-        if self.mode == 'core':
+        if 'core' in self.mode:
             F = libint_interface.f12_squared_deriv(beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
 
@@ -197,7 +197,7 @@ class TEI(object):
         #idx = get_deriv_vec_idx(deriv_vec)
 
         # Use eri derivatives in memory
-        if self.mode == 'core':
+        if 'core' in self.mode:
             F = libint_interface.f12g12_deriv(beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
 
@@ -207,7 +207,7 @@ class TEI(object):
         #idx = get_deriv_vec_idx(deriv_vec)
 
         # Use eri derivatives in memory
-        if self.mode == 'core':
+        if 'core' in self.mode:
             F = libint_interface.f12_double_commutator_deriv(beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
 
@@ -215,7 +215,7 @@ class TEI(object):
     # and a tangent std basis vector (tangent), returns the function evaluated at that point (primals_out)
     # and the slice of the Jacobian (tangents_out)
     def eri_jvp(self, primals, tangents):
-        geom = primals
+        geom, = primals
         primals_out = self.eri(geom)
         tangents_out = self.eri_deriv(geom, tangents[0])
         return primals_out, tangents_out
@@ -229,7 +229,7 @@ class TEI(object):
         return primals_out, tangents_out
 
     def f12_jvp(self, primals, tangents):
-        geom, beta = primals
+        geom, beta, = primals
         primals_out = self.f12(geom, beta)
         tangents_out = self.f12_deriv(geom, beta, tangents[0])
         return primals_out, tangents_out
@@ -243,7 +243,7 @@ class TEI(object):
         return primals_out, tangents_out
 
     def f12_squared_jvp(self, primals, tangents):
-        geom, beta = primals
+        geom, beta, = primals
         primals_out = self.f12_squared(geom, beta)
         tangents_out = self.f12_squared_deriv(geom, beta, tangents[0])
         return primals_out, tangents_out
@@ -257,7 +257,7 @@ class TEI(object):
         return primals_out, tangents_out
 
     def f12g12_jvp(self, primals, tangents):
-        geom, beta = primals
+        geom, beta, = primals
         primals_out = self.f12g12(geom, beta)
         tangents_out = self.f12g12_deriv(geom, beta, tangents[0])
         return primals_out, tangents_out
@@ -271,7 +271,7 @@ class TEI(object):
         return primals_out, tangents_out
 
     def f12_double_commutator_jvp(self, primals, tangents):
-        geom, beta = primals
+        geom, beta, = primals
         primals_out = self.f12_double_commutator(geom, beta)
         tangents_out = self.f12_double_commutator_deriv(geom, beta, tangents[0])
         return primals_out, tangents_out
@@ -359,4 +359,3 @@ class TEI(object):
             results.append(jnp.expand_dims(tmp, axis=0))
         results = jnp.concatenate(results, axis=0)
         return results, 0
-

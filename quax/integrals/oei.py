@@ -106,7 +106,7 @@ class OEI(object):
         deriv_order = np.sum(deriv_vec)
         idx = get_deriv_vec_idx(deriv_vec)
 
-        if self.mode == 'core':
+        if 'core' in self.mode:
             S = self.overlap_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(S)
         else:
@@ -133,7 +133,7 @@ class OEI(object):
         deriv_order = np.sum(deriv_vec)
         idx = get_deriv_vec_idx(deriv_vec)
 
-        if self.mode == 'core':
+        if 'core' in self.mode:
             T = self.kinetic_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(T)
         else:
@@ -160,7 +160,7 @@ class OEI(object):
         deriv_order = np.sum(deriv_vec)
         idx = get_deriv_vec_idx(deriv_vec)
 
-        if self.mode == 'core':
+        if 'core' in self.mode:
             V = self.potential_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(V)
         else:

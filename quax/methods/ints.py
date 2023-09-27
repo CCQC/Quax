@@ -32,7 +32,6 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
             T = oei_obj.kinetic(geom)
             V = oei_obj.potential(geom)
             G = tei_obj.eri(geom)
-            libint_interface.finalize()
         else:
             libint_interface.oei_deriv_disk(deriv_order)
             libint_interface.eri_deriv_disk(deriv_order)
@@ -40,7 +39,6 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
             T = oei_obj.kinetic(geom)
             V = oei_obj.potential(geom)
             G = tei_obj.eri(geom)
-            libint_interface.finalize()
 
     else:
         # Precompute TEI derivatives
@@ -95,13 +93,3 @@ def check_disk(geom,basis_name,xyz_path,deriv_order,address=None):
         correct_nbf = oeifile[sample_dataset_name].shape[0] == nbf
         correct_int_derivs = correct_nbf
     return correct_int_derivs
-
-
-
-              
-
-
-
-    
-
-
