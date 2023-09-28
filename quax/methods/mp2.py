@@ -7,7 +7,7 @@ import psi4
 from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation, cartesian_product
 from .hartree_fock import restricted_hartree_fock
 
-def restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=0):
+def restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
     E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
@@ -31,13 +31,15 @@ def restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, options,
     # Create all combinations of four loop variables to make XLA compilation easier
     indices = cartesian_product(jnp.arange(ndocc), jnp.arange(ndocc), jnp.arange(nvirt), jnp.arange(nvirt))
 
-    mp2_correlation = 0.0
     def loop_mp2(idx, mp2_corr):
         i,j,a,b = indices[idx]
         mp2_corr += G[i, a, j, b] * (2 * G[i, a, j, b] - G[i, b, j, a]) * e_denom[i, a, j, b]
         return mp2_corr
 
-    dE_mp2 = fori_loop(0, indices.shape[0], loop_mp2, mp2_correlation)
+    dE_mp2 = fori_loop(0, indices.shape[0], loop_mp2, 0.0) # MP2 correlation
 
-    return E_scf + dE_mp2
+    if return_aux_data:
+        return E_scf + dE_mp2, C, eps
+    else:
+        return E_scf + dE_mp2
 

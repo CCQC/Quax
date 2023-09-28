@@ -2,7 +2,7 @@
 # Eigen headers, Python headers, Pybind11 headers, Libint API headers libint2.h libint2.hpp, the rest of the Libint2 headers, and the library location of libint2.a,
 CC      := g++
 # Options passed to compiler
-CFLAGS  := -O3 -fPIC -fopenmp -g
+CFLAGS  := -O3 -fPIC -fopenmp
 # Libint prefix location (where /include, /include/libint2, /lib, /share are located) 
 LIBINT_PREFIX := /home/ecm23353/psi_env
 

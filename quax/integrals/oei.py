@@ -15,9 +15,12 @@ class OEI(object):
         with open(xyz_path, 'r') as f:
             tmp = f.read()
         molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-        basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis1, puream=0) # Not generalized yet
         natoms = molecule.natom()
-        nbf = basis_set.nbf()
+
+        bs1 = psi4.core.BasisSet.build(molecule, 'BASIS', basis1, puream=0)
+        bs2 = psi4.core.BasisSet.build(molecule, 'BASIS', basis2, puream=0)
+        nbf1 = bs1.nbf()
+        nbf2 = bs2.nbf()
 
         if 'core' in mode and max_deriv_order > 0:
             # A list of OEI derivative tensors, containing only unique elements
@@ -30,12 +33,13 @@ class OEI(object):
             for i in range(max_deriv_order):
                 n_unique_derivs = how_many_derivs(natoms, i + 1)
                 oei_deriv = libint_interface.oei_deriv_core(i + 1)
-                self.overlap_derivatives.append(oei_deriv[0].reshape(n_unique_derivs,nbf,nbf))
-                self.kinetic_derivatives.append(oei_deriv[1].reshape(n_unique_derivs,nbf,nbf))
-                self.potential_derivatives.append(oei_deriv[2].reshape(n_unique_derivs,nbf,nbf))
+                self.overlap_derivatives.append(oei_deriv[0].reshape(n_unique_derivs, nbf1, nbf2))
+                self.kinetic_derivatives.append(oei_deriv[1].reshape(n_unique_derivs, nbf1, nbf2))
+                self.potential_derivatives.append(oei_deriv[2].reshape(n_unique_derivs, nbf1, nbf2))
 
         self.mode = mode
-        self.nbf = nbf
+        self.nbf1 = nbf1
+        self.nbf2 = nbf2
 
         # Create new JAX primitives for overlap, kinetic, potential evaluation and their derivatives
         self.overlap_p = jax.core.Primitive("overlap")
@@ -88,17 +92,17 @@ class OEI(object):
     # Create primitive evaluation rules
     def overlap_impl(self, geom):
         S = libint_interface.overlap()
-        S = S.reshape(self.nbf,self.nbf)
+        S = S.reshape(self.nbf1, self.nbf2)
         return jnp.asarray(S)
 
     def kinetic_impl(self, geom):
         T = libint_interface.kinetic()
-        T = T.reshape(self.nbf,self.nbf)
+        T = T.reshape(self.nbf1, self.nbf2)
         return jnp.asarray(T)
 
     def potential_impl(self, geom):
         V = libint_interface.potential()
-        V = V.reshape(self.nbf,self.nbf)
+        V = V.reshape(self.nbf1, self.nbf2)
         return jnp.asarray(V)
 
     def overlap_deriv_impl(self, geom, deriv_vec):
@@ -109,7 +113,7 @@ class OEI(object):
         if 'core' in self.mode:
             S = self.overlap_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(S)
-        else:
+        elif 'disk' in self.mode:
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
                 dataset_name = "overlap_deriv" + str(deriv_order)
@@ -136,7 +140,7 @@ class OEI(object):
         if 'core' in self.mode:
             T = self.kinetic_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(T)
-        else:
+        elif 'disk' in self.mode:
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
                 dataset_name = "kinetic_deriv" + str(deriv_order)
@@ -163,7 +167,7 @@ class OEI(object):
         if 'core' in self.mode:
             V = self.potential_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(V)
-        else:
+        elif 'disk' in self.mode:
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
                 dataset_name = "potential_deriv" + str(deriv_order)

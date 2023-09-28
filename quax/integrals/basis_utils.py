@@ -2,13 +2,13 @@ import psi4
 import jax.numpy as jnp
 import numpy as np
 
-def build_basis_set(molecule, basis):
+def build_basis_set(molecule, basis_name):
     # Avoids printing from psi4
     psi4.core.be_quiet()
     # Create empty dictionary to hold basis information
     basis_dict = {}
     # Build basis in Psi4
-    basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis, puream=0)
+    basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
     # Get total number of shells for the molecule
     nshell = basis_set.nshell()
     # Loop over each shell

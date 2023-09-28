@@ -22,7 +22,7 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
 
     if algo == 'libint_disk':
         # Check disk for currently existing integral derivatives
-        check = check_disk(geom,basis_name,xyz_path,deriv_order)
+        check = check_disk(geom, basis_name, xyz_path, deriv_order)
 
         tei_obj = TEI(basis_name, basis_name, basis_name, basis_name, xyz_path, deriv_order, 'disk')
         oei_obj = OEI(basis_name, basis_name, xyz_path, deriv_order, 'disk')
@@ -53,7 +53,7 @@ def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv
     libint_interface.finalize()
     return S, T, V, G
 
-def check_disk(geom,basis_name,xyz_path,deriv_order,address=None):
+def check_disk(geom, basis_name, xyz_path, deriv_order, address=None):
     # TODO need to check geometry and basis set name in addition to nbf
     # First check TEI's, then OEI's, return separately, check separately in compute_integrals
     correct_int_derivs = False

@@ -15,9 +15,16 @@ class TEI(object):
         with open(xyz_path, 'r') as f:
             tmp = f.read()
         molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-        basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis1, puream=0) # Not generalized yet
         natoms = molecule.natom()
-        nbf = basis_set.nbf()
+
+        bs1 = psi4.core.BasisSet.build(molecule, 'BASIS', basis1, puream=0)
+        bs2 = psi4.core.BasisSet.build(molecule, 'BASIS', basis2, puream=0)
+        bs3 = psi4.core.BasisSet.build(molecule, 'BASIS', basis3, puream=0)
+        bs4 = psi4.core.BasisSet.build(molecule, 'BASIS', basis4, puream=0)
+        nbf1 = bs1.nbf()
+        nbf2 = bs2.nbf()
+        nbf3 = bs3.nbf()
+        nbf4 = bs4.nbf()
 
         if 'core' in mode and max_deriv_order > 0:
             # A list of ERI derivative tensors, containing only unique elements
@@ -27,11 +34,34 @@ class TEI(object):
             self.eri_derivatives = []
             for i in range(max_deriv_order):
                 n_unique_derivs = how_many_derivs(natoms, i + 1)
-                eri_deriv = libint_interface.eri_deriv_core(i + 1).reshape(n_unique_derivs,nbf,nbf,nbf,nbf)
+                eri_deriv = libint_interface.eri_deriv_core(i + 1).reshape(n_unique_derivs, nbf1, nbf2, nbf3, nbf4)
                 self.eri_derivatives.append(eri_deriv)
 
+        if 'f12' in mode and max_deriv_order > 0:
+            # A list of ERI derivative tensors, containing only unique elements
+            # corresponding to upper hypertriangle (since derivative tensors are symmetric)
+            # Length of tuple is maximum deriv order, each array is (upper triangle derivatives,nbf,nbf,nbf,nbf)
+            # Then when JAX calls JVP, read appropriate slice
+            self.f12_derivatives = []
+            self.f12_squared_derivatives = []
+            self.f12g12_derivatives = []
+            self.f12_double_commutator_derivatives = []
+            for i in range(max_deriv_order):
+                n_unique_derivs = how_many_derivs(natoms, i + 1)
+                f12_deriv = libint_interface.f12_deriv_core(i + 1).reshape(n_unique_derivs, nbf1, nbf2, nbf3, nbf4)
+                f12_squared_deriv = libint_interface.f12_squared_deriv_core(i + 1).reshape(n_unique_derivs, nbf1, nbf2, nbf3, nbf4)
+                f12g12_deriv = libint_interface.f12g12_deriv_core(i + 1).reshape(n_unique_derivs, nbf1, nbf2, nbf3, nbf4)
+                f12_double_commutator_deriv = libint_interface.f12_double_commutator_deriv_core(i + 1).reshape(n_unique_derivs, nbf1, nbf2, nbf3, nbf4)
+                self.f12_derivatives.append(f12_deriv)
+                self.f12_squared_derivatives.append(f12_squared_deriv)
+                self.f12g12_derivatives.append(f12g12_deriv)
+                self.f12_double_commutator_derivatives.append(f12_double_commutator_deriv)
+
         self.mode = mode
-        self.nbf = nbf
+        self.nbf1 = nbf1
+        self.nbf2 = nbf2
+        self.nbf3 = nbf3
+        self.nbf4 = nbf4
 
         # Create new JAX primitive for TEI evaluation
         self.eri_p = jax.core.Primitive("eri")
@@ -111,31 +141,31 @@ class TEI(object):
     def eri_impl(self, geom):
         G = libint_interface.eri()
         #d = int(np.sqrt(np.sqrt(G.shape[0])))
-        G = G.reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+        G = G.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(G)
 
     def f12_impl(self, geom, beta):
         F = libint_interface.f12(beta)
         #d = int(np.sqrt(np.sqrt(G.shape[0])))
-        F = F.reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+        F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
 
     def f12_squared_impl(self, geom, beta):
         F = libint_interface.f12_squared(beta)
         #d = int(np.sqrt(np.sqrt(G.shape[0])))
-        F = F.reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+        F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
 
     def f12g12_impl(self, geom, beta):
         F = libint_interface.f12g12(beta)
         #d = int(np.sqrt(np.sqrt(G.shape[0])))
-        F = F.reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+        F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
     
     def f12_double_commutator_impl(self, geom, beta):
         F = libint_interface.f12_double_commutator(beta)
         #d = int(np.sqrt(np.sqrt(G.shape[0])))
-        F = F.reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+        F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
 
     def eri_deriv_impl(self, geom, deriv_vec):
@@ -149,7 +179,7 @@ class TEI(object):
             return jnp.asarray(G)
 
         # Read from disk
-        elif self.mode == 'disk':
+        elif 'disk' in self.mode:
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
             if os.path.exists("eri_derivs.h5"):
                 file_name = "eri_derivs.h5"
@@ -174,42 +204,134 @@ class TEI(object):
     def f12_deriv_impl(self, geom, beta, deriv_vec):
         deriv_vec = np.asarray(deriv_vec, int)
         deriv_order = np.sum(deriv_vec)
-        #idx = get_deriv_vec_idx(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
 
-        # Use eri derivatives in memory
+        # Use f12 derivatives in memory
         if 'core' in self.mode:
-            F = libint_interface.f12_deriv(beta, deriv_vec)
-            return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+            F = self.f12_derivatives[deriv_order-1][idx,:,:,:,:]
+            return jnp.asarray(F)
+
+        # Read from disk
+        elif 'disk' in self.mode:
+            # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
+            if os.path.exists("f12_derivs.h5"):
+                file_name = "f12_derivs.h5"
+                dataset_name = "f12_deriv" + str(deriv_order)
+            # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
+            elif os.path.exists("f12_partials.h5"):
+                file_name = "f12_partials.h5"
+                dataset_name = "f12_deriv" + str(deriv_order) + "_" + str(idx)
+            else:
+                raise Exception("F12 derivatives not found on disk")
+
+            with h5py.File(file_name, 'r') as f:
+                data_set = f[dataset_name]
+                if len(data_set.shape) == 5:
+                    F = data_set[:,:,:,:,idx]
+                elif len(data_set.shape) == 4:
+                    F = data_set[:,:,:,:]
+                else:
+                    raise Exception("Something went wrong reading integral derivative file")
+            return jnp.asarray(F)
 
     def f12_squared_deriv_impl(self, geom, beta, deriv_vec):
         deriv_vec = np.asarray(deriv_vec, int)
         deriv_order = np.sum(deriv_vec)
-        #idx = get_deriv_vec_idx(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
 
-        # Use eri derivatives in memory
+        # Use f12 squared derivatives in memory
         if 'core' in self.mode:
-            F = libint_interface.f12_squared_deriv(beta, deriv_vec)
-            return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+            F = self.f12_squared_derivatives[deriv_order-1][idx,:,:,:,:]
+            return jnp.asarray(F)
+
+        # Read from disk
+        elif 'disk' in self.mode:
+            # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
+            if os.path.exists("f12_squared_derivs.h5"):
+                file_name = "f12_squared_derivs.h5"
+                dataset_name = "f12_squared_deriv" + str(deriv_order)
+            # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
+            elif os.path.exists("f12_squared_partials.h5"):
+                file_name = "f12_squared_partials.h5"
+                dataset_name = "f12_squared_deriv" + str(deriv_order) + "_" + str(idx)
+            else:
+                raise Exception("F12 Squared derivatives not found on disk")
+
+            with h5py.File(file_name, 'r') as f:
+                data_set = f[dataset_name]
+                if len(data_set.shape) == 5:
+                    F = data_set[:,:,:,:,idx]
+                elif len(data_set.shape) == 4:
+                    F = data_set[:,:,:,:]
+                else:
+                    raise Exception("Something went wrong reading integral derivative file")
+            return jnp.asarray(F)
 
     def f12g12_deriv_impl(self, geom, beta, deriv_vec):
         deriv_vec = np.asarray(deriv_vec, int)
         deriv_order = np.sum(deriv_vec)
-        #idx = get_deriv_vec_idx(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
 
-        # Use eri derivatives in memory
+        # Use f12g12 derivatives in memory
         if 'core' in self.mode:
-            F = libint_interface.f12g12_deriv(beta, deriv_vec)
-            return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+            F = self.f12g12_derivatives[deriv_order-1][idx,:,:,:,:]
+            return jnp.asarray(F)
+
+        # Read from disk
+        elif 'disk' in self.mode:
+            # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
+            if os.path.exists("f12g12_derivs.h5"):
+                file_name = "f12g12_derivs.h5"
+                dataset_name = "f12g12_deriv" + str(deriv_order)
+            # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
+            elif os.path.exists("f12g12_partials.h5"):
+                file_name = "f12g12_partials.h5"
+                dataset_name = "f12g12_deriv" + str(deriv_order) + "_" + str(idx)
+            else:
+                raise Exception("F12G12 derivatives not found on disk")
+
+            with h5py.File(file_name, 'r') as f:
+                data_set = f[dataset_name]
+                if len(data_set.shape) == 5:
+                    F = data_set[:,:,:,:,idx]
+                elif len(data_set.shape) == 4:
+                    F = data_set[:,:,:,:]
+                else:
+                    raise Exception("Something went wrong reading integral derivative file")
+            return jnp.asarray(F)
 
     def f12_double_commutator_deriv_impl(self, geom, beta, deriv_vec):
         deriv_vec = np.asarray(deriv_vec, int)
         deriv_order = np.sum(deriv_vec)
-        #idx = get_deriv_vec_idx(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
 
-        # Use eri derivatives in memory
+        # Use f12 double commutator derivatives in memory
         if 'core' in self.mode:
-            F = libint_interface.f12_double_commutator_deriv(beta, deriv_vec)
-            return jnp.asarray(F).reshape(self.nbf,self.nbf,self.nbf,self.nbf)
+            F = self.f12_double_commutator_derivatives[deriv_order-1][idx,:,:,:,:]
+            return jnp.asarray(F)
+
+        # Read from disk
+        elif 'disk' in self.mode:
+            # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
+            if os.path.exists("f12_double_commutator_derivs.h5"):
+                file_name = "f12_double_commutator_derivs.h5"
+                dataset_name = "f12_double_commutator_deriv" + str(deriv_order)
+            # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
+            elif os.path.exists("f12_double_commutator_partials.h5"):
+                file_name = "f12_double_commutator_partials.h5"
+                dataset_name = "f12_double_commutator_deriv" + str(deriv_order) + "_" + str(idx)
+            else:
+                raise Exception("F12 Double Commutator derivatives not found on disk")
+
+            with h5py.File(file_name, 'r') as f:
+                data_set = f[dataset_name]
+                if len(data_set.shape) == 5:
+                    F = data_set[:,:,:,:,idx]
+                elif len(data_set.shape) == 4:
+                    F = data_set[:,:,:,:]
+                else:
+                    raise Exception("Something went wrong reading integral derivative file")
+            return jnp.asarray(F)
 
     # Create Jacobian-vector product rule, which given some input args (primals)
     # and a tangent std basis vector (tangent), returns the function evaluated at that point (primals_out)
