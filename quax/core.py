@@ -8,7 +8,6 @@ import numpy as np
 import os
 import h5py
 
-from .integrals.basis_utils import build_basis_set
 from .methods.energy_utils import nuclear_repulsion, cholesky_orthogonalization
 from .methods.hartree_fock import restricted_hartree_fock
 from .methods.mp2 import restricted_mp2
@@ -38,6 +37,7 @@ def check_options(options):
                        'damp_factor': 0.5,
                        'spectral_shift': True,
                        'integral_algo': 'libint_core',
+                       'beta': 1.0
                       }
 
     for key in options.keys():

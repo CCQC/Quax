@@ -25,7 +25,7 @@ libint2::BasisSet bs1, bs2, bs3, bs4;
 unsigned int nbf1, nbf2, nbf3, nbf4;
 std::vector<size_t> shell2bf_1, shell2bf_2, shell2bf_3, shell2bf_4;
 std::vector<long> shell2atom_1, shell2atom_2, shell2atom_3, shell2atom_4;
-int nthreads;
+int nthreads = 1;
 
 // These lookup arrays are for mapping Libint's computed shell-set integrals and integral derivatives to the proper index 
 // in the full OEI/TEI array or derivative array.
@@ -86,11 +86,12 @@ void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
     shell2atom_4 = bs4.shell2atom(atoms);
 
     // Get number of OMP threads
-    nthreads = 1;
 #ifdef _OPENMP
     nthreads = omp_get_max_threads();
 #endif
-    py::print("Number of OMP Threads:", nthreads);
+    if (basis1 == basis2 && basis3 == basis4 && basis2 == basis4) {
+        py::print("Number of OMP Threads:", nthreads);
+    }
 }
 
 void finalize() {

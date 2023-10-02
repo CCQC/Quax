@@ -24,7 +24,7 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     else: 
         jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0, 1), (0, 1)]), in_axes=(0, None)), in_axes=(0, None))
 
-    S, T, V, G = compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order, options)
+    S, T, V, G = compute_integrals(geom, basis_name, xyz_path, deriv_order, options)
     # Canonical orthogonalization via cholesky decomposition
     A = cholesky_orthogonalization(S)
 
@@ -41,7 +41,7 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
         shift = jnp.zeros_like(S)
 
     H = T + V
-    Enuc = nuclear_repulsion(geom.reshape(-1,3),nuclear_charges)
+    Enuc = nuclear_repulsion(geom.reshape(-1,3), nuclear_charges)
     D = jnp.zeros_like(H)
     
     def rhf_iter(F,D):

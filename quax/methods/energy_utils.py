@@ -54,10 +54,10 @@ def tei_transformation(G, C):
     New algo for TEI transform
     It's faster than psi4.MintsHelper.mo_transform() for basis sets <~120.
     """
-    G = transform(C,G)
-    G = transform(C,G)
-    G = transform(C,G)
-    G = transform(C,G)
+    G = transform(C, G)
+    G = transform(C, G)
+    G = transform(C, G)
+    G = transform(C, G)
     return G
 
 def partial_tei_transformation(G, Ci, Cj, Ck, Cl):
