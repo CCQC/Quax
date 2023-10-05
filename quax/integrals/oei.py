@@ -17,10 +17,22 @@ class OEI(object):
         molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
         natoms = molecule.natom()
 
+        # Libint and Psi4 CABS naming
+        if 'cabs' in basis1.lower():
+            basis1 = basis1.lower().replace('cabs', 'optri')
+        if 'cabs' in basis2.lower():
+            basis2 = basis2.lower().replace('cabs', 'optri')
+
         bs1 = psi4.core.BasisSet.build(molecule, 'BASIS', basis1, puream=0)
         bs2 = psi4.core.BasisSet.build(molecule, 'BASIS', basis2, puream=0)
         nbf1 = bs1.nbf()
         nbf2 = bs2.nbf()
+
+        if 'f12' in mode:
+            if 'optri' in basis1:
+                nbf1 += bs2.nbf()
+            if 'optri' in basis2:
+                nbf2 += bs1.nbf()
 
         if 'core' in mode and max_deriv_order > 0:
             # A list of OEI derivative tensors, containing only unique elements
@@ -36,6 +48,7 @@ class OEI(object):
                 self.overlap_derivatives.append(oei_deriv[0].reshape(n_unique_derivs, nbf1, nbf2))
                 self.kinetic_derivatives.append(oei_deriv[1].reshape(n_unique_derivs, nbf1, nbf2))
                 self.potential_derivatives.append(oei_deriv[2].reshape(n_unique_derivs, nbf1, nbf2))
+
 
         self.mode = mode
         self.nbf1 = nbf1

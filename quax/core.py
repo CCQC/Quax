@@ -8,9 +8,11 @@ import numpy as np
 import os
 import h5py
 
+from .integrals.basis_utils import build_CABS
 from .methods.energy_utils import nuclear_repulsion, cholesky_orthogonalization
 from .methods.hartree_fock import restricted_hartree_fock
 from .methods.mp2 import restricted_mp2
+from .methods.mp2f12 import restricted_mp2_f12
 from .methods.ccsd import rccsd
 from .methods.ccsd_t import rccsd_t
 from .utils import get_required_deriv_vecs
@@ -62,7 +64,6 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
         options = check_options({})
     print("Using integral method: {}".format(options['integral_algo']))
 
-
     # Load molecule data
     geom2d = np.asarray(molecule.geometry())
     geom_list = geom2d.reshape(-1).tolist() 
@@ -81,6 +82,13 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
     natoms = molecule.natom()
     print("Number of basis functions: ", nbf)
 
+    if method == 'mp2-f12': # Ensure use of Dunning basis sets
+        try:
+            cabs_name = basis_name + "-cabs"
+            cabs_space = build_CABS(molecule, basis_name, cabs_name)
+        except:
+            raise Exception("Must use a cc-pVXZ-F12 or aug-cc-pVXZ basis set for F12 methods.")
+
     # Energy and full derivative tensor evaluations
     if not partial:
         # Create energy evaluation function
@@ -90,6 +98,9 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
         elif method =='mp2':
             def electronic_energy(*args, deriv_order=deriv_order):
                 return restricted_mp2(*args, deriv_order=deriv_order)
+        elif method =='mp2-f12':
+            def electronic_energy(*args, deriv_order=deriv_order):
+                return restricted_mp2_f12(*args, cabs_space, deriv_order=deriv_order)
         elif method =='ccsd':
             def electronic_energy(*args, deriv_order=deriv_order):
                 return rccsd(*args, deriv_order=deriv_order)
@@ -142,6 +153,11 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
                 E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=False)
                 return E_scf
         elif method =='mp2':
+            def partial_wrapper(*args):
+                geom = jnp.asarray(args)
+                E_mp2f12 = restricted_mp2_f12(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
+                return E_mp2f12
+        elif method =='mp2-f12':
             def partial_wrapper(*args):
                 geom = jnp.asarray(args)
                 E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)

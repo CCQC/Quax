@@ -62,7 +62,7 @@ def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options):
         # Check disk for currently existing integral derivatives
         check = check_disk(geom, basis1, xyz_path, deriv_order)
 
-        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'disk')
+        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'f12_disk')
         # If disk integral derivs are right, nothing to do
         if check:
             T = oei_obj.kinetic(geom)
@@ -74,7 +74,7 @@ def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options):
 
     else:
         # Precompute TEI derivatives
-        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'core')
+        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'f12_core')
         # Compute integrals
         T = oei_obj.kinetic(geom)
         V = oei_obj.potential(geom)
@@ -92,7 +92,7 @@ def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path,
         # Check disk for currently existing integral derivatives
         check = check_disk_f12(geom, basis1, basis2, basis3, basis4, int_type, xyz_path, deriv_order)
 
-        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, 'disk')
+        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, 'f12_disk')
         # If disk integral derivs are right, nothing to do
         if check:
             match int_type:
@@ -126,7 +126,7 @@ def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path,
 
     else:
         # Precompute TEI derivatives
-        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, 'core')
+        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, 'f12_core')
         # Compute integrals
         match int_type:
             case "f12":

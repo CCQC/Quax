@@ -9,10 +9,11 @@ def build_CABS(molecule, basis_name, cabs_name):
     OBS name, CABS name, and
     MO coefficients from RHF
     """
-    cabs_name = cabs_name.lower().replace('cabs', 'optri')
+    # Libint uses the suffix 'cabs' bu Psi4 uses 'optri'
+    psi4_name = cabs_name.lower().replace('cabs', 'optri')
 
     keys = ["BASIS","CABS_BASIS"]
-    targets = [basis_name, cabs_name]
+    targets = [basis_name, psi4_name]
     roles = ["ORBITAL","F12"]
     others = [basis_name, basis_name]
 
@@ -39,6 +40,6 @@ def build_CABS(molecule, basis_name, cabs_name):
     V_N = Vt[ncabs:, :].T
 
     # Make sure the CABS is an orthonormal set
-    C_cabs = np.einsum('pQ,QP->pP', C_ribs, V_N)
+    C_cabs = psi4.core.Matrix.from_array(np.einsum('pQ,QP->pP', C_ribs, V_N))
 
-    return C_cabs
+    return psi4.core.OrbitalSpace(ri_space.id(), cabs_name, C_cabs, ri_space.basisset(), ri_space.integral())
