@@ -63,6 +63,7 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
     else:
         options = check_options({})
     print("Using integral method: {}".format(options['integral_algo']))
+    print("Number of OMP Threads: {}".format(psi4.core.get_num_threads()))
 
     # Load molecule data
     geom2d = np.asarray(molecule.geometry())
@@ -75,7 +76,6 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
     mult = molecule.multiplicity()
     charge = molecule.molecular_charge()
     nuclear_charges = jnp.asarray([molecule.charge(i) for i in range(geom2d.shape[0])])
-    args = (geom, basis_name, xyz_path, nuclear_charges, charge, options)
 
     basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
     nbf = basis_set.nbf()
@@ -90,6 +90,7 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
             raise Exception("Must use a cc-pVXZ-F12 or aug-cc-pVXZ basis set for F12 methods.")
 
     # Energy and full derivative tensor evaluations
+    args = (geom, basis_set, xyz_path, nuclear_charges, charge, options)
     if not partial:
         # Create energy evaluation function
         if method == 'scf' or method == 'hf' or method == 'rhf':

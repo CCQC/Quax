@@ -7,7 +7,7 @@ import psi4
 from .ints import compute_integrals
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 
-def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
+def restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
     # Load keyword options
     maxit = options['maxit']
     damping = options['damping']
@@ -24,7 +24,7 @@ def restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge,
     else: 
         jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0, 1), (0, 1)]), in_axes=(0, None)), in_axes=(0, None))
 
-    S, T, V, G = compute_integrals(geom, basis_name, xyz_path, deriv_order, options)
+    S, T, V, G = compute_integrals(geom, basis_set, xyz_path, deriv_order, options)
     # Canonical orthogonalization via cholesky decomposition
     A = cholesky_orthogonalization(S)
 

@@ -15,17 +15,18 @@ from ..integrals import OEI
 from ..integrals import libint_interface
      
 
-def compute_integrals(geom, basis_name, xyz_path, deriv_order, options):
+def compute_integrals(geom, basis_set, xyz_path, deriv_order, options):
     # Load integral algo, decides to compute integrals in memory or use disk 
     algo = options['integral_algo']
+    basis_name = basis_set.name()
     libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name)
 
     if algo == 'libint_disk':
         # Check disk for currently existing integral derivatives
-        check = check_disk(geom, basis_name, xyz_path, deriv_order)
+        check = check_disk(geom, basis_set, xyz_path, deriv_order)
 
-        tei_obj = TEI(basis_name, basis_name, basis_name, basis_name, xyz_path, deriv_order, 'disk')
-        oei_obj = OEI(basis_name, basis_name, xyz_path, deriv_order, 'disk')
+        tei_obj = TEI(basis_set, basis_set, basis_set, basis_set, xyz_path, deriv_order, 'disk')
+        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'disk')
         # If disk integral derivs are right, nothing to do
         if check:
             S = oei_obj.overlap(geom)
@@ -42,8 +43,8 @@ def compute_integrals(geom, basis_name, xyz_path, deriv_order, options):
 
     else:
         # Precompute TEI derivatives
-        tei_obj = TEI(basis_name, basis_name, basis_name, basis_name, xyz_path, deriv_order, 'core')
-        oei_obj = OEI(basis_name, basis_name, xyz_path, deriv_order, 'core')
+        tei_obj = TEI(basis_set, basis_set, basis_set, basis_set, xyz_path, deriv_order, 'core')
+        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'core')
         # Compute integrals
         S = oei_obj.overlap(geom)
         T = oei_obj.kinetic(geom)
@@ -56,7 +57,9 @@ def compute_integrals(geom, basis_name, xyz_path, deriv_order, options):
 def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options):
     # Load integral algo, decides to compute integrals in memory or use disk
     algo = options['integral_algo']
-    libint_interface.initialize(xyz_path, basis1, basis2, basis1, basis2)
+    basis1_name = basis1.name()
+    basis2_name = basis2.name()
+    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis1_name, basis2_name)
 
     if algo == 'libint_disk':
         # Check disk for currently existing integral derivatives
@@ -86,7 +89,11 @@ def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path,
     # Load integral algo, decides to compute integrals in memory or use disk
     algo = options['integral_algo']
     beta = options['beta']
-    libint_interface.initialize(xyz_path, basis1, basis2, basis3, basis4)
+    basis1_name = basis1.name()
+    basis2_name = basis2.name()
+    basis3_name = basis3.name()
+    basis4_name = basis4.name()
+    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis3_name, basis4_name)
 
     if algo == 'libint_disk':
         # Check disk for currently existing integral derivatives
@@ -143,7 +150,7 @@ def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path,
     libint_interface.finalize()
     return F
 
-def check_disk(geom, basis_name, xyz_path, deriv_order, address=None):
+def check_disk(geom, basis_set, xyz_path, deriv_order, address=None):
     # TODO need to check geometry and basis set name in addition to nbf
     # First check TEI's, then OEI's, return separately, check separately in compute_integrals
     correct_int_derivs = False
@@ -155,7 +162,6 @@ def check_disk(geom, basis_name, xyz_path, deriv_order, address=None):
         with open(xyz_path, 'r') as f:
             tmp = f.read()
         molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-        basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
         nbf = basis_set.nbf()
         # Check if there are `deriv_order` datasets in the eri file
         correct_deriv_order = len(erifile) == deriv_order
@@ -195,14 +201,10 @@ def check_disk_f12(geom, basis1, basis2, basis3, basis4, int_type, xyz_path, der
         with open(xyz_path, 'r') as f:
             tmp = f.read()
         molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-        bs1 = psi4.core.BasisSet.build(molecule, 'BASIS', basis1, puream=0)
-        bs2 = psi4.core.BasisSet.build(molecule, 'BASIS', basis2, puream=0)
-        bs3 = psi4.core.BasisSet.build(molecule, 'BASIS', basis3, puream=0)
-        bs4 = psi4.core.BasisSet.build(molecule, 'BASIS', basis4, puream=0)
-        nbf1 = bs1.nbf()
-        nbf2 = bs2.nbf()
-        nbf3 = bs3.nbf()
-        nbf4 = bs4.nbf()
+        nbf1 = basis1.nbf()
+        nbf2 = basis2.nbf()
+        nbf3 = basis3.nbf()
+        nbf4 = basis4.nbf()
         # Check if there are `deriv_order` datasets in the eri file
         correct_deriv_order = len(erifile) == deriv_order
         # Check nbf dimension of integral arrays

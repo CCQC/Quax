@@ -25,6 +25,8 @@ libint2::BasisSet bs1, bs2, bs3, bs4;
 unsigned int nbf1, nbf2, nbf3, nbf4;
 std::vector<size_t> shell2bf_1, shell2bf_2, shell2bf_3, shell2bf_4;
 std::vector<long> shell2atom_1, shell2atom_2, shell2atom_3, shell2atom_4;
+size_t max_nprim;
+int max_l;
 int nthreads = 1;
 
 // These lookup arrays are for mapping Libint's computed shell-set integrals and integral derivatives to the proper index 
@@ -85,13 +87,13 @@ void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
     shell2atom_3 = bs3.shell2atom(atoms);
     shell2atom_4 = bs4.shell2atom(atoms);
 
+    max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
+    max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
+
     // Get number of OMP threads
 #ifdef _OPENMP
     nthreads = omp_get_max_threads();
 #endif
-    if (basis1 == basis2 && basis3 == basis4 && basis2 == basis4) {
-        py::print("Number of OMP Threads:", nthreads);
-    }
 }
 
 void finalize() {
@@ -224,8 +226,6 @@ std::vector<std::vector<int>> generate_multi_index_lookup(int nparams, int deriv
 py::array overlap() {
     // Overlap integral engine
     std::vector<libint2::Engine> s_engines(nthreads);
-    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
-    int max_l = std::max(bs1.max_l(), bs2.max_l());
     s_engines[0] = libint2::Engine(libint2::Operator::overlap, max_nprim, max_l);
     for (size_t i = 1; i != nthreads; ++i) {
         s_engines[i] = s_engines[0];
@@ -268,8 +268,6 @@ py::array overlap() {
 py::array kinetic() {
     // Kinetic energy integral engine
     std::vector<libint2::Engine> t_engines(nthreads);
-    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
-    int max_l = std::max(bs1.max_l(), bs2.max_l());
     t_engines[0] = libint2::Engine(libint2::Operator::kinetic, max_nprim, max_l);
     for (size_t i = 1; i != nthreads; ++i) {
         t_engines[i] = t_engines[0];
@@ -312,8 +310,6 @@ py::array kinetic() {
 py::array potential() {
     // Potential integral engine
     std::vector<libint2::Engine> v_engines(nthreads);
-    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
-    int max_l = std::max(bs1.max_l(), bs2.max_l());
     v_engines[0] = libint2::Engine(libint2::Operator::nuclear, max_nprim, max_l);
     v_engines[0].set_params(make_point_charges(atoms));
     for (size_t i = 1; i != nthreads; ++i) {
@@ -358,8 +354,6 @@ py::array potential() {
 py::array eri() {
     // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
     std::vector<libint2::Engine> eri_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l);
     for (size_t i = 1; i != nthreads; ++i) {
         eri_engines[i] = eri_engines[0];
@@ -418,8 +412,6 @@ py::array f12(double beta) {
     // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
     auto cgtg_params = make_cgtg(beta);
     std::vector<libint2::Engine> cgtg_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     cgtg_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l);
     cgtg_engines[0].set_params(cgtg_params);
     for (size_t i = 1; i != nthreads; ++i) {
@@ -479,8 +471,6 @@ py::array f12_squared(double beta) {
     // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
     auto cgtg_params = take_square(make_cgtg(beta));
     std::vector<libint2::Engine> cgtg_squared_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     cgtg_squared_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l);
     cgtg_squared_engines[0].set_params(cgtg_params);
     for (size_t i = 1; i != nthreads; ++i) {
@@ -540,8 +530,6 @@ py::array f12g12(double beta) {
     // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
     auto cgtg_params = make_cgtg(beta);
     std::vector<libint2::Engine> cgtg_coulomb_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     cgtg_coulomb_engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l);
     cgtg_coulomb_engines[0].set_params(cgtg_params);
     for (size_t i = 1; i != nthreads; ++i) {
@@ -601,8 +589,6 @@ py::array f12_double_commutator(double beta) {
     // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++? avoids last line, which copies
     auto cgtg_params = make_cgtg(beta);
     std::vector<libint2::Engine> cgtg_del_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     // Returns Runtime Error: bad any_cast if shorthand version is used, may be an error on the Libint side since Psi4 works with this as well
     cgtg_del_engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, 0, 0., cgtg_params, libint2::BraKet::xx_xx);
     for (size_t i = 1; i != nthreads; ++i) {
@@ -670,8 +656,6 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
 
     // Overlap integral derivative engine
     std::vector<libint2::Engine> s_engines(nthreads);
-    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
-    int max_l = std::max(bs1.max_l(), bs2.max_l());
     s_engines[0] = libint2::Engine(libint2::Operator::overlap, max_nprim, max_l, deriv_order);
     for (size_t i = 1; i != nthreads; ++i) {
         s_engines[i] = s_engines[0];
@@ -766,8 +750,6 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
 
     // Kinetic integral derivative engine
     std::vector<libint2::Engine> t_engines(nthreads);
-    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
-    int max_l = std::max(bs1.max_l(), bs2.max_l());
     t_engines[0] = libint2::Engine(libint2::Operator::kinetic, max_nprim, max_l, deriv_order);
     for (size_t i = 1; i != nthreads; ++i) {
         t_engines[i] = t_engines[0];
@@ -869,8 +851,6 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
 
     // Potential integral derivative engine
     std::vector<libint2::Engine> v_engines(nthreads);
-    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
-    int max_l = std::max(bs1.max_l(), bs2.max_l());
     v_engines[0] = libint2::Engine(libint2::Operator::nuclear, max_nprim, max_l, deriv_order);
     v_engines[0].set_params(make_point_charges(atoms));
     for (size_t i = 1; i != nthreads; ++i) {
@@ -998,8 +978,6 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
 
     // ERI derivative integral engine
     std::vector<libint2::Engine> eri_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
     for (size_t i = 1; i != nthreads; ++i) {
         eri_engines[i] = eri_engines[0];
@@ -1151,8 +1129,6 @@ py::array f12_deriv(double beta, std::vector<int> deriv_vec) {
     // F12 derivative integral engine
     auto cgtg_params = make_cgtg(beta);
     std::vector<libint2::Engine> cgtg_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     cgtg_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
     cgtg_engines[0].set_params(cgtg_params);
     for (size_t i = 1; i != nthreads; ++i) {
@@ -1305,8 +1281,6 @@ py::array f12_squared_deriv(double beta, std::vector<int> deriv_vec) {
     // F12 Squared derivative integral engine
     auto cgtg_params = take_square(make_cgtg(beta));
     std::vector<libint2::Engine> cgtg_squared_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     cgtg_squared_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
     cgtg_squared_engines[0].set_params(cgtg_params);
     for (size_t i = 1; i != nthreads; ++i) {
@@ -1459,8 +1433,6 @@ py::array f12g12_deriv(double beta, std::vector<int> deriv_vec) {
     // F12 derivative integral engine
     auto cgtg_params = make_cgtg(beta);
     std::vector<libint2::Engine> cgtg_coulomb_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     cgtg_coulomb_engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l, deriv_order);
     cgtg_coulomb_engines[0].set_params(cgtg_params);
     for (size_t i = 1; i != nthreads; ++i) {
@@ -1613,8 +1585,6 @@ py::array f12_double_commutator_deriv(double beta, std::vector<int> deriv_vec) {
     // F12 derivative integral engine
     auto cgtg_params = make_cgtg(beta);
     std::vector<libint2::Engine> cgtg_del_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     // Returns Runtime Error: bad any_cast if shorthand version is used, may be an error on the Libint side since Psi4 works with this as well
     cgtg_del_engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, deriv_order, 0., cgtg_params, libint2::BraKet::xx_xx);
     for (size_t i = 1; i != nthreads; ++i) {
@@ -1783,9 +1753,6 @@ void oei_deriv_disk(int max_deriv_order) {
     for (int i = 1; i <= max_deriv_order; i++){
         total_deriv_slices += how_many_derivs(natom, i);
     }
-
-    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
-    int max_l = std::max(bs1.max_l(), bs2.max_l());
 
     // Create H5 File and prepare to fill with 0.0's
     const H5std_string file_name("oei_derivs.h5");
@@ -1993,9 +1960,6 @@ void eri_deriv_disk(int max_deriv_order) {
     DSetCreatPropList plist;
     plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
 
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
-
     // Check to make sure you are not flooding the disk.
     long total_deriv_slices = 0;
     for (int i = 1; i <= max_deriv_order; i++){
@@ -2162,9 +2126,6 @@ void f12_deriv_disk(double beta, int max_deriv_order) {
     double fillvalue = 0.0;
     DSetCreatPropList plist;
     plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
-
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
 
     // Check to make sure you are not flooding the disk.
     long total_deriv_slices = 0;
@@ -2335,9 +2296,6 @@ void f12_squared_deriv_disk(double beta, int max_deriv_order) {
     double fillvalue = 0.0;
     DSetCreatPropList plist;
     plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
-
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
 
     // Check to make sure you are not flooding the disk.
     long total_deriv_slices = 0;
@@ -2511,9 +2469,6 @@ void f12g12_deriv_disk(double beta, int max_deriv_order) {
     DSetCreatPropList plist;
     plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
 
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
-
     // Check to make sure you are not flooding the disk.
     long total_deriv_slices = 0;
     for (int i = 1; i <= max_deriv_order; i++){
@@ -2683,9 +2638,6 @@ void f12_double_commutator_deriv_disk(double beta, int max_deriv_order) {
     double fillvalue = 0.0;
     DSetCreatPropList plist;
     plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
-
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
 
     // Check to make sure you are not flooding the disk.
     long total_deriv_slices = 0;
@@ -2860,8 +2812,6 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
 
     // Define engines and buffers
     std::vector<libint2::Engine> s_engines(nthreads), t_engines(nthreads), v_engines(nthreads);
-    size_t max_nprim = std::max(bs1.max_nprim(), bs2.max_nprim());
-    int max_l = std::max(bs1.max_l(), bs2.max_l());
     s_engines[0] = libint2::Engine(libint2::Operator::overlap, max_nprim, max_l, deriv_order);
     t_engines[0] = libint2::Engine(libint2::Operator::kinetic, max_nprim, max_l, deriv_order);
     v_engines[0] = libint2::Engine(libint2::Operator::nuclear, max_nprim, max_l, deriv_order);
@@ -3010,8 +2960,6 @@ py::array eri_deriv_core(int deriv_order) {
 
     // Libint engine for computing shell quartet derivatives
     std::vector<libint2::Engine> eri_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
     for (size_t i = 1; i != nthreads; ++i) {
         eri_engines[i] = eri_engines[0];
@@ -3137,8 +3085,6 @@ py::array f12_deriv_core(double beta, int deriv_order) {
     // Libint engine for computing shell quartet derivatives
     auto cgtg_params = make_cgtg(beta);
     std::vector<libint2::Engine> cgtg_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     cgtg_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
     cgtg_engines[0].set_params(cgtg_params);
     for (size_t i = 1; i != nthreads; ++i) {
@@ -3265,8 +3211,6 @@ py::array f12_squared_deriv_core(double beta, int deriv_order) {
     // Libint engine for computing shell quartet derivatives
     auto cgtg_params = take_square(make_cgtg(beta));
     std::vector<libint2::Engine> cgtg_squared_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     cgtg_squared_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
     cgtg_squared_engines[0].set_params(cgtg_params);
     for (size_t i = 1; i != nthreads; ++i) {
@@ -3393,8 +3337,6 @@ py::array f12g12_deriv_core(double beta, int deriv_order) {
     // Libint engine for computing shell quartet derivatives
     auto cgtg_params = make_cgtg(beta);
     std::vector<libint2::Engine> cgtg_coulomb_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     cgtg_coulomb_engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l, deriv_order);
     cgtg_coulomb_engines[0].set_params(cgtg_params);
     for (size_t i = 1; i != nthreads; ++i) {
@@ -3521,8 +3463,6 @@ py::array f12_double_commutator_deriv_core(double beta, int deriv_order) {
     // Libint engine for computing shell quartet derivatives
     auto cgtg_params = make_cgtg(beta);
     std::vector<libint2::Engine> cgtg_del_engines(nthreads);
-    size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-    int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
     // Returns Runtime Error: bad any_cast if shorthand version is used, may be an error on the Libint side since Psi4 works with this as well
     cgtg_del_engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, deriv_order, 0., cgtg_params, libint2::BraKet::xx_xx);
     for (size_t i = 1; i != nthreads; ++i) {

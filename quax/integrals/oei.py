@@ -18,21 +18,13 @@ class OEI(object):
         natoms = molecule.natom()
 
         # Libint and Psi4 CABS naming
-        if 'cabs' in basis1.lower():
-            basis1 = basis1.lower().replace('cabs', 'optri')
-        if 'cabs' in basis2.lower():
-            basis2 = basis2.lower().replace('cabs', 'optri')
+        if 'cabs' in basis1.name().lower():
+            basis1_name = basis1.name().lower().replace('cabs', 'optri')
+        if 'cabs' in basis2.name().lower():
+            basis2_name = basis2.name().lower().replace('cabs', 'optri')
 
-        bs1 = psi4.core.BasisSet.build(molecule, 'BASIS', basis1, puream=0)
-        bs2 = psi4.core.BasisSet.build(molecule, 'BASIS', basis2, puream=0)
-        nbf1 = bs1.nbf()
-        nbf2 = bs2.nbf()
-
-        if 'f12' in mode:
-            if 'optri' in basis1:
-                nbf1 += bs2.nbf()
-            if 'optri' in basis2:
-                nbf2 += bs1.nbf()
+        nbf1 = basis1.nbf()
+        nbf2 = basis2.nbf()
 
         if 'core' in mode and max_deriv_order > 0:
             # A list of OEI derivative tensors, containing only unique elements

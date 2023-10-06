@@ -7,10 +7,10 @@ import psi4
 from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation, cartesian_product
 from .hartree_fock import restricted_hartree_fock
 
-def restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
+def restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
-    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
+    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
 
     nvirt = G.shape[0] - ndocc
     nbf = G.shape[0]

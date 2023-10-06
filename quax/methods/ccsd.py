@@ -6,9 +6,9 @@ import psi4
 from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation
 from .hartree_fock import restricted_hartree_fock
 
-def rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
+def rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
     # Do HF
-    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
 
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
