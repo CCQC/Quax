@@ -96,6 +96,8 @@ def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
 
 def rccsd_t(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=0):
     E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
+
+    print("Running (T) Correction...")
     pT = perturbative_triples(T1, T2, V, fock_Od, fock_Vd)
     #print("(T) energy correction:     ", pT)
     #print("CCSD(T) total energy:      ", E_ccsd + pT)

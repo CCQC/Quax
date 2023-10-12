@@ -18,6 +18,9 @@
 namespace py = pybind11;
 using namespace H5;
 
+/*Global variable, OpenMP lock*/
+omp_lock_t  lock;
+
 std::vector<libint2::Atom> atoms;
 unsigned int natom;
 unsigned int ncart;
@@ -56,6 +59,49 @@ std::vector<libint2::Atom> get_atoms(std::string xyzfilename)
     return atoms;
 }
 
+// Creates a combined basis set
+libint2::BasisSet make_ao_cabs(std::string obs_name, libint2::BasisSet cabs) {
+    // Create OBS
+    obs_name.erase(obs_name.end() - 5, obs_name.end());
+    auto obs = libint2::BasisSet(obs_name, atoms);
+    obs.set_pure(false); // use cartesian gaussians
+
+    auto obs_idx = obs.atom2shell(atoms);
+    auto cabs_idx = cabs.atom2shell(atoms);
+
+    std::vector<std::vector<libint2::Shell>> el_bases(36); // Only consider atoms up to Kr
+    for (size_t i = 0; i < atoms.size(); i++) {
+        if (el_bases[atoms[i].atomic_number].empty()) {
+            std::vector<libint2::Shell> tmp;
+
+            for(long int& idx : obs_idx[i]) {
+                tmp.push_back(obs[idx]);
+            }
+            for(long int& idx : cabs_idx[i]) {
+                tmp.push_back(cabs[idx]);
+            }
+
+            sort(tmp.begin(), tmp.end(), [i](const auto& a, const auto& b) -> bool
+            {
+                int a_l, b_l;
+                for (auto&& c_a : a.contr)
+                    a_l = c_a.l;
+                for (auto&& c_b : b.contr)
+                    b_l = c_b.l;
+
+                return a_l < b_l;
+            });
+
+            el_bases[atoms[i].atomic_number] = tmp;
+        }
+    }
+
+    // Create CABS, union of orbital and auxiliary basis AOs
+    cabs = libint2::BasisSet(atoms, el_bases);
+    cabs.set_pure(false);
+    return cabs;
+}
+
 // Must call initialize before computing ints 
 void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
                 std::string basis3, std::string basis4) {
@@ -67,12 +113,27 @@ void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
     // Move harddrive load of basis and xyz to happen only once
     bs1 = libint2::BasisSet(basis1, atoms);
     bs1.set_pure(false); // use cartesian gaussians
+    if (basis1.find("-cabs", 10) != std::string::npos) {
+        bs1 = make_ao_cabs(basis1, bs1);
+    }
+
     bs2 = libint2::BasisSet(basis2, atoms);
     bs2.set_pure(false); // use cartesian gaussians
+    if (basis2.find("-cabs", 10) != std::string::npos) {
+        bs2 = make_ao_cabs(basis2, bs2);
+    }
+
     bs3 = libint2::BasisSet(basis3, atoms);
     bs3.set_pure(false); // use cartesian gaussians
+    if (basis3.find("-cabs", 10) != std::string::npos) {
+        bs3 = make_ao_cabs(basis3, bs3);
+    }
+
     bs4 = libint2::BasisSet(basis4, atoms);
     bs4.set_pure(false); // use cartesian gaussians
+    if (basis4.find("-cabs", 10) != std::string::npos) {
+        bs4 = make_ao_cabs(basis4, bs4);
+    }
 
     nbf1 = bs1.nbf();
     nbf2 = bs2.nbf();
@@ -1806,6 +1867,9 @@ void oei_deriv_disk(int max_deriv_order) {
         hsize_t block[3] = {1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
         hsize_t zerostart[3] = {0, 0, 0};
 
+        /* Initialize lock */
+        omp_init_lock(&lock);
+
 #pragma omp parallel for collapse(2) num_threads(nthreads)
         for(auto s1 = 0; s1 != bs1.size(); ++s1) {
             for(auto s2 = 0; s2 != bs2.size(); ++s2) {
@@ -1916,6 +1980,9 @@ void oei_deriv_disk(int max_deriv_order) {
                     }
                 } // Unique nuclear cartesian derivative indices loop
 
+                /* Serialize HDF dataset writing using OpenMP lock */
+                omp_set_lock(&lock);
+
                 // Now write this shell set slab to HDF5 file
                 // Create file space hyperslab, defining where to write data to in file
                 hsize_t count[3] = {n1, n2, nderivs_triu};
@@ -1929,16 +1996,22 @@ void oei_deriv_disk(int max_deriv_order) {
                 overlap_dataset->write(overlap_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
                 kinetic_dataset->write(kinetic_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
                 potential_dataset->write(potential_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+
+                /* Release lock */
+                omp_unset_lock(&lock);
             }
         } // shell duet loops
-    // Delete datasets for this derivative order
-    delete overlap_dataset;
-    delete kinetic_dataset;
-    delete potential_dataset;
+        // Delete datasets for this derivative order
+        delete overlap_dataset;
+        delete kinetic_dataset;
+        delete potential_dataset;
     } // deriv order loop
-// close the file
-delete file;
-std::cout << " done" << std::endl;
+
+    /* Finished lock mechanism, destroy it */
+    omp_destroy_lock(&lock);
+    // close the file
+    delete file;
+    std::cout << " done" << std::endl;
 } //oei_deriv_disk 
 
 
@@ -1997,6 +2070,9 @@ void eri_deriv_disk(int max_deriv_order) {
         hsize_t stride[5] = {1, 1, 1, 1, 1}; // stride and block can be used to 
         hsize_t block[5] = {1, 1, 1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
         hsize_t zerostart[5] = {0, 0, 0, 0, 0};
+
+        /* Initialize lock */
+        omp_init_lock(&lock);
 
 #pragma omp parallel for collapse(4) num_threads(nthreads)
         for(auto s1 = 0; s1 != bs1.size(); ++s1) {
@@ -2087,6 +2163,10 @@ void eri_deriv_disk(int max_deriv_order) {
                                 }
                             }
                         } // For every nuc_idx 0, nderivs_triu
+
+                        /* Serialize HDF dataset writing using OpenMP lock */
+                        omp_set_lock(&lock);
+
                         // Now write this shell set slab to HDF5 file
                         hsize_t count[5] = {n1, n2, n3, n4, nderivs_triu};
                         hsize_t start[5] = {bf1, bf2, bf3, bf4, 0};
@@ -2097,16 +2177,22 @@ void eri_deriv_disk(int max_deriv_order) {
                         mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
                         // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
                         eri_dataset->write(eri_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+
+                        /* Release lock */
+                        omp_unset_lock(&lock);
                     }
                 }
             }
         } // shell quartet loops
-    // Close the dataset for this derivative order
-    delete eri_dataset;
-    } // deriv order loop 
-// Close the file
-delete file;
-std::cout << " done" << std::endl;
+        // Close the dataset for this derivative order
+        delete eri_dataset;
+    } // deriv order loop
+
+    /* Finished lock mechanism, destroy it */
+    omp_destroy_lock(&lock);
+    // Close the file
+    delete file;
+    std::cout << " done" << std::endl;
 } // eri_deriv_disk function
 
 // Writes all F12 ints up to `max_deriv_order` to disk.
@@ -2167,6 +2253,9 @@ void f12_deriv_disk(double beta, int max_deriv_order) {
         hsize_t stride[5] = {1, 1, 1, 1, 1}; // stride and block can be used to 
         hsize_t block[5] = {1, 1, 1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
         hsize_t zerostart[5] = {0, 0, 0, 0, 0};
+
+        /* Initialize lock */
+        omp_init_lock(&lock);
 
 #pragma omp parallel for collapse(4) num_threads(nthreads)
         for(auto s1 = 0; s1 != bs1.size(); ++s1) {
@@ -2257,6 +2346,10 @@ void f12_deriv_disk(double beta, int max_deriv_order) {
                                 }
                             }
                         } // For every nuc_idx 0, nderivs_triu
+
+                        /* Serialize HDF dataset writing using OpenMP lock */
+                        omp_set_lock(&lock);
+
                         // Now write this shell set slab to HDF5 file
                         hsize_t count[5] = {n1, n2, n3, n4, nderivs_triu};
                         hsize_t start[5] = {bf1, bf2, bf3, bf4, 0};
@@ -2267,16 +2360,22 @@ void f12_deriv_disk(double beta, int max_deriv_order) {
                         mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
                         // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
                         f12_dataset->write(f12_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+
+                        /* Release lock */
+                        omp_unset_lock(&lock);
                     }
                 }
             }
         } // shell quartet loops
-    // Close the dataset for this derivative order
-    delete f12_dataset;
-    } // deriv order loop 
-// Close the file
-delete file;
-std::cout << " done" << std::endl;
+        // Close the dataset for this derivative order
+        delete f12_dataset;
+    } // deriv order loop
+
+    /* Finished lock mechanism, destroy it */
+    omp_destroy_lock(&lock);
+    // Close the file
+    delete file;
+    std::cout << " done" << std::endl;
 } // f12_deriv_disk function
 
 // Writes all F12 Squared ints up to `max_deriv_order` to disk.
@@ -2339,6 +2438,9 @@ void f12_squared_deriv_disk(double beta, int max_deriv_order) {
         hsize_t stride[5] = {1, 1, 1, 1, 1}; // stride and block can be used to 
         hsize_t block[5] = {1, 1, 1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
         hsize_t zerostart[5] = {0, 0, 0, 0, 0};
+
+        /* Initialize lock */
+        omp_init_lock(&lock);
 
 #pragma omp parallel for collapse(4) num_threads(nthreads)
         for(auto s1 = 0; s1 != bs1.size(); ++s1) {
@@ -2429,6 +2531,10 @@ void f12_squared_deriv_disk(double beta, int max_deriv_order) {
                                 }
                             }
                         } // For every nuc_idx 0, nderivs_triu
+
+                        /* Serialize HDF dataset writing using OpenMP lock */
+                        omp_set_lock(&lock);
+
                         // Now write this shell set slab to HDF5 file
                         hsize_t count[5] = {n1, n2, n3, n4, nderivs_triu};
                         hsize_t start[5] = {bf1, bf2, bf3, bf4, 0};
@@ -2439,16 +2545,22 @@ void f12_squared_deriv_disk(double beta, int max_deriv_order) {
                         mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
                         // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
                         f12_squared_dataset->write(f12_squared_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+
+                        /* Release lock */
+                        omp_unset_lock(&lock);
                     }
                 }
             }
         } // shell quartet loops
-    // Close the dataset for this derivative order
-    delete f12_squared_dataset;
-    } // deriv order loop 
-// Close the file
-delete file;
-std::cout << " done" << std::endl;
+        // Close the dataset for this derivative order
+        delete f12_squared_dataset;
+    } // deriv order loop
+
+    /* Finished lock mechanism, destroy it */
+    omp_destroy_lock(&lock);
+    // Close the file
+    delete file;
+    std::cout << " done" << std::endl;
 } // f12_squared_deriv_disk function
 
 // Writes all F12G12 ints up to `max_deriv_order` to disk.
@@ -2509,6 +2621,9 @@ void f12g12_deriv_disk(double beta, int max_deriv_order) {
         hsize_t stride[5] = {1, 1, 1, 1, 1}; // stride and block can be used to 
         hsize_t block[5] = {1, 1, 1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
         hsize_t zerostart[5] = {0, 0, 0, 0, 0};
+
+        /* Initialize lock */
+        omp_init_lock(&lock);
 
 #pragma omp parallel for collapse(4) num_threads(nthreads)
         for(auto s1 = 0; s1 != bs1.size(); ++s1) {
@@ -2599,6 +2714,10 @@ void f12g12_deriv_disk(double beta, int max_deriv_order) {
                                 }
                             }
                         } // For every nuc_idx 0, nderivs_triu
+
+                        /* Serialize HDF dataset writing using OpenMP lock */
+                        omp_set_lock(&lock);
+
                         // Now write this shell set slab to HDF5 file
                         hsize_t count[5] = {n1, n2, n3, n4, nderivs_triu};
                         hsize_t start[5] = {bf1, bf2, bf3, bf4, 0};
@@ -2609,16 +2728,22 @@ void f12g12_deriv_disk(double beta, int max_deriv_order) {
                         mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
                         // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
                         f12g12_dataset->write(f12g12_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+
+                        /* Release lock */
+                        omp_unset_lock(&lock);
                     }
                 }
             }
         } // shell quartet loops
-    // Close the dataset for this derivative order
-    delete f12g12_dataset;
-    } // deriv order loop 
-// Close the file
-delete file;
-std::cout << " done" << std::endl;
+        // Close the dataset for this derivative order
+        delete f12g12_dataset;
+    } // deriv order loop
+
+    /* Finished lock mechanism, destroy it */
+    omp_destroy_lock(&lock);
+    // Close the file
+    delete file;
+    std::cout << " done" << std::endl;
 } // f12g12_deriv_disk function
 
 // Writes all F12 Double Commutator ints up to `max_deriv_order` to disk.
@@ -2679,6 +2804,9 @@ void f12_double_commutator_deriv_disk(double beta, int max_deriv_order) {
         hsize_t stride[5] = {1, 1, 1, 1, 1}; // stride and block can be used to 
         hsize_t block[5] = {1, 1, 1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
         hsize_t zerostart[5] = {0, 0, 0, 0, 0};
+
+        /* Initialize lock */
+        omp_init_lock(&lock);
 
 #pragma omp parallel for collapse(4) num_threads(nthreads)
         for(auto s1 = 0; s1 != bs1.size(); ++s1) {
@@ -2769,6 +2897,10 @@ void f12_double_commutator_deriv_disk(double beta, int max_deriv_order) {
                                 }
                             }
                         } // For every nuc_idx 0, nderivs_triu
+
+                        /* Serialize HDF dataset writing using OpenMP lock */
+                        omp_set_lock(&lock);
+
                         // Now write this shell set slab to HDF5 file
                         hsize_t count[5] = {n1, n2, n3, n4, nderivs_triu};
                         hsize_t start[5] = {bf1, bf2, bf3, bf4, 0};
@@ -2779,16 +2911,22 @@ void f12_double_commutator_deriv_disk(double beta, int max_deriv_order) {
                         mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
                         // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
                         f12_double_commutator_dataset->write(f12_double_commutator_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+
+                        /* Release lock */
+                        omp_unset_lock(&lock);
                     }
                 }
             }
         } // shell quartet loops
-    // Close the dataset for this derivative order
-    delete f12_double_commutator_dataset;
-    } // deriv order loop 
-// Close the file
-delete file;
-std::cout << " done" << std::endl;
+        // Close the dataset for this derivative order
+        delete f12_double_commutator_dataset;
+    } // deriv order loop
+
+    /* Finished lock mechanism, destroy it */
+    omp_destroy_lock(&lock);
+    // Close the file
+    delete file;
+    std::cout << " done" << std::endl;
 } // f12_double_commutator_deriv_disk function
 
 // Computes a single 'deriv_order' derivative tensor of OEIs, keeps everything in core memory

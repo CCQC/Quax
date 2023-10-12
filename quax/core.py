@@ -60,6 +60,8 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
     # Set keyword options
     if options:
         options = check_options(options)
+        if deriv_order == 0:
+            options['integral_algo'] = 'libint_core'
     else:
         options = check_options({})
     print("Using integral method: {}".format(options['integral_algo']))
@@ -82,7 +84,7 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
     natoms = molecule.natom()
     print("Number of basis functions: ", nbf)
 
-    if method == 'mp2-f12': # Ensure use of Dunning basis sets
+    if 'f12' in method: # Ensure use of Dunning basis sets
         try:
             cabs_name = basis_name + "-cabs"
             cabs_space = build_CABS(molecule, basis_name, cabs_name)
@@ -151,27 +153,27 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
         if method == 'scf' or method == 'hf' or method == 'rhf':
             def partial_wrapper(*args):
                 geom = jnp.asarray(args)
-                E_scf = restricted_hartree_fock(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=False)
+                E_scf = restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=False)
                 return E_scf
         elif method =='mp2':
             def partial_wrapper(*args):
                 geom = jnp.asarray(args)
-                E_mp2f12 = restricted_mp2_f12(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
+                E_mp2f12 = restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
                 return E_mp2f12
         elif method =='mp2-f12':
             def partial_wrapper(*args):
                 geom = jnp.asarray(args)
-                E_mp2 = restricted_mp2(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
+                E_mp2 = restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
                 return E_mp2
         elif method =='ccsd':
             def partial_wrapper(*args):
                 geom = jnp.asarray(args)
-                E_ccsd = rccsd(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
+                E_ccsd = rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
                 return E_ccsd
         elif method =='ccsd(t)':
             def partial_wrapper(*args):
                 geom = jnp.asarray(args)
-                E_ccsd_t = rccsd_t(geom, basis_name, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
+                E_ccsd_t = rccsd_t(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
                 return E_ccsd_t
         else:
             raise Exception("Error: Method {} not supported.".format(method))

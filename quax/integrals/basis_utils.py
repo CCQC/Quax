@@ -9,7 +9,7 @@ def build_CABS(molecule, basis_name, cabs_name):
     OBS name, CABS name, and
     MO coefficients from RHF
     """
-    # Libint uses the suffix 'cabs' bu Psi4 uses 'optri'
+    # Libint uses the suffix 'cabs' but Psi4 uses 'optri'
     psi4_name = cabs_name.lower().replace('cabs', 'optri')
 
     keys = ["BASIS","CABS_BASIS"]
@@ -20,6 +20,7 @@ def build_CABS(molecule, basis_name, cabs_name):
     # Creates combined basis set in Python
     obs = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
     ao_union = psi4.driver.qcdb.libmintsbasisset.BasisSet.pyconstruct_combined(molecule.save_string_xyz(), keys, targets, roles, others)
+    ao_union['name'] = cabs_name
     ao_union = psi4.core.BasisSet.construct_from_pydict(molecule, ao_union, 0)
     ri_space = psi4.core.OrbitalSpace.build_ri_space(ao_union, 1.0e-8)
 

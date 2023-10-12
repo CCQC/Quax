@@ -8,6 +8,7 @@ from .ints import compute_integrals
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 
 def restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
+    print("Running Hartree-Fock Computation...")
     # Load keyword options
     maxit = options['maxit']
     damping = options['damping']
@@ -93,5 +94,6 @@ def restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, 
     if not return_aux_data:
         return E_scf
     else:
+        #print("RHF Energy:                ", E_scf)
         return E_scf, C, eps, G
 

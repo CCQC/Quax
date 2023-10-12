@@ -11,7 +11,7 @@ jax.config.update("jax_enable_x64", True)
 
 class TEI(object):
 
-    def __init__(self, basis1, basis2, basis3, basis4, xyz_path, max_deriv_order, mode):
+    def __init__(self, basis1, basis2, basis3, basis4, xyz_path, max_deriv_order, options, mode):
         with open(xyz_path, 'r') as f:
             tmp = f.read()
         molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
@@ -42,26 +42,6 @@ class TEI(object):
                 n_unique_derivs = how_many_derivs(natoms, i + 1)
                 eri_deriv = libint_interface.eri_deriv_core(i + 1).reshape(n_unique_derivs, nbf1, nbf2, nbf3, nbf4)
                 self.eri_derivatives.append(eri_deriv)
-
-        if 'f12' in mode and max_deriv_order > 0:
-            # A list of ERI derivative tensors, containing only unique elements
-            # corresponding to upper hypertriangle (since derivative tensors are symmetric)
-            # Length of tuple is maximum deriv order, each array is (upper triangle derivatives,nbf,nbf,nbf,nbf)
-            # Then when JAX calls JVP, read appropriate slice
-            self.f12_derivatives = []
-            self.f12_squared_derivatives = []
-            self.f12g12_derivatives = []
-            self.f12_double_commutator_derivatives = []
-            for i in range(max_deriv_order):
-                n_unique_derivs = how_many_derivs(natoms, i + 1)
-                f12_deriv = libint_interface.f12_deriv_core(i + 1).reshape(n_unique_derivs, nbf1, nbf2, nbf3, nbf4)
-                f12_squared_deriv = libint_interface.f12_squared_deriv_core(i + 1).reshape(n_unique_derivs, nbf1, nbf2, nbf3, nbf4)
-                f12g12_deriv = libint_interface.f12g12_deriv_core(i + 1).reshape(n_unique_derivs, nbf1, nbf2, nbf3, nbf4)
-                f12_double_commutator_deriv = libint_interface.f12_double_commutator_deriv_core(i + 1).reshape(n_unique_derivs, nbf1, nbf2, nbf3, nbf4)
-                self.f12_derivatives.append(f12_deriv)
-                self.f12_squared_derivatives.append(f12_squared_deriv)
-                self.f12g12_derivatives.append(f12g12_deriv)
-                self.f12_double_commutator_derivatives.append(f12_double_commutator_deriv)
 
         self.mode = mode
         self.nbf1 = nbf1
@@ -146,31 +126,26 @@ class TEI(object):
     # Create primitive evaluation rules
     def eri_impl(self, geom):
         G = libint_interface.eri()
-        #d = int(np.sqrt(np.sqrt(G.shape[0])))
         G = G.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(G)
 
     def f12_impl(self, geom, beta):
         F = libint_interface.f12(beta)
-        #d = int(np.sqrt(np.sqrt(G.shape[0])))
         F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
 
     def f12_squared_impl(self, geom, beta):
         F = libint_interface.f12_squared(beta)
-        #d = int(np.sqrt(np.sqrt(G.shape[0])))
         F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
 
     def f12g12_impl(self, geom, beta):
         F = libint_interface.f12g12(beta)
-        #d = int(np.sqrt(np.sqrt(G.shape[0])))
         F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
     
     def f12_double_commutator_impl(self, geom, beta):
         F = libint_interface.f12_double_commutator(beta)
-        #d = int(np.sqrt(np.sqrt(G.shape[0])))
         F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
 
@@ -214,8 +189,8 @@ class TEI(object):
 
         # Use f12 derivatives in memory
         if 'core' in self.mode:
-            F = self.f12_derivatives[deriv_order-1][idx,:,:,:,:]
-            return jnp.asarray(F)
+            F = libint_interface.f12_deriv(beta, deriv_vec)
+            return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
         elif 'disk' in self.mode:
@@ -247,8 +222,8 @@ class TEI(object):
 
         # Use f12 squared derivatives in memory
         if 'core' in self.mode:
-            F = self.f12_squared_derivatives[deriv_order-1][idx,:,:,:,:]
-            return jnp.asarray(F)
+            F = libint_interface.f12_squared_deriv(beta, deriv_vec)
+            return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
         elif 'disk' in self.mode:
@@ -280,8 +255,8 @@ class TEI(object):
 
         # Use f12g12 derivatives in memory
         if 'core' in self.mode:
-            F = self.f12g12_derivatives[deriv_order-1][idx,:,:,:,:]
-            return jnp.asarray(F)
+            F = libint_interface.f12g12_deriv(beta, deriv_vec)
+            return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
         elif 'disk' in self.mode:
@@ -313,8 +288,8 @@ class TEI(object):
 
         # Use f12 double commutator derivatives in memory
         if 'core' in self.mode:
-            F = self.f12_double_commutator_derivatives[deriv_order-1][idx,:,:,:,:]
-            return jnp.asarray(F)
+            F = libint_interface.f12_double_commutator_deriv(beta, deriv_vec)
+            return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
         elif 'disk' in self.mode:

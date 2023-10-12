@@ -10,6 +10,7 @@ def rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_ord
     # Do HF
     E_scf, C, eps, V = restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
 
+    print("Running CCSD Computation...")
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
     nbf = V.shape[0]
@@ -49,9 +50,9 @@ def rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_ord
             break
 
     print(iteration, " CCSD iterations performed")
-    #print("CCSD Correlation Energy:   ", E_ccsd)
-    #print("CCSD Total Energy:         ", E_ccsd + E_scf)
     if return_aux_data:
+        #print("CCSD Correlation Energy:   ", E_ccsd)
+        #print("CCSD Total Energy:         ", E_ccsd + E_scf)
         return E_scf + E_ccsd, T1, T2, V, fock_Od, fock_Vd
     else:
         return E_scf + E_ccsd

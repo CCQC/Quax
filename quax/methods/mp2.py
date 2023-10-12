@@ -12,6 +12,7 @@ def restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, 
     ndocc = nelectrons // 2
     E_scf, C, eps, G = restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
 
+    print("Running MP2 Computation...")
     nvirt = G.shape[0] - ndocc
     nbf = G.shape[0]
 
@@ -39,6 +40,7 @@ def restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, 
     dE_mp2 = fori_loop(0, indices.shape[0], loop_mp2, 0.0) # MP2 correlation
 
     if return_aux_data:
+        #print("MP2 Energy:                ", E_scf + dE_mp2)
         return E_scf + dE_mp2, C, eps
     else:
         return E_scf + dE_mp2
