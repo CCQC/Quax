@@ -21,9 +21,9 @@ def restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, 
 
     # If we are doing MP2 or CCSD after, might as well use jit-compiled JK-build, since HF will not be memory bottleneck
     if return_aux_data:
-        jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0, 1), (0, 1)]), in_axes=(0, None)), in_axes=(0, None)))
+        jk_build = jax.jit(jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1), (0,1)]), in_axes=(0, None)), in_axes=(0, None)))
     else: 
-        jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0, 1), (0, 1)]), in_axes=(0, None)), in_axes=(0, None))
+        jk_build = jax.vmap(jax.vmap(lambda x,y: jnp.tensordot(x, y, axes=[(0,1), (0,1)]), in_axes=(0, None)), in_axes=(0, None))
 
     S, T, V, G = compute_integrals(geom, basis_set, xyz_path, deriv_order, options)
     # Canonical orthogonalization via cholesky decomposition
@@ -68,10 +68,10 @@ def restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, 
         if damping:
             if iteration < 10:
                 D = Dold * damp_factor + D * damp_factor
-                Dold = D * 1
+                Dold = D * 1.0
         # Build JK matrix: 2 * J - K
         JK = 2 * jk_build(G, D)
-        JK -= jk_build(G.transpose((0, 2, 1, 3)), D)
+        JK -= jk_build(G.transpose((0,2,1,3)), D)
         # Build Fock
         F = H + JK
         # Update convergence error

@@ -81,7 +81,7 @@ libint2::BasisSet make_ao_cabs(std::string obs_name, libint2::BasisSet cabs) {
                 tmp.push_back(cabs[idx]);
             }
 
-            sort(tmp.begin(), tmp.end(), [i](const auto& a, const auto& b) -> bool
+            stable_sort(tmp.begin(), tmp.end(), [](const auto& a, const auto& b) -> bool
             {
                 int a_l, b_l;
                 for (auto&& c_a : a.contr)
