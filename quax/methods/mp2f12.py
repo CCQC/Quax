@@ -14,6 +14,8 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
     E_mp2, C_obs, eps = restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
+    e_ij = eps[:ndocc]
+    e_ab = eps[ndocc:]
 
     print("Running MP2-F12 Computation...")
     cabs_set = cabs_space.basisset()
@@ -30,10 +32,15 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
     C = form_C(geom, basis_set, cabs_set, C_obs, C_cabs, f, ndocc, nobs, xyz_path, deriv_order, options)
 
     B = form_B(geom, basis_set, cabs_set, C_obs, C_cabs, f, fk, k, ndocc, nobs, nri, xyz_path, deriv_order, options)
-    del fk
-    jax.debug.breakpoint()
 
-    return jnp.array([0])
+    D = -1.0 / (e_ij.reshape(-1, 1, 1, 1) + e_ij.reshape(-1, 1, 1) - e_ab.reshape(-1, 1) - e_ab)
+
+    G = compute_f12_teints(geom, basis_set, basis_set, basis_set, basis_set, "eri", xyz_path, deriv_order, options)
+    G = partial_tei_transformation(G, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, ndocc:nobs], C_obs[:, ndocc:nobs])
+    
+    E_f12 = form_energy(V, X, C, B, D, f, G, ndocc, nobs)
+
+    return E_f12
 
 def form_h(geom, basis_set, cabs_set, C_obs, C_cabs, nobs, nri, xyz_path, deriv_order, options):
     h = jnp.empty((nri, nri))
@@ -93,6 +100,85 @@ def form_Fock(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_pa
     del G
 
     return f, fk, k
+
+# F12 Energy and Energy (Tilde) Intermediates
+def kron_delta(i, j):
+    if i == j:
+        return 1.0
+    else:
+        return 2.0
+
+def form_energy(V, X, C, B, D, Fock, G, ndocc, nobs):
+    # Singlet and Triplet Pair Energies
+    E_f12_s = 0.0
+    E_f12_t = 0.0
+
+    for i in range(ndocc):
+        for j in range(i, ndocc):
+            B_ij = B - (X * (Fock[i, i] + Fock[j, j]))
+            V_s, V_t = form_V_Tilde(V[i, j, :, :], C, G[i, j, :, :], D[i, j, :, :], i, j)
+            B_s, B_t = form_B_Tilde(B_ij, C, D[i, j, :, :], i, j)
+
+            kd = kron_delta(i, j)
+
+            E_s = kd * (V_s + B_s)
+            E_f12_s += E_s
+
+            E_t = 0.0
+            if i != j:
+                E_t = 3.0 * kd * (V_t + B_t)
+                E_f12_t += E_t
+
+    return E_f12_s + E_f12_t
+
+def t_(p, q, r, s):
+    # Fixed Amplitude Ansatz
+    if p == r and q == s and p != q:
+        return 3.0 / 8.0
+    elif q == r and p == s and p != q:
+        return 1.0 / 8.0
+    elif p == q and p == r and p == s:
+        return 0.5
+    else:
+        return 0.0
+
+def form_V_Tilde(V_ij, C, G_ij, D_ij, i, j):
+    # Singlet and Triplet Pair Energies
+    V_s = 0.0
+    V_t = 0.0
+
+    V_ij = V_ij.at[:, :].add(-1.0 *jnp.einsum('klab,ab,ab->kl', C, G_ij, D_ij, optimize='optimal'))
+
+    kd = kron_delta(i, j)
+
+    V_s += 0.5 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd * (V_ij[i, j] + V_ij[j, i])
+
+    if i != j:
+        V_t += 0.5 * (t_(i, j, i, j) - t_(i, j, j, i)) * kd * (V_ij[i, j] - V_ij[j, i])
+
+    return V_s, V_t
+
+def form_B_Tilde(B_ij, C, D_ij, i, j):
+    # Singlet and Triplet Pair Energies
+    B_s = 0.0
+    B_t = 0.0
+
+    B_ij = B_ij.at[:, :, :, :].add(-1.0 * jnp.einsum('klab,ab,mnab', C, D_ij, C, optimize='optimal'))
+
+    kd = kron_delta(i, j)
+
+    B_s += 0.125 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd \
+                 * (B_ij[i, j, i, j] + B_ij[j, i, i, j]) \
+                 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd
+    
+    if i != j:
+        B_t += 0.125 * (t_(i, j, i, j) - t_(i, j, j, i)) * kd \
+                     * (B_ij[i, j, i, j] - B_ij[j, i, i, j]) \
+                     * (t_(i, j, i, j) - t_(i, j, j, i)) * kd
+        
+    return B_s, B_t
+
+# F12 Intermediates
 
 def form_V(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, xyz_path, deriv_order, options):
 
