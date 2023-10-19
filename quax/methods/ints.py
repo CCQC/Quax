@@ -7,7 +7,7 @@ import h5py
 import psi4
 import os
 
-from ..utils import get_deriv_vec_idx, get_required_deriv_vecs
+from .energy_utils import chem2phys
 
 # Check for Libint interface
 from ..integrals import TEI
@@ -149,7 +149,7 @@ def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path,
                 F = tei_obj.eri(geom)
 
     libint_interface.finalize()
-    return F
+    return chem2phys(F)
 
 def check_oei_disk(geom, basis1, basis2, xyz_path, deriv_order, address=None):
     # TODO need to check geometry and basis set name in addition to nbf

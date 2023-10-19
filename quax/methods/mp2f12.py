@@ -6,7 +6,8 @@ import psi4
 import sys
 jnp.set_printoptions(threshold=sys.maxsize, linewidth=100)
 
-from .ints import compute_f12_oeints, compute_f12_teints
+from .ints import compute_f12_oeints, compute_f12_teints # F12 TEINTS are entered in Chem and returned in Phys
+from .energy_utils import partial_tei_transformation, f12_transpose
 from .mp2 import restricted_mp2
 
 def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, options, cabs_space, deriv_order=0):
@@ -20,16 +21,19 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
     nobs = C_obs.shape[0]
     nri = C_cabs.shape[0]
 
-    f, fk = form_Fock(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
+    f, fk, k = form_Fock(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
     V = form_V(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, xyz_path, deriv_order, options)
 
     X = form_X(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, xyz_path, deriv_order, options)
 
     C = form_C(geom, basis_set, cabs_set, C_obs, C_cabs, f, ndocc, nobs, xyz_path, deriv_order, options)
+
+    B = form_B(geom, basis_set, cabs_set, C_obs, C_cabs, f, fk, k, ndocc, nobs, nri, xyz_path, deriv_order, options)
+    del fk
     jax.debug.breakpoint()
 
-    return 0
+    return jnp.array([0])
 
 def form_h(geom, basis_set, cabs_set, C_obs, C_cabs, nobs, nri, xyz_path, deriv_order, options):
     h = jnp.empty((nri, nri))
@@ -60,55 +64,57 @@ def form_Fock(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_pa
     G = jnp.empty((nri, nobs, nri, nri))
 
     G_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, basis_set, "eri", xyz_path, deriv_order, options)
-    G_tmp = jnp.einsum('pP,rR,qQ,sS,prqs->PQRS', C_obs, C_obs, C_obs[:, :ndocc], C_obs, G_tmp, optimize='optimal')
+    G_tmp = partial_tei_transformation(G_tmp, C_obs, C_obs[:, :ndocc], C_obs, C_obs)
     G = G.at[:nobs, :ndocc, :nobs, :nobs].set(G_tmp) # <Oo|OO>
     del G_tmp
 
     G_tmp = compute_f12_teints(geom, cabs_set, basis_set, basis_set, basis_set, "eri", xyz_path, deriv_order, options)
-    G_tmp = jnp.einsum('pP,rR,qQ,sS,prqs->PQRS', C_cabs, C_obs, C_obs, C_obs, G_tmp, optimize='optimal')
+    G_tmp = partial_tei_transformation(G_tmp, C_cabs, C_obs, C_obs, C_obs)
     G = G.at[nobs:nri, :nobs, :nobs, :nobs].set(G_tmp) # <CO|OO>
     G = G.at[:nobs, :nobs, nobs:nri, :nobs].set(jnp.transpose(G_tmp, (2,1,0,3))) # <OO|CO>
     G = G.at[:nobs, :nobs, :nobs, nobs:nri].set(jnp.transpose(G_tmp, (3,2,1,0))) # <OO|OC>
     del G_tmp
 
     G_tmp = compute_f12_teints(geom, cabs_set, basis_set, basis_set, cabs_set, "eri", xyz_path, deriv_order, options)
-    G_tmp = jnp.einsum('pP,rR,qQ,sS,prqs->PQRS', C_cabs, C_obs, C_obs[:, :ndocc], C_cabs, G_tmp, optimize='optimal')
+    G_tmp = partial_tei_transformation(G_tmp, C_cabs, C_obs[:, :ndocc], C_obs, C_cabs)
     G = G.at[nobs:nri, :ndocc, :nobs, nobs:nri].set(G_tmp) # <Co|OC>
     del G_tmp
 
     G_tmp = compute_f12_teints(geom, cabs_set, cabs_set, basis_set, basis_set, "eri", xyz_path, deriv_order, options)
-    G_tmp = jnp.einsum('pP,rR,qQ,sS,prqs->PQRS', C_cabs, C_cabs, C_obs[:, :ndocc], C_obs, G_tmp, optimize='optimal')
+    G_tmp = partial_tei_transformation(G_tmp, C_cabs, C_obs[:, :ndocc], C_cabs, C_obs)
     G = G.at[nobs:nri, :ndocc, nobs:nri, :nobs].set(G_tmp) # <Co|CO>
     del G_tmp
 
     # Fill Fock Matrix
-    f = f.at[:, :].add(2.0 * jnp.einsum('PIQI->PQ', G[:, :ndocc, :, :ndocc], optimize='optimal'))
+    f = f.at[:, :].add(2.0 * jnp.einsum('piqi->pq', G[:, :ndocc, :, :ndocc], optimize='optimal'))
     fk = f # Fock Matrix without Exchange
-    f = f.at[:, :].add(-1.0 * jnp.einsum('PIIQ->PQ', G[:, :ndocc, :ndocc, :], optimize='optimal'))
+    k =  jnp.einsum('piiq->pq', G[:, :ndocc, :ndocc, :], optimize='optimal')
+    f = f.at[:, :].add(-1.0 * k)
+    del G
 
-    return f, fk
+    return f, fk, k
 
 def form_V(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, xyz_path, deriv_order, options):
 
     V = compute_f12_teints(geom, basis_set, basis_set, basis_set, basis_set, "f12g12", xyz_path, deriv_order, options)
-    V = jnp.einsum('iI,kK,jJ,lL,ikjl->IJKL', C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], V, optimize='optimal')
+    V = partial_tei_transformation(V, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc])
 
     F_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, cabs_set, "f12", xyz_path, deriv_order, options)
-    F_tmp = jnp.einsum('iI,mM,jJ,yY,imjy->IJMY', C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_cabs, F_tmp, optimize='optimal')
+    F_tmp = partial_tei_transformation(F_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_cabs)
     G_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, cabs_set, "eri", xyz_path, deriv_order, options)
-    G_tmp = jnp.einsum('kK,mM,lL,yY,kmly->KLMY', C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_cabs, G_tmp, optimize='optimal')
-    V_tmp = -1.0 * jnp.einsum('IJMY,KLMY->IJKL', F_tmp, G_tmp, optimize='optimal')
+    G_tmp = partial_tei_transformation(G_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_cabs)
+    V_tmp = -1.0 * jnp.einsum('ijmy,klmy->ijkl', G_tmp, F_tmp, optimize='optimal')
     V = V.at[:, :, :, :].add(V_tmp)
-    V = V.at[:, :, :, :].add(jnp.transpose(V_tmp, (1,0,3,2)))
+    V = V.at[:, :, :, :].add(f12_transpose(V_tmp))
     del V_tmp
     del F_tmp
     del G_tmp
 
     F_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, basis_set, "f12", xyz_path, deriv_order, options)
-    F_tmp = jnp.einsum('iI,rR,jJ,sS,irjs->IJRS', C_obs[:, :ndocc], C_obs[:, :nobs], C_obs[:, :ndocc], C_obs[:, :nobs], F_tmp, optimize='optimal')
+    F_tmp = partial_tei_transformation(F_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :nobs], C_obs[:, :nobs])
     G_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, basis_set, "eri", xyz_path, deriv_order, options)
-    G_tmp = jnp.einsum('kK,rR,lL,sS,krls->KLRS', C_obs[:, :ndocc], C_obs[:, :nobs], C_obs[:, :ndocc], C_obs[:, :nobs], G_tmp, optimize='optimal')
-    V = V.at[:, :, :, :].add(-1.0 * jnp.einsum('IJRS,KLRS->IJKL', F_tmp, G_tmp, optimize='optimal'))
+    G_tmp = partial_tei_transformation(G_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :nobs], C_obs[:, :nobs])
+    V = V.at[:, :, :, :].add(-1.0 * jnp.einsum('ijrs,klrs->ijkl', G_tmp, F_tmp, optimize='optimal'))
     del F_tmp
     del G_tmp
 
@@ -117,19 +123,19 @@ def form_V(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, xyz_path, deri
 def form_X(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, xyz_path, deriv_order, options):
 
     X = compute_f12_teints(geom, basis_set, basis_set, basis_set, basis_set, "f12_squared", xyz_path, deriv_order, options)
-    X = jnp.einsum('iI,kK,jJ,lL,ikjl->IJKL', C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], X, optimize='optimal')
+    X = partial_tei_transformation(X, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc])
 
     F_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, cabs_set, "f12", xyz_path, deriv_order, options)
-    F_tmp = jnp.einsum('iI,mM,jJ,yY,imjy->IJMY', C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_cabs, F_tmp, optimize='optimal')
-    X_tmp = -1.0 * jnp.einsum('IJMY,KLMY->IJKL', F_tmp, F_tmp, optimize='optimal')
+    F_tmp = partial_tei_transformation(F_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_cabs)
+    X_tmp = -1.0 * jnp.einsum('ijmy,klmy->ijkl', F_tmp, F_tmp, optimize='optimal')
     X = X.at[:, :, :, :].add(X_tmp)
-    X = X.at[:, :, :, :].add(jnp.transpose(X_tmp, (1,0,3,2)))
+    X = X.at[:, :, :, :].add(f12_transpose(X_tmp))
     del X_tmp
     del F_tmp
 
     F_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, basis_set, "f12", xyz_path, deriv_order, options)
-    F_tmp = jnp.einsum('iI,rR,jJ,sS,irjs->IJRS', C_obs[:, :ndocc], C_obs[:, :nobs], C_obs[:, :ndocc], C_obs[:, :nobs], F_tmp, optimize='optimal')
-    X = X.at[:, :, :, :].add(-1.0 * jnp.einsum('IJRS,KLRS->IJKL', F_tmp, F_tmp, optimize='optimal'))
+    F_tmp = partial_tei_transformation(F_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :nobs], C_obs[:, :nobs])
+    X = X.at[:, :, :, :].add(-1.0 * jnp.einsum('ijrs,klrs->ijkl', F_tmp, F_tmp, optimize='optimal'))
     del F_tmp
 
     return X
@@ -139,11 +145,81 @@ def form_C(geom, basis_set, cabs_set, C_obs, C_cabs, Fock, ndocc, nobs, xyz_path
     C = jnp.empty((ndocc, ndocc, nobs - ndocc, nobs - ndocc))
 
     F_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, cabs_set, "f12", xyz_path, deriv_order, options)
-    F_tmp = jnp.einsum('kK,aA,lL,yY,kaly->KLAY', C_obs[:, :ndocc], C_obs[:, ndocc:nobs], C_obs[:, :ndocc], C_cabs, F_tmp, optimize='optimal')
-    C_tmp = jnp.einsum('KLAY,BY->KLAB', F_tmp, Fock[ndocc:nobs, nobs:])
+    F_tmp = partial_tei_transformation(F_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, ndocc:nobs], C_cabs)
+    C_tmp = jnp.einsum('klay,by->klab', F_tmp, Fock[ndocc:nobs, nobs:], optimize='optimal')
     del F_tmp
 
     C = C.at[:, :, :, :].set(C_tmp)
-    C = C.at[:, :, :, :].add(jnp.transpose(C_tmp, (1,0,3,2)))
+    C = C.at[:, :, :, :].add(f12_transpose(C_tmp))
+    del C_tmp
 
     return C
+
+def form_B(geom, basis_set, cabs_set, C_obs, C_cabs, Fock, noK, K, ndocc, nobs, nri, xyz_path, deriv_order, options):
+    # Term 1
+    B = compute_f12_teints(geom, basis_set, basis_set, basis_set, basis_set, "f12_double_commutator", xyz_path, deriv_order, options)
+    B = partial_tei_transformation(B, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc])
+
+    # Term 2
+    F2 = jnp.empty((ndocc, ndocc, ndocc, nri))
+
+    F_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, basis_set, "f12_squared", xyz_path, deriv_order, options)
+    F2 = F2.at[:, :, :, :nobs].set(partial_tei_transformation(F_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs)) # <oo|oO>
+    F_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, cabs_set, "f12_squared", xyz_path, deriv_order, options)
+    F2 = F2.at[:, :, :, nobs:].set(partial_tei_transformation(F_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs[:, :ndocc], C_cabs)) # <oo|oC>
+    del F_tmp
+
+    tmp = jnp.einsum('lknI,mI->lknm', F2, noK[:ndocc, :])
+    del F2
+    B = B.at[:, :, :, :].add(tmp)
+    B = B.at[:, :, :, :].add(f12_transpose(tmp))
+    del tmp
+
+    # F12 Integral
+    F_oo11 = jnp.empty((ndocc, ndocc, nri, nri))
+    F_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, basis_set, "f12", xyz_path, deriv_order, options)
+    F_oo11 = F_oo11.at[:, :, :nobs, :nobs].set(partial_tei_transformation(F_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs, C_obs)) # <oo|OO>
+    F_tmp = compute_f12_teints(geom, basis_set, basis_set, basis_set, cabs_set, "f12", xyz_path, deriv_order, options)
+    F_tmp = partial_tei_transformation(F_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_obs, C_cabs)
+    F_oo11 = F_oo11.at[:, :, :nobs, nobs:].set(F_tmp) # <oo|OC>
+    F_oo11 = F_oo11.at[:, :, nobs:, :nobs].set(f12_transpose(F_tmp)) # <oo|CO>
+    F_tmp = compute_f12_teints(geom, basis_set, cabs_set, basis_set, cabs_set, "f12", xyz_path, deriv_order, options)
+    F_oo11 = F_oo11.at[:, :, nobs:, nobs:].set(partial_tei_transformation(F_tmp, C_obs[:, :ndocc], C_obs[:, :ndocc], C_cabs, C_cabs)) # <oo|CC>
+    del F_tmp
+
+    # Term 3
+    tmp = -1.0 * jnp.einsum('lkPC,CA,nmPA->lknm', F_oo11, K, F_oo11, optimize='optimal')
+    B = B.at[:, :, :, :].add(tmp)
+    B = B.at[:, :, :, :].add(f12_transpose(tmp))
+
+    # Term 4
+    tmp = -1.0 * jnp.einsum('lkjC,CA,nmjA->lknm', F_oo11[:, :, :ndocc, :], Fock, F_oo11[:, :, :ndocc, :], optimize='optimal')
+    B = B.at[:, :, :, :].add(tmp)
+    B = B.at[:, :, :, :].add(f12_transpose(tmp))
+
+    # Term 5
+    tmp = jnp.einsum('lkxj,ji,nmxi->lknm', F_oo11[:, :, nobs:, :ndocc], Fock[:ndocc, :ndocc], F_oo11[:, :, nobs:, :ndocc], optimize='optimal')
+    B = B.at[:, :, :, :].add(tmp)
+    B = B.at[:, :, :, :].add(f12_transpose(tmp))
+
+    # Term 6
+    tmp = -1.0 * jnp.einsum('lkbp,pq,nmbq->lknm', F_oo11[:, :, ndocc:nobs, :nobs], Fock[:nobs, :nobs], F_oo11[:, :, ndocc:nobs, :nobs], optimize='optimal')
+    B = B.at[:, :, :, :].add(tmp)
+    B = B.at[:, :, :, :].add(f12_transpose(tmp))
+
+    # Term 7
+    tmp = -2.0 * jnp.einsum('lkxI,jI,nmxj->lknm', F_oo11[:, :, nobs:, :], Fock[:ndocc, :], F_oo11[:, :, nobs:, :ndocc], optimize='optimal')
+    B = B.at[:, :, :, :].add(tmp)
+    B = B.at[:, :, :, :].add(f12_transpose(tmp))
+
+    # Term 8
+    tmp = -2.0 * jnp.einsum('lkbq,qy,nmby->lknm', F_oo11[:, :, ndocc:nobs, :nobs], Fock[:nobs, nobs:], F_oo11[:, :, ndocc:nobs, nobs:], optimize='optimal')
+    del F_oo11
+    B = B.at[:, :, :, :].add(tmp)
+    B = B.at[:, :, :, :].add(f12_transpose(tmp))
+
+    tmp = jnp.transpose(B, (2,3,0,1))
+    B = B.at[:, :, :, :].add(tmp)
+    del tmp
+
+    return 0.5 * B

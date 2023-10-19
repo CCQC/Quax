@@ -3,7 +3,7 @@ from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import psi4
 
-from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation
+from .energy_utils import tei_transformation
 from .hartree_fock import restricted_hartree_fock
 
 def rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
@@ -20,7 +20,7 @@ def rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_ord
     v = slice(ndocc, nbf)
 
     # Save slices of two-electron repulsion integrals in MO basis
-    V = tei_transformation(V,C)
+    V = tei_transformation(V, C)
     V = jnp.swapaxes(V,1,2)
     V = (V[o,o,o,o], V[o,o,o,v], V[o,o,v,v], V[o,v,o,v], V[o,v,v,v], V[v,v,v,v])
 

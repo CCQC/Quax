@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from jax.lax import fori_loop
 import psi4
 
-from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation, cartesian_product
+from .energy_utils import partial_tei_transformation, cartesian_product
 from .hartree_fock import restricted_hartree_fock
 
 def restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):

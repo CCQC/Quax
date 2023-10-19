@@ -60,9 +60,27 @@ def tei_transformation(G, C):
     G = transform(C, G)
     return G
 
-def partial_tei_transformation(G, Ci, Cj, Ck, Cl):
+def old_partial_tei_transformation(G, Ci, Cj, Ck, Cl):
     G = jnp.einsum('pqrs, pP, qQ, rR, sS -> PQRS', G, Ci, Cj, Ck, Cl, optimize='optimal')
     return G
+
+def partial_tei_transformation(G, C1, C2, C3, C4):
+    """
+    New algo for Partial TEI transform
+    """
+    G = transform(C4, G)
+    G = transform(C3, G)
+    G = transform(C2, G)
+    G = transform(C1, G)
+    return G
+
+@jax.jit
+def chem2phys(G):
+    return jnp.transpose(G, (0,2,1,3))
+
+@jax.jit
+def f12_transpose(G):
+    return jnp.transpose(G, (1,0,3,2))
     
 def cartesian_product(*arrays):
     '''

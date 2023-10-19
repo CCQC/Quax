@@ -3,7 +3,6 @@ from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from jax.lax import while_loop
 
-from .energy_utils import nuclear_repulsion, partial_tei_transformation, tei_transformation
 from .ccsd import rccsd
 
 def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
