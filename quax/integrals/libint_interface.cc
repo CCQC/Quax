@@ -2421,8 +2421,6 @@ void f12_squared_deriv_disk(double beta, int max_deriv_order) {
 
         // Libint engine for computing shell quartet derivatives
         std::vector<libint2::Engine> cgtg_squared_engines(nthreads);
-        size_t max_nprim = std::max(std::max(bs1.max_nprim(), bs2.max_nprim()), std::max(bs3.max_nprim(), bs4.max_nprim()));
-        int max_l = std::max(std::max(bs1.max_l(), bs2.max_l()), std::max(bs3.max_l(), bs4.max_l()));
         cgtg_squared_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
         cgtg_squared_engines[0].set_params(cgtg_params);
         for (size_t i = 1; i != nthreads; ++i) {
