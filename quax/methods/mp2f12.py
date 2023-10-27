@@ -84,14 +84,14 @@ def t_(p = 0, q = 0, r = 0, s = 0):
 # One-Electron Integrals
 
 def form_h(geom, basis_set, cabs_set, C_obs, C_cabs, nobs, nri, xyz_path, deriv_order, options):
-    h = np.empty((nri, nri))
+    h = jnp.empty((nri, nri))
 
     h_tmp = compute_f12_oeints(geom, basis_set, basis_set, xyz_path, deriv_order, options)
-    h_tmp = np.einsum('pP,qQ,pq->PQ', C_obs, C_obs, h_tmp, optimize='optimal')
+    h_tmp = jnp.einsum('pP,qQ,pq->PQ', C_obs, C_obs, h_tmp, optimize='optimal')
     h = h.at[:nobs, :nobs].set(h_tmp) # <O|O>
 
     h_tmp = compute_f12_oeints(geom, basis_set, cabs_set, xyz_path, deriv_order, options)
-    h_tmp = np.einsum('pP,qQ,pq->PQ', C_obs, C_cabs, h_tmp, optimize='optimal')
+    h_tmp = jnp.einsum('pP,qQ,pq->PQ', C_obs, C_cabs, h_tmp, optimize='optimal')
     h = h.at[:nobs, nobs:nri].set(h_tmp) # <O|C>
     h = h.at[nobs:nri, :nobs].set(jnp.transpose(h_tmp)) # <C|O>
 
