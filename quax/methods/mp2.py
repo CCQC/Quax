@@ -14,7 +14,6 @@ def restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, 
 
     print("Running MP2 Computation...")
     nvirt = G.shape[0] - ndocc
-    nbf = G.shape[0]
 
     G = partial_tei_transformation(G, C[:,:ndocc], C[:,ndocc:], C[:,:ndocc], C[:,ndocc:])
 

@@ -23,23 +23,26 @@ def compute_integrals(geom, basis_set, xyz_path, deriv_order, options):
 
     if algo == 'libint_disk':
         # Check disk for currently existing integral derivatives
-        check = check_oei_disk(geom, basis_set, basis_set, xyz_path, deriv_order)
-        check = check_tei_disk(geom, basis_set, basis_set, basis_set, basis_set, "eri", xyz_path, deriv_order)
+        check_oei = check_oei_disk(geom, basis_set, basis_set, xyz_path, deriv_order)
+        check_tei = check_tei_disk(geom, basis_set, basis_set, basis_set, basis_set, "eri", xyz_path, deriv_order)
 
         oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'disk')
         tei_obj = TEI(basis_set, basis_set, basis_set, basis_set, xyz_path, deriv_order, options, 'disk')
         # If disk integral derivs are right, nothing to do
-        if check:
+        if check_oei:
             S = oei_obj.overlap(geom)
             T = oei_obj.kinetic(geom)
             V = oei_obj.potential(geom)
-            G = tei_obj.eri(geom)
         else:
             libint_interface.oei_deriv_disk(deriv_order)
-            libint_interface.eri_deriv_disk(deriv_order)
             S = oei_obj.overlap(geom)
             T = oei_obj.kinetic(geom)
             V = oei_obj.potential(geom)
+
+        if check_tei:
+            G = tei_obj.eri(geom)
+        else:
+            libint_interface.eri_deriv_disk(deriv_order)
             G = tei_obj.eri(geom)
 
     else:
@@ -117,16 +120,16 @@ def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path,
         else:
             match int_type:
                 case "f12":
-                    libint_interface.f12_deriv_disk(deriv_order)
+                    libint_interface.f12_deriv_disk(beta, deriv_order)
                     F = tei_obj.f12(geom, beta)
                 case "f12_squared":
-                    libint_interface.f12_squared_deriv_disk(deriv_order)
+                    libint_interface.f12_squared_deriv_disk(beta, deriv_order)
                     F = tei_obj.f12_squared(geom, beta)
                 case "f12g12":
-                    libint_interface.f12g12_deriv_disk(deriv_order)
+                    libint_interface.f12g12_deriv_disk(beta, deriv_order)
                     F = tei_obj.f12g12(geom, beta)
                 case "f12_double_commutator":
-                    libint_interface.f12_double_commutator_deriv_disk(deriv_order)
+                    libint_interface.f12_double_commutator_deriv_disk(beta, deriv_order)
                     F = tei_obj.f12_double_commutator(geom, beta)
                 case "eri":
                     libint_interface.eri_deriv_disk(deriv_order)
@@ -165,7 +168,7 @@ def check_oei_disk(geom, basis1, basis2, xyz_path, deriv_order, address=None):
         nbf1 = basis1.nbf()
         nbf2 = basis2.nbf()
         # Check if there are `deriv_order` datasets in the eri file
-        correct_deriv_order = len(oeifile) == deriv_order
+        correct_deriv_order = len(oeifile) >= 3 * (deriv_order)
         # Check nbf dimension of integral arrays
         sample_dataset_name = list(oeifile.keys())[0]
         correct_nbf1 = oeifile[sample_dataset_name].shape[0] == nbf1
@@ -212,7 +215,7 @@ def check_tei_disk(geom, basis1, basis2, basis3, basis4, int_type, xyz_path, der
         nbf3 = basis3.nbf()
         nbf4 = basis4.nbf()
         # Check if there are `deriv_order` datasets in the eri file
-        correct_deriv_order = len(erifile) == deriv_order
+        correct_deriv_order = len(erifile) >= deriv_order
         # Check nbf dimension of integral arrays
         sample_dataset_name = list(erifile.keys())[0]
         correct_nbf1 = erifile[sample_dataset_name].shape[0] == nbf1

@@ -32,8 +32,8 @@ def rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_ord
     d = 1.0 / (fock_Od.reshape(-1, 1) - fock_Vd)
 
     # Initial Amplitudes
-    T1 = jnp.zeros((ndocc,nvir))
-    T2 = D*V[2]
+    T1 = jnp.zeros((ndocc, nvir))
+    T2 = D * V[2]
 
     maxit = options['maxit']
     iteration = 0

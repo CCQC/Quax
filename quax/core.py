@@ -102,8 +102,9 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
             def electronic_energy(*args, deriv_order=deriv_order):
                 return restricted_mp2(*args, deriv_order=deriv_order)
         elif method =='mp2-f12':
+            args = args + (cabs_space,)
             def electronic_energy(*args, deriv_order=deriv_order):
-                return restricted_mp2_f12(*args, cabs_space, deriv_order=deriv_order)
+                return restricted_mp2_f12(*args, deriv_order=deriv_order)
         elif method =='ccsd':
             def electronic_energy(*args, deriv_order=deriv_order):
                 return rccsd(*args, deriv_order=deriv_order)
@@ -158,13 +159,13 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
         elif method =='mp2':
             def partial_wrapper(*args):
                 geom = jnp.asarray(args)
-                E_mp2f12 = restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
-                return E_mp2f12
+                E_mp2 = restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
+                return E_mp2
         elif method =='mp2-f12':
             def partial_wrapper(*args):
                 geom = jnp.asarray(args)
-                E_mp2 = restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
-                return E_mp2
+                E_mp2f12 = restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, options, cabs_space, deriv_order=deriv_order)
+                return E_mp2f12
         elif method =='ccsd':
             def partial_wrapper(*args):
                 geom = jnp.asarray(args)

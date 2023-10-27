@@ -11,24 +11,24 @@ def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
     delta_o = jnp.eye(o)
     delta_v = jnp.eye(v)
 
-    def inner_func(i,j,k):
-        delta_ij = delta_o[i,j] 
-        delta_jk = delta_o[j,k] 
-        W  = jnp.einsum('dab,cd', Vovvv[i,:,:,:], T2[k,j,:,:]) 
-        W += jnp.einsum('dac,bd', Vovvv[i,:,:,:], T2[j,k,:,:]) 
-        W += jnp.einsum('dca,bd', Vovvv[k,:,:,:], T2[j,i,:,:])  
-        W += jnp.einsum('dcb,ad', Vovvv[k,:,:,:], T2[i,j,:,:])
-        W += jnp.einsum('dbc,ad', Vovvv[j,:,:,:], T2[i,k,:,:])
-        W += jnp.einsum('dba,cd', Vovvv[j,:,:,:], T2[k,i,:,:])
-        W -= jnp.einsum('lc,lab', Vooov[:,k,j,:], T2[i,:,:,:])
-        W -= jnp.einsum('lb,lac', Vooov[:,j,k,:], T2[i,:,:,:]) 
-        W -= jnp.einsum('lb,lca', Vooov[:,j,i,:], T2[k,:,:,:])
-        W -= jnp.einsum('la,lcb', Vooov[:,i,j,:], T2[k,:,:,:])
-        W -= jnp.einsum('la,lbc', Vooov[:,i,k,:], T2[j,:,:,:])
-        W -= jnp.einsum('lc,lba', Vooov[:,k,i,:], T2[j,:,:,:])
-        V  = W + jnp.einsum('bc,a', Voovv[j,k,:,:], T1[i,:]) \
-               + jnp.einsum('ac,b', Voovv[i,k,:,:], T1[j,:]) \
-               + jnp.einsum('ab,c', Voovv[i,j,:,:], T1[k,:])
+    def inner_func(i, j, k):
+        delta_ij = delta_o[i, j]
+        delta_jk = delta_o[j, k]
+        W  = jnp.einsum('dab,cd', Vovvv[i, :, :, :], T2[k, j, :, :])
+        W += jnp.einsum('dac,bd', Vovvv[i, :, :, :], T2[j, k, :, :])
+        W += jnp.einsum('dca,bd', Vovvv[k, :, :, :], T2[j, i, :, :])
+        W += jnp.einsum('dcb,ad', Vovvv[k, :, :, :], T2[i, j, :, :])
+        W += jnp.einsum('dbc,ad', Vovvv[j, :, :, :], T2[i, k, :, :])
+        W += jnp.einsum('dba,cd', Vovvv[j, :, :, :], T2[k, i, :, :])
+        W -= jnp.einsum('lc,lab', Vooov[:, k, j, :], T2[i, :, :, :])
+        W -= jnp.einsum('lb,lac', Vooov[:, j, k, :], T2[i, :, :, :])
+        W -= jnp.einsum('lb,lca', Vooov[:, j, i, :], T2[k, :, :, :])
+        W -= jnp.einsum('la,lcb', Vooov[:, i, j, :], T2[k, :, :, :])
+        W -= jnp.einsum('la,lbc', Vooov[:, i, k, :], T2[j, :, :, :])
+        W -= jnp.einsum('lc,lba', Vooov[:, k, i, :], T2[j, :, :, :])
+        V  = W + jnp.einsum('bc,a', Voovv[j, k, :, :], T1[i, :]) \
+               + jnp.einsum('ac,b', Voovv[i, k, :, :], T1[j, :]) \
+               + jnp.einsum('ab,c', Voovv[i, j, :, :], T1[k, :])
 
 
         delta_occ = 2 - delta_ij - delta_jk
