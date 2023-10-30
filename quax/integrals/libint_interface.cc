@@ -11,8 +11,6 @@
 #include <pybind11/stl.h>
 #include <libint2.hpp>
 
-#include "buffer_lookups.h"
-
 // TODO support spherical harmonic gaussians, implement symmetry considerations, support 5th, 6th derivs
 
 namespace py = pybind11;
@@ -31,25 +29,6 @@ std::vector<long> shell2atom_1, shell2atom_2, shell2atom_3, shell2atom_4;
 size_t max_nprim;
 int max_l;
 int nthreads = 1;
-
-// These lookup arrays are for mapping Libint's computed shell-set integrals and integral derivatives to the proper index 
-// in the full OEI/TEI array or derivative array.
-// ERI,overlap,kinetic buffer lookup arrays are always the same, create at compile time.
-// Potential buffer lookups have to be created at runtime since they are dependent on natoms
-// Total size of these is (12 + 12^2 + 12^3 + 12^4 + 6 + 6^2 + 6^3 + 6^4) * 2 bytes = 48 kB 
-// Note quintic, sextics will likely require long int, probably a different algo.
-static const std::vector<int> buffer_index_eri1d = generate_1d_lookup(12);
-static const std::vector<std::vector<int>> buffer_index_eri2d = generate_2d_lookup(12);
-static const std::vector<std::vector<std::vector<int>>> buffer_index_eri3d = generate_3d_lookup(12);
-static const std::vector<std::vector<std::vector<std::vector<int>>>> buffer_index_eri4d = generate_4d_lookup(12);
-//static const std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>> buffer_index_eri5d = generate_5d_lookup(12);
-//static const std::vector<std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>>> buffer_index_eri6d = generate_6d_lookup(12);
-static const std::vector<int> buffer_index_oei1d = generate_1d_lookup(6);
-static const std::vector<std::vector<int>> buffer_index_oei2d = generate_2d_lookup(6);
-static const std::vector<std::vector<std::vector<int>>> buffer_index_oei3d = generate_3d_lookup(6);
-static const std::vector<std::vector<std::vector<std::vector<int>>>> buffer_index_oei4d = generate_4d_lookup(6);
-//static const std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>> buffer_index_oei5d = generate_5d_lookup(6);
-//static const std::vector<std::vector<std::vector<std::vector<std::vector<std::vector<int>>>>>> buffer_index_oei6d = generate_6d_lookup(6);
 
 // Creates atom objects from xyz file path
 std::vector<libint2::Atom> get_atoms(std::string xyzfilename) 
@@ -710,6 +689,9 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
+    // Create mappings from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
+
     // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
     std::vector<int> desired_atom_indices;
     std::vector<int> desired_coordinates;
@@ -741,17 +723,29 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
             // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
             std::vector<long> shell_atom_index_list{atom1, atom2};
 
-            // We can check if EVERY differentiated atom according to deriv_vec is contained in this set of 2 atom indices
-            // This will ensure the derivative we want is in the buffer.
-            std::vector<int> desired_shell_atoms; 
+            // Initialize 2d vector, with DERIV_ORDER subvectors
+            // Each subvector contains index candidates which are possible choices for each partial derivative operator
+            // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
+            // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
+            std::vector<std::vector<int>> indices; 
             for (int i = 0; i < deriv_order; i++){
-                int desired_atom = desired_atom_indices[i];
-                if (shell_atom_index_list[0] == desired_atom) desired_shell_atoms.push_back(0); 
-                else if (shell_atom_index_list[1] == desired_atom) desired_shell_atoms.push_back(1); 
+                std::vector<int> new_vec;
+                indices.push_back(new_vec);
             }
 
-            // If the length of this vector is not == deriv_order, this shell duet can be skipped, since it does not contain desired derivative
-            if (desired_shell_atoms.size() != deriv_order) continue;
+            // For every desired atom derivative, check shell and nuclear indices for a match, add it to subvector for that derivative
+            // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+            for (int j = 0; j < desired_atom_indices.size(); j++){
+                int desired_atom_idx = desired_atom_indices[j];
+                // Shell indices
+                for (int i = 0; i < 2; i++){
+                    int atom_idx = shell_atom_index_list[i];
+                    if (atom_idx == desired_atom_idx) { 
+                        int tmp = 3 * i + desired_coordinates[j];
+                        indices[j].push_back(tmp);
+                    }
+                }
+            }
 
             // If we made it this far, the shell derivative we want is in the buffer, perhaps even more than once. 
             size_t thread_id = 0;
@@ -761,36 +755,30 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
             s_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
             const auto& buf_vec = s_engines[thread_id].results(); // will point to computed shell sets
 
-            // Now convert these shell atom indices into a shell derivative index, a set of indices length deriv_order with values between 0 and 5, corresponding to 6 possible shell center coordinates
-            std::vector<int> shell_derivative;
-            for (int i = 0; i < deriv_order; i++){
-                shell_derivative.push_back(3 * desired_shell_atoms[i] + desired_coordinates[i]);
+            // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+            // and the total number of subvectors is the order of differentiation
+            // Now we want all combinations where we pick exactly one index from each subvector.
+            // This is achievable through a cartesian product
+            std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+            std::vector<int> buffer_indices;
+
+            // Overlap/Kinetic integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+            for (auto vec : index_combos)  {
+                std::sort(vec.begin(), vec.end());
+                int buf_idx = 0;
+                auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                buffer_indices.push_back(buf_idx);
             }
 
-            // Now we must convert our multidimensional shell_derivative index into a one-dimensional buffer index. 
-            // We know how to do this since libint tells us what order they come in. The lookup arrays above map the multidim index to the buffer idx
-            int buffer_idx;
-            if (deriv_order == 1) { 
-                buffer_idx = buffer_index_oei1d[shell_derivative[0]];
-            }
-            else if (deriv_order == 2) { 
-                buffer_idx = buffer_index_oei2d[shell_derivative[0]][shell_derivative[1]];
-            }
-            else if (deriv_order == 3) { 
-                buffer_idx = buffer_index_oei3d[shell_derivative[0]][shell_derivative[1]][shell_derivative[2]];
-            }
-            else if (deriv_order == 4) { 
-                buffer_idx = buffer_index_oei4d[shell_derivative[0]][shell_derivative[1]][shell_derivative[2]][shell_derivative[3]];
-            }
-
-            auto ints_shellset = buf_vec[buffer_idx]; // Location of the computed integrals
-            if (ints_shellset == nullptr)
-                continue;  // nullptr returned if the entire shell-set was screened out
-
-            // Loop over shell block, keeping a total count idx for the size of shell set
-            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                    result[(bf1 + f1) * nbf2 + bf2 + f2 ] = ints_shellset[idx];
+            // Loop over every buffer index and accumulate for every shell set.
+            for(auto i = 0; i < buffer_indices.size(); ++i) {
+                auto ints_shellset = buf_vec[buffer_indices[i]];
+                if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                    for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                        result[(bf1 + f1) * nbf2 + bf2 + f2] += ints_shellset[idx];
+                    }
                 }
             }
         }
@@ -803,6 +791,9 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
     assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
+
+    // Create mappings from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
 
     // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
     std::vector<int> desired_atom_indices;
@@ -834,17 +825,29 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
             // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
             std::vector<long> shell_atom_index_list{atom1, atom2};
 
-            // We can check if EVERY differentiated atom according to deriv_vec is contained in this set of 2 atom indices
-            // This will ensure the derivative we want is in the buffer.
-            std::vector<int> desired_shell_atoms; 
+            // Initialize 2d vector, with DERIV_ORDER subvectors
+            // Each subvector contains index candidates which are possible choices for each partial derivative operator
+            // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
+            // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
+            std::vector<std::vector<int>> indices; 
             for (int i = 0; i < deriv_order; i++){
-                int desired_atom = desired_atom_indices[i];
-                if (shell_atom_index_list[0] == desired_atom) desired_shell_atoms.push_back(0); 
-                else if (shell_atom_index_list[1] == desired_atom) desired_shell_atoms.push_back(1); 
+                std::vector<int> new_vec;
+                indices.push_back(new_vec);
             }
 
-            // If the length of this vector is not == deriv_order, this shell duet can be skipped, since it does not contain desired derivative
-            if (desired_shell_atoms.size() != deriv_order) continue;
+            // For every desired atom derivative, check shell and nuclear indices for a match, add it to subvector for that derivative
+            // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+            for (int j = 0; j < desired_atom_indices.size(); j++){
+                int desired_atom_idx = desired_atom_indices[j];
+                // Shell indices
+                for (int i = 0; i < 2; i++){
+                    int atom_idx = shell_atom_index_list[i];
+                    if (atom_idx == desired_atom_idx) { 
+                        int tmp = 3 * i + desired_coordinates[j];
+                        indices[j].push_back(tmp);
+                    }
+                }
+            }
 
             // If we made it this far, the shell derivative we want is in the buffer, perhaps even more than once. 
             size_t thread_id = 0;
@@ -854,36 +857,30 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
             t_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
             const auto& buf_vec = t_engines[thread_id].results(); // will point to computed shell sets
 
-            // Now convert these shell atom indices into a shell derivative index, a set of indices length deriv_order with values between 0 and 5, corresponding to 6 possible shell center coordinates
-            std::vector<int> shell_derivative;
-            for (int i = 0; i < deriv_order; i++){
-                shell_derivative.push_back(3 * desired_shell_atoms[i] + desired_coordinates[i]);
+            // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+            // and the total number of subvectors is the order of differentiation
+            // Now we want all combinations where we pick exactly one index from each subvector.
+            // This is achievable through a cartesian product
+            std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+            std::vector<int> buffer_indices;
+
+            // Overlap/Kinetic integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+            for (auto vec : index_combos)  {
+                std::sort(vec.begin(), vec.end());
+                int buf_idx = 0;
+                auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                buffer_indices.push_back(buf_idx);
             }
 
-            // Now we must convert our multidimensional shell_derivative index into a one-dimensional buffer index. 
-            // We know how to do this since libint tells us what order they come in. The lookup arrays above map the multidim index to the buffer idx
-            int buffer_idx;
-            if (deriv_order == 1) { 
-                buffer_idx = buffer_index_oei1d[shell_derivative[0]];
-            }
-            else if (deriv_order == 2) { 
-                buffer_idx = buffer_index_oei2d[shell_derivative[0]][shell_derivative[1]];
-            }
-            else if (deriv_order == 3) { 
-                buffer_idx = buffer_index_oei3d[shell_derivative[0]][shell_derivative[1]][shell_derivative[2]];
-            }
-            else if (deriv_order == 4) { 
-                buffer_idx = buffer_index_oei4d[shell_derivative[0]][shell_derivative[1]][shell_derivative[2]][shell_derivative[3]];
-            }
-
-            auto ints_shellset = buf_vec[buffer_idx]; // Location of the computed integrals
-            if (ints_shellset == nullptr)
-                continue;  // nullptr returned if the entire shell-set was screened out
-
-            // Loop over shell block, keeping a total count idx for the size of shell set
-            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                    result[(bf1 + f1) * nbf2 + bf2 + f2] = ints_shellset[idx];
+            // Loop over every buffer index and accumulate for every shell set.
+            for(auto i = 0; i < buffer_indices.size(); ++i) {
+                auto ints_shellset = buf_vec[buffer_indices[i]];
+                if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                    for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                        result[(bf1 + f1) * nbf2 + bf2 + f2] += ints_shellset[idx];
+                    }
                 }
             }
         }
@@ -897,13 +894,9 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
 
-    // Lookup arrays for mapping shell derivative index to buffer index 
-    // Potential lookup arrays depend on atom size
-    int dimensions = 6 + ncart;
-    static const std::vector<int> buffer_index_potential1d = generate_1d_lookup(dimensions);
-    static const std::vector<std::vector<int>> buffer_index_potential2d = generate_2d_lookup(dimensions);
-    static const std::vector<std::vector<std::vector<int>>> buffer_index_potential3d = generate_3d_lookup(dimensions);
-    static const std::vector<std::vector<std::vector<std::vector<int>>>> buffer_index_potential4d = generate_4d_lookup(dimensions);
+    // Create mappings from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    // Potential integrals buffer is flattened upper triangle of (6 + NCART) dimensional deriv_order tensor
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6 + ncart, deriv_order);
 
     // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
     std::vector<int> desired_atom_indices;
@@ -967,9 +960,6 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
                 }
             }
 
-            // Create index combos representing every mixed partial derivative operator which contributes to nuclear derivative
-            std::vector<std::vector<int>> index_combos = cartesian_product(indices);
-
             // Compute the integrals
             size_t thread_id = 0;
 #ifdef _OPENMP
@@ -978,37 +968,20 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
             v_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
             const auto& buf_vec = v_engines[thread_id].results(); // will point to computed shell sets
             
-            // Loop over every subvector of index_combos and lookup buffer index.
+            // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+            // and the total number of subvectors is the order of differentiation
+            // Now we want all combinations where we pick exactly one index from each subvector.
+            // This is achievable through a cartesian product
+            std::vector<std::vector<int>> index_combos = cartesian_product(indices);
             std::vector<int> buffer_indices;
-            if (deriv_order == 1){
-                for (int i = 0; i < index_combos.size(); i++){
-                    int idx1 = index_combos[i][0];
-                    buffer_indices.push_back(buffer_index_potential1d[idx1]);
-                }
-            }
-            else if (deriv_order == 2){
-                for (int i = 0; i < index_combos.size(); i++){
-                    int idx1 = index_combos[i][0];
-                    int idx2 = index_combos[i][1];
-                    buffer_indices.push_back(buffer_index_potential2d[idx1][idx2]);
-                }
-            }
-            else if (deriv_order == 3){
-                for (int i = 0; i < index_combos.size(); i++){
-                    int idx1 = index_combos[i][0];
-                    int idx2 = index_combos[i][1];
-                    int idx3 = index_combos[i][2];
-                    buffer_indices.push_back(buffer_index_potential3d[idx1][idx2][idx3]);
-                }
-            }
-            else if (deriv_order == 4){
-                for (int i = 0; i < index_combos.size(); i++){
-                    int idx1 = index_combos[i][0];
-                    int idx2 = index_combos[i][1];
-                    int idx3 = index_combos[i][2];
-                    int idx4 = index_combos[i][3];
-                    buffer_indices.push_back(buffer_index_potential4d[idx1][idx2][idx3][idx4]);
-                }
+
+            // Potential integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+            for (auto vec : index_combos)  {
+                std::sort(vec.begin(), vec.end());
+                int buf_idx = 0;
+                auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                buffer_indices.push_back(buf_idx);
             }
 
             // Loop over every buffer index and accumulate for every shell set.
@@ -1036,6 +1009,9 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
     assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+
+    // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // ERI derivative integral engine
     std::vector<libint2::Engine> eri_engines(nthreads);
@@ -1110,38 +1086,16 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
                     // Now we want all combinations where we pick exactly one index from each subvector.
                     // This is achievable through a cartesian product 
                     std::vector<std::vector<int>> index_combos = cartesian_product(indices);
-
-                    // Now create buffer_indices from these index combos using lookup array
                     std::vector<int> buffer_indices;
-                    if (deriv_order == 1){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            buffer_indices.push_back(buffer_index_eri1d[idx1]);
-                        }
-                    }
-                    else if (deriv_order == 2){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            buffer_indices.push_back(buffer_index_eri2d[idx1][idx2]);
-                        }
-                    }
-                    else if (deriv_order == 3){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            int idx3 = index_combos[i][2];
-                            buffer_indices.push_back(buffer_index_eri3d[idx1][idx2][idx3]);
-                        }
-                    }
-                    else if (deriv_order == 4){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            int idx3 = index_combos[i][2];
-                            int idx4 = index_combos[i][3];
-                            buffer_indices.push_back(buffer_index_eri4d[idx1][idx2][idx3][idx4]);
-                        }
+   
+                    // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                    for (auto vec : index_combos)  {
+                        std::sort(vec.begin(), vec.end());
+                        int buf_idx = 0;
+                        // buffer_multidim_lookup
+                        auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                        if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                        buffer_indices.push_back(buf_idx);
                     }
 
                     // If we made it this far, the shell derivative we want is contained in the buffer. 
@@ -1186,6 +1140,9 @@ py::array f12_deriv(double beta, std::vector<int> deriv_vec) {
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
     assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+
+    // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // F12 derivative integral engine
     auto cgtg_params = make_cgtg(beta);
@@ -1262,38 +1219,16 @@ py::array f12_deriv(double beta, std::vector<int> deriv_vec) {
                     // Now we want all combinations where we pick exactly one index from each subvector.
                     // This is achievable through a cartesian product 
                     std::vector<std::vector<int>> index_combos = cartesian_product(indices);
-
-                    // Now create buffer_indices from these index combos using lookup array
                     std::vector<int> buffer_indices;
-                    if (deriv_order == 1){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            buffer_indices.push_back(buffer_index_eri1d[idx1]);
-                        }
-                    }
-                    else if (deriv_order == 2){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            buffer_indices.push_back(buffer_index_eri2d[idx1][idx2]);
-                        }
-                    }
-                    else if (deriv_order == 3){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            int idx3 = index_combos[i][2];
-                            buffer_indices.push_back(buffer_index_eri3d[idx1][idx2][idx3]);
-                        }
-                    }
-                    else if (deriv_order == 4){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            int idx3 = index_combos[i][2];
-                            int idx4 = index_combos[i][3];
-                            buffer_indices.push_back(buffer_index_eri4d[idx1][idx2][idx3][idx4]);
-                        }
+                    
+                    // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                    for (auto vec : index_combos)  {
+                        std::sort(vec.begin(), vec.end());
+                        int buf_idx = 0;
+                        // buffer_multidim_lookup
+                        auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                        if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                        buffer_indices.push_back(buf_idx);
                     }
 
                     // If we made it this far, the shell derivative we want is contained in the buffer. 
@@ -1304,7 +1239,7 @@ py::array f12_deriv(double beta, std::vector<int> deriv_vec) {
                     cgtg_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
                     const auto& buf_vec = cgtg_engines[thread_id].results(); // will point to computed shell sets
 
-                    for(auto i = 0; i<buffer_indices.size(); ++i) {
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
                         if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
                         for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
@@ -1338,6 +1273,9 @@ py::array f12_squared_deriv(double beta, std::vector<int> deriv_vec) {
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
     assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+
+    // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // F12 Squared derivative integral engine
     auto cgtg_params = take_square(make_cgtg(beta));
@@ -1414,38 +1352,16 @@ py::array f12_squared_deriv(double beta, std::vector<int> deriv_vec) {
                     // Now we want all combinations where we pick exactly one index from each subvector.
                     // This is achievable through a cartesian product 
                     std::vector<std::vector<int>> index_combos = cartesian_product(indices);
-
-                    // Now create buffer_indices from these index combos using lookup array
                     std::vector<int> buffer_indices;
-                    if (deriv_order == 1){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            buffer_indices.push_back(buffer_index_eri1d[idx1]);
-                        }
-                    }
-                    else if (deriv_order == 2){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            buffer_indices.push_back(buffer_index_eri2d[idx1][idx2]);
-                        }
-                    }
-                    else if (deriv_order == 3){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            int idx3 = index_combos[i][2];
-                            buffer_indices.push_back(buffer_index_eri3d[idx1][idx2][idx3]);
-                        }
-                    }
-                    else if (deriv_order == 4){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            int idx3 = index_combos[i][2];
-                            int idx4 = index_combos[i][3];
-                            buffer_indices.push_back(buffer_index_eri4d[idx1][idx2][idx3][idx4]);
-                        }
+                    
+                    // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                    for (auto vec : index_combos)  {
+                        std::sort(vec.begin(), vec.end());
+                        int buf_idx = 0;
+                        // buffer_multidim_lookup
+                        auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                        if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                        buffer_indices.push_back(buf_idx);
                     }
 
                     // If we made it this far, the shell derivative we want is contained in the buffer. 
@@ -1490,6 +1406,9 @@ py::array f12g12_deriv(double beta, std::vector<int> deriv_vec) {
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
     assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+
+    // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // F12 derivative integral engine
     auto cgtg_params = make_cgtg(beta);
@@ -1566,38 +1485,16 @@ py::array f12g12_deriv(double beta, std::vector<int> deriv_vec) {
                     // Now we want all combinations where we pick exactly one index from each subvector.
                     // This is achievable through a cartesian product 
                     std::vector<std::vector<int>> index_combos = cartesian_product(indices);
-
-                    // Now create buffer_indices from these index combos using lookup array
                     std::vector<int> buffer_indices;
-                    if (deriv_order == 1){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            buffer_indices.push_back(buffer_index_eri1d[idx1]);
-                        }
-                    }
-                    else if (deriv_order == 2){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            buffer_indices.push_back(buffer_index_eri2d[idx1][idx2]);
-                        }
-                    }
-                    else if (deriv_order == 3){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            int idx3 = index_combos[i][2];
-                            buffer_indices.push_back(buffer_index_eri3d[idx1][idx2][idx3]);
-                        }
-                    }
-                    else if (deriv_order == 4){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            int idx3 = index_combos[i][2];
-                            int idx4 = index_combos[i][3];
-                            buffer_indices.push_back(buffer_index_eri4d[idx1][idx2][idx3][idx4]);
-                        }
+                    
+                    // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                    for (auto vec : index_combos)  {
+                        std::sort(vec.begin(), vec.end());
+                        int buf_idx = 0;
+                        // buffer_multidim_lookup
+                        auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                        if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                        buffer_indices.push_back(buf_idx);
                     }
 
                     // If we made it this far, the shell derivative we want is contained in the buffer. 
@@ -1642,6 +1539,9 @@ py::array f12_double_commutator_deriv(double beta, std::vector<int> deriv_vec) {
     process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
 
     assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+
+    // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // F12 derivative integral engine
     auto cgtg_params = make_cgtg(beta);
@@ -1718,38 +1618,16 @@ py::array f12_double_commutator_deriv(double beta, std::vector<int> deriv_vec) {
                     // Now we want all combinations where we pick exactly one index from each subvector.
                     // This is achievable through a cartesian product 
                     std::vector<std::vector<int>> index_combos = cartesian_product(indices);
-
-                    // Now create buffer_indices from these index combos using lookup array
                     std::vector<int> buffer_indices;
-                    if (deriv_order == 1){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            buffer_indices.push_back(buffer_index_eri1d[idx1]);
-                        }
-                    }
-                    else if (deriv_order == 2){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            buffer_indices.push_back(buffer_index_eri2d[idx1][idx2]);
-                        }
-                    }
-                    else if (deriv_order == 3){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            int idx3 = index_combos[i][2];
-                            buffer_indices.push_back(buffer_index_eri3d[idx1][idx2][idx3]);
-                        }
-                    }
-                    else if (deriv_order == 4){ 
-                        for (int i = 0; i < index_combos.size(); i++){
-                            int idx1 = index_combos[i][0];
-                            int idx2 = index_combos[i][1];
-                            int idx3 = index_combos[i][2];
-                            int idx4 = index_combos[i][3];
-                            buffer_indices.push_back(buffer_index_eri4d[idx1][idx2][idx3][idx4]);
-                        }
+
+                    // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                    for (auto vec : index_combos)  {
+                        std::sort(vec.begin(), vec.end());
+                        int buf_idx = 0;
+                        // buffer_multidim_lookup
+                        auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                        if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                        buffer_indices.push_back(buf_idx);
                     }
 
                     // If we made it this far, the shell derivative we want is contained in the buffer. 
@@ -1760,7 +1638,7 @@ py::array f12_double_commutator_deriv(double beta, std::vector<int> deriv_vec) {
                     cgtg_del_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
                     const auto& buf_vec = cgtg_del_engines[thread_id].results(); // will point to computed shell sets
 
-                    for(auto i = 0; i<buffer_indices.size(); ++i) {
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
                         if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
                         for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
@@ -2048,8 +1926,7 @@ void eri_deriv_disk(int max_deriv_order) {
         unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
 
         // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
-        // Currently not used due to predefined lookup arrays
-        //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+        const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
         // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
         const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
@@ -2130,22 +2007,15 @@ void eri_deriv_disk(int max_deriv_order) {
                             // This is achievable through a cartesian product 
                             std::vector<std::vector<int>> index_combos = cartesian_product(indices);
                             std::vector<int> buffer_indices;
-                            
+
                             // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                            //for (auto vec : index_combos)  {
-                            //    std::sort(vec.begin(), vec.end());
-                            //    int buf_idx = 0;
-                            //    // buffer_multidim_lookup
-                            //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                            //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                            //    buffer_indices.push_back(buf_idx);
-                            //}
-                            // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
                             for (auto vec : index_combos)  {
-                                if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
-                                else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
-                                else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
-                                else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                                std::sort(vec.begin(), vec.end());
+                                int buf_idx = 0;
+                                // buffer_multidim_lookup
+                                auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                                if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                                buffer_indices.push_back(buf_idx);
                             }
 
                             // Loop over shell block, keeping a total count idx for the size of shell set
@@ -2230,8 +2100,7 @@ void f12_deriv_disk(double beta, int max_deriv_order) {
         unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
 
         // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
-        // Currently not used due to predefined lookup arrays
-        //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+        const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
         // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
         const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
@@ -2315,20 +2184,13 @@ void f12_deriv_disk(double beta, int max_deriv_order) {
                             std::vector<int> buffer_indices;
                             
                             // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                            //for (auto vec : index_combos)  {
-                            //    std::sort(vec.begin(), vec.end());
-                            //    int buf_idx = 0;
-                            //    // buffer_multidim_lookup
-                            //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                            //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                            //    buffer_indices.push_back(buf_idx);
-                            //}
-                            // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
                             for (auto vec : index_combos)  {
-                                if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
-                                else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
-                                else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
-                                else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                                std::sort(vec.begin(), vec.end());
+                                int buf_idx = 0;
+                                // buffer_multidim_lookup
+                                auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                                if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                                buffer_indices.push_back(buf_idx);
                             }
 
                             // Loop over shell block, keeping a total count idx for the size of shell set
@@ -2413,8 +2275,7 @@ void f12_squared_deriv_disk(double beta, int max_deriv_order) {
         unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
 
         // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
-        // Currently not used due to predefined lookup arrays
-        //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+        const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
         // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
         const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
@@ -2498,20 +2359,13 @@ void f12_squared_deriv_disk(double beta, int max_deriv_order) {
                             std::vector<int> buffer_indices;
                             
                             // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                            //for (auto vec : index_combos)  {
-                            //    std::sort(vec.begin(), vec.end());
-                            //    int buf_idx = 0;
-                            //    // buffer_multidim_lookup
-                            //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                            //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                            //    buffer_indices.push_back(buf_idx);
-                            //}
-                            // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
                             for (auto vec : index_combos)  {
-                                if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
-                                else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
-                                else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
-                                else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                                std::sort(vec.begin(), vec.end());
+                                int buf_idx = 0;
+                                // buffer_multidim_lookup
+                                auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                                if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                                buffer_indices.push_back(buf_idx);
                             }
 
                             // Loop over shell block, keeping a total count idx for the size of shell set
@@ -2596,8 +2450,7 @@ void f12g12_deriv_disk(double beta, int max_deriv_order) {
         unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
 
         // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
-        // Currently not used due to predefined lookup arrays
-        //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+        const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
         // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
         const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
@@ -2681,20 +2534,13 @@ void f12g12_deriv_disk(double beta, int max_deriv_order) {
                             std::vector<int> buffer_indices;
                             
                             // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                            //for (auto vec : index_combos)  {
-                            //    std::sort(vec.begin(), vec.end());
-                            //    int buf_idx = 0;
-                            //    // buffer_multidim_lookup
-                            //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                            //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                            //    buffer_indices.push_back(buf_idx);
-                            //}
-                            // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
                             for (auto vec : index_combos)  {
-                                if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
-                                else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
-                                else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
-                                else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                                std::sort(vec.begin(), vec.end());
+                                int buf_idx = 0;
+                                // buffer_multidim_lookup
+                                auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                                if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                                buffer_indices.push_back(buf_idx);
                             }
 
                             // Loop over shell block, keeping a total count idx for the size of shell set
@@ -2779,8 +2625,7 @@ void f12_double_commutator_deriv_disk(double beta, int max_deriv_order) {
         unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
 
         // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
-        // Currently not used due to predefined lookup arrays
-        //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+        const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
         // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
         const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
@@ -2864,20 +2709,13 @@ void f12_double_commutator_deriv_disk(double beta, int max_deriv_order) {
                             std::vector<int> buffer_indices;
                             
                             // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                            //for (auto vec : index_combos)  {
-                            //    std::sort(vec.begin(), vec.end());
-                            //    int buf_idx = 0;
-                            //    // buffer_multidim_lookup
-                            //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                            //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                            //    buffer_indices.push_back(buf_idx);
-                            //}
-                            // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
                             for (auto vec : index_combos)  {
-                                if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
-                                else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
-                                else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
-                                else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                                std::sort(vec.begin(), vec.end());
+                                int buf_idx = 0;
+                                // buffer_multidim_lookup
+                                auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                                if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                                buffer_indices.push_back(buf_idx);
                             }
 
                             // Loop over shell block, keeping a total count idx for the size of shell set
@@ -2938,8 +2776,7 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
 
     // Create mappings from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
     // Overlap and kinetic have different mappings than potential since potential has more elements in the buffer
-    // Currently unused due to predefined lookup arrays
-    //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
     // Potential integrals buffer is flattened upper triangle of (6 + NCART) dimensional deriv_order tensor
     const std::vector<std::vector<int>> potential_buffer_multidim_lookup = generate_multi_index_lookup(6 + ncart, deriv_order);
 
@@ -3031,18 +2868,12 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
                 std::vector<int> buffer_indices;
                 std::vector<int> potential_buffer_indices;
                 // Overlap/Kinetic integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
-                //for (auto vec : index_combos)  {
-                //    std::sort(vec.begin(), vec.end());
-                //    int buf_idx = 0;
-                //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                //    buffer_indices.push_back(buf_idx);
-                //}
                 for (auto vec : index_combos)  {
-                    if (deriv_order == 1) buffer_indices.push_back(buffer_index_oei1d[vec[0]]);
-                    else if (deriv_order == 2) buffer_indices.push_back(buffer_index_oei2d[vec[0]][vec[1]]);
-                    else if (deriv_order == 3) buffer_indices.push_back(buffer_index_oei3d[vec[0]][vec[1]][vec[2]]);
-                    else if (deriv_order == 4) buffer_indices.push_back(buffer_index_oei4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                    std::sort(vec.begin(), vec.end());
+                    int buf_idx = 0;
+                    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                    buffer_indices.push_back(buf_idx);
                 }
                 // Potential integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
                 for (auto vec : potential_index_combos)  {
@@ -3088,8 +2919,7 @@ py::array eri_deriv_core(int deriv_order) {
     unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
 
     // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
-    // Currently unused due to predefined lookup arrays
-    //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
     const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
@@ -3162,20 +2992,13 @@ py::array eri_deriv_core(int deriv_order) {
                         std::vector<int> buffer_indices;
                         
                         // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                        //for (auto vec : index_combos)  {
-                        //    std::sort(vec.begin(), vec.end());
-                        //    int buf_idx = 0;
-                        //    // buffer_multidim_lookup
-                        //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                        //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                        //    buffer_indices.push_back(buf_idx);
-                        //}
-                        // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
                         for (auto vec : index_combos)  {
-                            if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
-                            else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
-                            else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
-                            else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                            std::sort(vec.begin(), vec.end());
+                            int buf_idx = 0;
+                            // buffer_multidim_lookup
+                            auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                            if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                            buffer_indices.push_back(buf_idx);
                         }
 
                         // Loop over shell block, keeping a total count idx for the size of shell set
@@ -3212,8 +3035,7 @@ py::array f12_deriv_core(double beta, int deriv_order) {
     unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
 
     // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
-    // Currently unused due to predefined lookup arrays
-    //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
     const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
@@ -3288,20 +3110,13 @@ py::array f12_deriv_core(double beta, int deriv_order) {
                         std::vector<int> buffer_indices;
                         
                         // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                        //for (auto vec : index_combos)  {
-                        //    std::sort(vec.begin(), vec.end());
-                        //    int buf_idx = 0;
-                        //    // buffer_multidim_lookup
-                        //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                        //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                        //    buffer_indices.push_back(buf_idx);
-                        //}
-                        // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
                         for (auto vec : index_combos)  {
-                            if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
-                            else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
-                            else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
-                            else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                            std::sort(vec.begin(), vec.end());
+                            int buf_idx = 0;
+                            // buffer_multidim_lookup
+                            auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                            if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                            buffer_indices.push_back(buf_idx);
                         }
 
                         // Loop over shell block, keeping a total count idx for the size of shell set
@@ -3338,8 +3153,7 @@ py::array f12_squared_deriv_core(double beta, int deriv_order) {
     unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
 
     // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
-    // Currently unused due to predefined lookup arrays
-    //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
     const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
@@ -3414,20 +3228,13 @@ py::array f12_squared_deriv_core(double beta, int deriv_order) {
                         std::vector<int> buffer_indices;
                         
                         // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                        //for (auto vec : index_combos)  {
-                        //    std::sort(vec.begin(), vec.end());
-                        //    int buf_idx = 0;
-                        //    // buffer_multidim_lookup
-                        //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                        //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                        //    buffer_indices.push_back(buf_idx);
-                        //}
-                        // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
                         for (auto vec : index_combos)  {
-                            if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
-                            else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
-                            else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
-                            else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                            std::sort(vec.begin(), vec.end());
+                            int buf_idx = 0;
+                            // buffer_multidim_lookup
+                            auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                            if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                            buffer_indices.push_back(buf_idx);
                         }
 
                         // Loop over shell block, keeping a total count idx for the size of shell set
@@ -3464,8 +3271,7 @@ py::array f12g12_deriv_core(double beta, int deriv_order) {
     unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
 
     // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
-    // Currently unused due to predefined lookup arrays
-    //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
     const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
@@ -3540,20 +3346,13 @@ py::array f12g12_deriv_core(double beta, int deriv_order) {
                         std::vector<int> buffer_indices;
                         
                         // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                        //for (auto vec : index_combos)  {
-                        //    std::sort(vec.begin(), vec.end());
-                        //    int buf_idx = 0;
-                        //    // buffer_multidim_lookup
-                        //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                        //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                        //    buffer_indices.push_back(buf_idx);
-                        //}
-                        // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
                         for (auto vec : index_combos)  {
-                            if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
-                            else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
-                            else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
-                            else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                            std::sort(vec.begin(), vec.end());
+                            int buf_idx = 0;
+                            // buffer_multidim_lookup
+                            auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                            if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                            buffer_indices.push_back(buf_idx);
                         }
 
                         // Loop over shell block, keeping a total count idx for the size of shell set
@@ -3590,8 +3389,7 @@ py::array f12_double_commutator_deriv_core(double beta, int deriv_order) {
     unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
 
     // Create mapping from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
-    // Currently unused due to predefined lookup arrays
-    //const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
     const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
@@ -3666,20 +3464,13 @@ py::array f12_double_commutator_deriv_core(double beta, int deriv_order) {
                         std::vector<int> buffer_indices;
                         
                         // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                        //for (auto vec : index_combos)  {
-                        //    std::sort(vec.begin(), vec.end());
-                        //    int buf_idx = 0;
-                        //    // buffer_multidim_lookup
-                        //    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                        //    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                        //    buffer_indices.push_back(buf_idx);
-                        //}
-                        // Eventually, if you stop using lookup arrays, use above implementation, but these are sitting around so might as well use them 
                         for (auto vec : index_combos)  {
-                            if (deriv_order == 1) buffer_indices.push_back(buffer_index_eri1d[vec[0]]);
-                            else if (deriv_order == 2) buffer_indices.push_back(buffer_index_eri2d[vec[0]][vec[1]]);
-                            else if (deriv_order == 3) buffer_indices.push_back(buffer_index_eri3d[vec[0]][vec[1]][vec[2]]);
-                            else if (deriv_order == 4) buffer_indices.push_back(buffer_index_eri4d[vec[0]][vec[1]][vec[2]][vec[3]]);
+                            std::sort(vec.begin(), vec.end());
+                            int buf_idx = 0;
+                            // buffer_multidim_lookup
+                            auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                            if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                            buffer_indices.push_back(buf_idx);
                         }
 
                         // Loop over shell block, keeping a total count idx for the size of shell set

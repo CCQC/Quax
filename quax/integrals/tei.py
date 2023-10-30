@@ -332,7 +332,7 @@ class TEI(object):
         return primals_out, tangents_out
 
     def f12_jvp(self, primals, tangents):
-        geom, beta, = primals
+        geom, beta = primals
         primals_out = self.f12(geom, beta)
         tangents_out = self.f12_deriv(geom, beta, tangents[0])
         return primals_out, tangents_out
@@ -346,7 +346,7 @@ class TEI(object):
         return primals_out, tangents_out
 
     def f12_squared_jvp(self, primals, tangents):
-        geom, beta, = primals
+        geom, beta = primals
         primals_out = self.f12_squared(geom, beta)
         tangents_out = self.f12_squared_deriv(geom, beta, tangents[0])
         return primals_out, tangents_out
@@ -360,7 +360,7 @@ class TEI(object):
         return primals_out, tangents_out
 
     def f12g12_jvp(self, primals, tangents):
-        geom, beta, = primals
+        geom, beta = primals
         primals_out = self.f12g12(geom, beta)
         tangents_out = self.f12g12_deriv(geom, beta, tangents[0])
         return primals_out, tangents_out
@@ -374,7 +374,7 @@ class TEI(object):
         return primals_out, tangents_out
 
     def f12_double_commutator_jvp(self, primals, tangents):
-        geom, beta, = primals
+        geom, beta = primals
         primals_out = self.f12_double_commutator(geom, beta)
         tangents_out = self.f12_double_commutator_deriv(geom, beta, tangents[0])
         return primals_out, tangents_out
