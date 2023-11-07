@@ -17,16 +17,6 @@ class TEI(object):
         molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
         natoms = molecule.natom()
 
-        # Libint and Psi4 CABS naming
-        if 'cabs' in basis1.name().lower():
-            basis1_name = basis1.name().lower().replace('cabs', 'optri')
-        if 'cabs' in basis2.name().lower():
-            basis2_name = basis2.name().lower().replace('cabs', 'optri')
-        if 'cabs' in basis3.name().lower():
-            basis3_name = basis3.name().lower().replace('cabs', 'optri')
-        if 'cabs' in basis4.name().lower():
-            basis4_name = basis4.name().lower().replace('cabs', 'optri')
-
         nbf1 = basis1.nbf()
         nbf2 = basis2.nbf()
         nbf3 = basis3.nbf()
