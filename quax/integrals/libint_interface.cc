@@ -723,18 +723,9 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
             // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
             std::vector<long> shell_atom_index_list{atom1, atom2};
 
-            // Initialize 2d vector, with DERIV_ORDER subvectors
-            // Each subvector contains index candidates which are possible choices for each partial derivative operator
-            // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
-            // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
-            std::vector<std::vector<int>> indices; 
-            for (int i = 0; i < deriv_order; i++){
-                std::vector<int> new_vec;
-                indices.push_back(new_vec);
-            }
-
             // For every desired atom derivative, check shell and nuclear indices for a match, add it to subvector for that derivative
             // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+            std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
             for (int j = 0; j < desired_atom_indices.size(); j++){
                 int desired_atom_idx = desired_atom_indices[j];
                 // Shell indices
@@ -746,14 +737,6 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
                     }
                 }
             }
-
-            // If we made it this far, the shell derivative we want is in the buffer, perhaps even more than once. 
-            size_t thread_id = 0;
-#ifdef _OPENMP
-            thread_id = omp_get_thread_num();
-#endif
-            s_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
-            const auto& buf_vec = s_engines[thread_id].results(); // will point to computed shell sets
 
             // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
             // and the total number of subvectors is the order of differentiation
@@ -770,6 +753,14 @@ py::array overlap_deriv(std::vector<int> deriv_vec) {
                 if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
                 buffer_indices.push_back(buf_idx);
             }
+
+            // If we made it this far, the shell derivative we want is in the buffer, perhaps even more than once. 
+            size_t thread_id = 0;
+#ifdef _OPENMP
+            thread_id = omp_get_thread_num();
+#endif
+            s_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
+            const auto& buf_vec = s_engines[thread_id].results(); // will point to computed shell sets
 
             // Loop over every buffer index and accumulate for every shell set.
             for(auto i = 0; i < buffer_indices.size(); ++i) {
@@ -825,37 +816,20 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
             // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
             std::vector<long> shell_atom_index_list{atom1, atom2};
 
-            // Initialize 2d vector, with DERIV_ORDER subvectors
-            // Each subvector contains index candidates which are possible choices for each partial derivative operator
-            // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
-            // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
-            std::vector<std::vector<int>> indices; 
-            for (int i = 0; i < deriv_order; i++){
-                std::vector<int> new_vec;
-                indices.push_back(new_vec);
-            }
-
             // For every desired atom derivative, check shell and nuclear indices for a match, add it to subvector for that derivative
             // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+            std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
             for (int j = 0; j < desired_atom_indices.size(); j++){
                 int desired_atom_idx = desired_atom_indices[j];
                 // Shell indices
                 for (int i = 0; i < 2; i++){
                     int atom_idx = shell_atom_index_list[i];
-                    if (atom_idx == desired_atom_idx) { 
+                    if (atom_idx == desired_atom_idx) {
                         int tmp = 3 * i + desired_coordinates[j];
                         indices[j].push_back(tmp);
                     }
                 }
             }
-
-            // If we made it this far, the shell derivative we want is in the buffer, perhaps even more than once. 
-            size_t thread_id = 0;
-#ifdef _OPENMP
-            thread_id = omp_get_thread_num();
-#endif
-            t_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
-            const auto& buf_vec = t_engines[thread_id].results(); // will point to computed shell sets
 
             // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
             // and the total number of subvectors is the order of differentiation
@@ -872,6 +846,14 @@ py::array kinetic_deriv(std::vector<int> deriv_vec) {
                 if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
                 buffer_indices.push_back(buf_idx);
             }
+
+            // If we made it this far, the shell derivative we want is in the buffer, perhaps even more than once.
+            size_t thread_id = 0;
+#ifdef _OPENMP
+            thread_id = omp_get_thread_num();
+#endif
+            t_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
+            const auto& buf_vec = t_engines[thread_id].results(); // will point to computed shell sets
 
             // Loop over every buffer index and accumulate for every shell set.
             for(auto i = 0; i < buffer_indices.size(); ++i) {
@@ -928,18 +910,9 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
             // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
             std::vector<long> shell_atom_index_list{atom1, atom2};
 
-            // Initialize 2d vector, with DERIV_ORDER subvectors
-            // Each subvector contains index candidates which are possible choices for each partial derivative operator
-            // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
-            // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
-            std::vector<std::vector<int>> indices; 
-            for (int i = 0; i < deriv_order; i++){
-                std::vector<int> new_vec;
-                indices.push_back(new_vec);
-            }
-
             // For every desired atom derivative, check shell and nuclear indices for a match, add it to subvector for that derivative
             // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+            std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
             for (int j = 0; j < desired_atom_indices.size(); j++){
                 int desired_atom_idx = desired_atom_indices[j];
                 // Shell indices
@@ -954,19 +927,11 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
                 for (int i = 0; i < natom; i++){
                     // i = shell_atom_index_list[i];
                     if (i == desired_atom_idx) {
-                        int tmp = 3 * (i +2) + desired_coordinates[j];
+                        int tmp = 3 * (i + 2) + desired_coordinates[j];
                         indices[j].push_back(tmp);
                     }
                 }
             }
-
-            // Compute the integrals
-            size_t thread_id = 0;
-#ifdef _OPENMP
-            thread_id = omp_get_thread_num();
-#endif
-            v_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
-            const auto& buf_vec = v_engines[thread_id].results(); // will point to computed shell sets
             
             // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
             // and the total number of subvectors is the order of differentiation
@@ -983,6 +948,14 @@ py::array potential_deriv(std::vector<int> deriv_vec) {
                 if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
                 buffer_indices.push_back(buf_idx);
             }
+
+            // Compute the integrals
+            size_t thread_id = 0;
+#ifdef _OPENMP
+            thread_id = omp_get_thread_num();
+#endif
+            v_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
+            const auto& buf_vec = v_engines[thread_id].results(); // will point to computed shell sets
 
             // Loop over every buffer index and accumulate for every shell set.
             for(auto i = 0; i < buffer_indices.size(); ++i) {
@@ -1056,19 +1029,10 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
 
                     // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
                     std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
-
-                    // Initialize 2d vector, with DERIV_ORDER subvectors
-                    // Each subvector contains index candidates which are possible choices for each partial derivative operator
-                    // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
-                    // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
-                    std::vector<std::vector<int>> indices;
-                    for (int i = 0; i < deriv_order; i++){
-                        std::vector<int> new_vec;
-                        indices.push_back(new_vec);
-                    }
                 
                     // For every desired atom derivative, check shell indices for a match, add it to subvector for that derivative
                     // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+                    std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
                     for (int j = 0; j < desired_atom_indices.size(); j++){
                         int desired_atom_idx = desired_atom_indices[j];
                         // Shell indices
@@ -1087,7 +1051,7 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
                     // This is achievable through a cartesian product 
                     std::vector<std::vector<int>> index_combos = cartesian_product(indices);
                     std::vector<int> buffer_indices;
-   
+
                     // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
                     for (auto vec : index_combos)  {
                         std::sort(vec.begin(), vec.end());
@@ -1106,7 +1070,7 @@ py::array eri_deriv(std::vector<int> deriv_vec) {
                     eri_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
                     const auto& buf_vec = eri_engines[thread_id].results(); // will point to computed shell sets
 
-                    for(auto i = 0; i<buffer_indices.size(); ++i) {
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
                         if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
                         for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
@@ -1189,19 +1153,10 @@ py::array f12_deriv(double beta, std::vector<int> deriv_vec) {
 
                     // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
                     std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
-
-                    // Initialize 2d vector, with DERIV_ORDER subvectors
-                    // Each subvector contains index candidates which are possible choices for each partial derivative operator
-                    // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
-                    // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
-                    std::vector<std::vector<int>> indices;
-                    for (int i = 0; i < deriv_order; i++){
-                        std::vector<int> new_vec;
-                        indices.push_back(new_vec);
-                    }
                 
                     // For every desired atom derivative, check shell indices for a match, add it to subvector for that derivative
                     // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+                    std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
                     for (int j = 0; j < desired_atom_indices.size(); j++){
                         int desired_atom_idx = desired_atom_indices[j];
                         // Shell indices
@@ -1220,7 +1175,7 @@ py::array f12_deriv(double beta, std::vector<int> deriv_vec) {
                     // This is achievable through a cartesian product 
                     std::vector<std::vector<int>> index_combos = cartesian_product(indices);
                     std::vector<int> buffer_indices;
-                    
+
                     // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
                     for (auto vec : index_combos)  {
                         std::sort(vec.begin(), vec.end());
@@ -1241,7 +1196,7 @@ py::array f12_deriv(double beta, std::vector<int> deriv_vec) {
 
                     for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
-                        if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                        if (ints_shellset == nullptr) continue;
                         for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                             size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
                             for(auto f2 = 0; f2 != n2; ++f2) {
@@ -1322,19 +1277,10 @@ py::array f12_squared_deriv(double beta, std::vector<int> deriv_vec) {
 
                     // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
                     std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
-
-                    // Initialize 2d vector, with DERIV_ORDER subvectors
-                    // Each subvector contains index candidates which are possible choices for each partial derivative operator
-                    // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
-                    // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
-                    std::vector<std::vector<int>> indices;
-                    for (int i = 0; i < deriv_order; i++){
-                        std::vector<int> new_vec;
-                        indices.push_back(new_vec);
-                    }
                 
                     // For every desired atom derivative, check shell indices for a match, add it to subvector for that derivative
                     // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+                    std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
                     for (int j = 0; j < desired_atom_indices.size(); j++){
                         int desired_atom_idx = desired_atom_indices[j];
                         // Shell indices
@@ -1353,7 +1299,7 @@ py::array f12_squared_deriv(double beta, std::vector<int> deriv_vec) {
                     // This is achievable through a cartesian product 
                     std::vector<std::vector<int>> index_combos = cartesian_product(indices);
                     std::vector<int> buffer_indices;
-                    
+
                     // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
                     for (auto vec : index_combos)  {
                         std::sort(vec.begin(), vec.end());
@@ -1372,7 +1318,7 @@ py::array f12_squared_deriv(double beta, std::vector<int> deriv_vec) {
                     cgtg_squared_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
                     const auto& buf_vec = cgtg_squared_engines[thread_id].results(); // will point to computed shell sets
 
-                    for(auto i = 0; i<buffer_indices.size(); ++i) {
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
                         if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
                         for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
@@ -1455,19 +1401,10 @@ py::array f12g12_deriv(double beta, std::vector<int> deriv_vec) {
 
                     // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
                     std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
-
-                    // Initialize 2d vector, with DERIV_ORDER subvectors
-                    // Each subvector contains index candidates which are possible choices for each partial derivative operator
-                    // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
-                    // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
-                    std::vector<std::vector<int>> indices;
-                    for (int i = 0; i < deriv_order; i++){
-                        std::vector<int> new_vec;
-                        indices.push_back(new_vec);
-                    }
                 
                     // For every desired atom derivative, check shell indices for a match, add it to subvector for that derivative
                     // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+                    std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
                     for (int j = 0; j < desired_atom_indices.size(); j++){
                         int desired_atom_idx = desired_atom_indices[j];
                         // Shell indices
@@ -1486,7 +1423,7 @@ py::array f12g12_deriv(double beta, std::vector<int> deriv_vec) {
                     // This is achievable through a cartesian product 
                     std::vector<std::vector<int>> index_combos = cartesian_product(indices);
                     std::vector<int> buffer_indices;
-                    
+
                     // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
                     for (auto vec : index_combos)  {
                         std::sort(vec.begin(), vec.end());
@@ -1505,7 +1442,7 @@ py::array f12g12_deriv(double beta, std::vector<int> deriv_vec) {
                     cgtg_coulomb_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
                     const auto& buf_vec = cgtg_coulomb_engines[thread_id].results(); // will point to computed shell sets
 
-                    for(auto i = 0; i<buffer_indices.size(); ++i) {
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
                         if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
                         for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
@@ -1588,19 +1525,10 @@ py::array f12_double_commutator_deriv(double beta, std::vector<int> deriv_vec) {
 
                     // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
                     std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
-
-                    // Initialize 2d vector, with DERIV_ORDER subvectors
-                    // Each subvector contains index candidates which are possible choices for each partial derivative operator
-                    // In other words, indices looks like { {choices for first deriv operator} {choices for second deriv op} {third} ...}
-                    // The cartesian product of these subvectors gives all combos that need to be summed to form total nuclear derivative of integrals
-                    std::vector<std::vector<int>> indices;
-                    for (int i = 0; i < deriv_order; i++){
-                        std::vector<int> new_vec;
-                        indices.push_back(new_vec);
-                    }
                 
                     // For every desired atom derivative, check shell indices for a match, add it to subvector for that derivative
                     // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+                    std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
                     for (int j = 0; j < desired_atom_indices.size(); j++){
                         int desired_atom_idx = desired_atom_indices[j];
                         // Shell indices
