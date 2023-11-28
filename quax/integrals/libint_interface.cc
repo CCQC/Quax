@@ -62,13 +62,7 @@ libint2::BasisSet make_ao_cabs(std::string obs_name, libint2::BasisSet cabs) {
 
             stable_sort(tmp.begin(), tmp.end(), [](const auto& a, const auto& b) -> bool
             {
-                int a_l, b_l;
-                for (auto&& c_a : a.contr)
-                    a_l = c_a.l;
-                for (auto&& c_b : b.contr)
-                    b_l = c_b.l;
-
-                return a_l < b_l;
+                return a.contr[0].l < b.contr[0].l;
             });
 
             el_bases[atoms[i].atomic_number] = tmp;
