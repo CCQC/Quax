@@ -2940,8 +2940,7 @@ py::array eri_deriv_core(int deriv_order) {
                                     for(auto f3 = 0; f3 != n3; ++f3) {
                                         size_t offset_3 = (bf3 + f3) * nbf4;
                                         for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
-                                            size_t offset_4 = bf4 + f4;
-                                            result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += eri_shellset[idx];
+                                            result[offset_1 + offset_2 + offset_3 + bf4 + f4 + offset_nuc_idx] += eri_shellset[idx];
                                         }
                                     }
                                 }
@@ -3058,8 +3057,7 @@ py::array f12_deriv_core(double beta, int deriv_order) {
                                     for(auto f3 = 0; f3 != n3; ++f3) {
                                         size_t offset_3 = (bf3 + f3) * nbf4;
                                         for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
-                                            size_t offset_4 = bf4 + f4;
-                                            result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += f12_shellset[idx];
+                                            result[offset_1 + offset_2 + offset_3 + bf4 + f4 + offset_nuc_idx] += f12_shellset[idx];
                                         }
                                     }
                                 }
@@ -3176,8 +3174,7 @@ py::array f12_squared_deriv_core(double beta, int deriv_order) {
                                     for(auto f3 = 0; f3 != n3; ++f3) {
                                         size_t offset_3 = (bf3 + f3) * nbf4;
                                         for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
-                                            size_t offset_4 = bf4 + f4;
-                                            result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += f12_squared_shellset[idx];
+                                            result[offset_1 + offset_2 + offset_3 + bf4 + f4 + offset_nuc_idx] += f12_squared_shellset[idx];
                                         }
                                     }
                                 }
@@ -3294,8 +3291,7 @@ py::array f12g12_deriv_core(double beta, int deriv_order) {
                                     for(auto f3 = 0; f3 != n3; ++f3) {
                                         size_t offset_3 = (bf3 + f3) * nbf4;
                                         for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
-                                            size_t offset_4 = bf4 + f4;
-                                            result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += f12g12_shellset[idx];
+                                            result[offset_1 + offset_2 + offset_3 + bf4 + f4 + offset_nuc_idx] += f12g12_shellset[idx];
                                         }
                                     }
                                 }
@@ -3412,8 +3408,7 @@ py::array f12_double_commutator_deriv_core(double beta, int deriv_order) {
                                     for(auto f3 = 0; f3 != n3; ++f3) {
                                         size_t offset_3 = (bf3 + f3) * nbf4;
                                         for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
-                                            size_t offset_4 = bf4 + f4;
-                                            result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] += f12_double_commutator_shellset[idx];
+                                            result[offset_1 + offset_2 + offset_3 + bf4 + f4 + offset_nuc_idx] += f12_double_commutator_shellset[idx];
                                         }
                                     }
                                 }

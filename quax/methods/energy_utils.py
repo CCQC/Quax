@@ -14,18 +14,24 @@ def nuclear_repulsion(geom, nuclear_charges):
             nuc += nuclear_charges[i] * nuclear_charges[j] / jnp.linalg.norm(geom[i] - geom[j])
     return nuc
 
-def symmetric_orthogonalization(S):
+def symmetric_orthogonalization(S, cutoff = 1.0e-12):
     """
     Compute the symmetric orthogonalization transform U = S^(-1/2)
     where S is the overlap matrix
     """
-    # Warning: Higher order derivatives for some larger basis sets (TZ on) give NaNs for this algo 
-    eigval, eigvec = jnp.linalg.eigh(S)
-    cutoff = 1.0e-12
-    above_cutoff = (abs(eigval) > cutoff * jnp.max(abs(eigval)))
-    val = 1 / jnp.sqrt(eigval[above_cutoff])
-    vec = eigvec[:, above_cutoff]
-    A = vec.dot(jnp.diag(val)).dot(vec.T)
+    evals, evecs = jnp.linalg.eigh(S)
+
+    def loop_evals(idx, M):
+        val = jax.lax.cond(abs(evals[idx]) > cutoff,
+                           lambda: jnp.reciprocal(jnp.sqrt(evals[idx])),
+                           lambda: 0.0)
+        
+        M = M.at[idx, idx].set(val)
+        return M
+    
+    sqrtm = jax.lax.fori_loop(0, evals.shape[0], loop_evals, jnp.zeros(S.shape))
+
+    A = jnp.dot(evecs, jnp.dot(sqrtm, jnp.transpose(evecs)))
     return A
 
 def cholesky_orthogonalization(S):
@@ -64,23 +70,15 @@ def old_partial_tei_transformation(G, Ci, Cj, Ck, Cl):
     G = jnp.einsum('pqrs, pP, qQ, rR, sS -> PQRS', G, Ci, Cj, Ck, Cl, optimize='optimal')
     return G
 
-def partial_tei_transformation(G, C1, C2, C3, C4):
+def partial_tei_transformation(G, Ci, Cj, Ck, Cl):
     """
     New algo for Partial TEI transform
     """
-    G = transform(C4, G)
-    G = transform(C3, G)
-    G = transform(C2, G)
-    G = transform(C1, G)
+    G = transform(Cl, G)
+    G = transform(Ck, G)
+    G = transform(Cj, G)
+    G = transform(Ci, G)
     return G
-
-@jax.jit
-def chem2phys(G):
-    return jnp.transpose(G, (0,2,1,3))
-
-@jax.jit
-def f12_transpose(G):
-    return jnp.transpose(G, (1,0,3,2))
     
 def cartesian_product(*arrays):
     '''

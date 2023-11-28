@@ -8,8 +8,7 @@ import numpy as np
 import os
 import h5py
 
-from .integrals.basis_utils import build_CABS
-from .methods.energy_utils import nuclear_repulsion, cholesky_orthogonalization
+from .integrals.basis_utils import build_RIBS
 from .methods.hartree_fock import restricted_hartree_fock
 from .methods.mp2 import restricted_mp2
 from .methods.mp2f12 import restricted_mp2_f12
@@ -84,12 +83,8 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
     natoms = molecule.natom()
     print("Number of basis functions: ", nbf)
 
-    if 'f12' in method: # Ensure use of Dunning basis sets
-        try:
-            cabs_name = basis_name + "-cabs"
-            cabs_space = build_CABS(molecule, basis_name, cabs_name)
-        except:
-            raise Exception("Must use a cc-pVXZ-F12 or aug-cc-pVXZ basis set for F12 methods.")
+    if 'f12' in method:
+        cabs_set = build_RIBS(molecule, basis_set, basis_name + '-cabs')
 
     # Energy and full derivative tensor evaluations
     args = (geom, basis_set, xyz_path, nuclear_charges, charge, options)
@@ -102,7 +97,7 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
             def electronic_energy(*args, deriv_order=deriv_order):
                 return restricted_mp2(*args, deriv_order=deriv_order)
         elif method =='mp2-f12':
-            args = args + (cabs_space,)
+            args += (cabs_set,)
             def electronic_energy(*args, deriv_order=deriv_order):
                 return restricted_mp2_f12(*args, deriv_order=deriv_order)
         elif method =='ccsd':
@@ -164,7 +159,7 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
         elif method =='mp2-f12':
             def partial_wrapper(*args):
                 geom = jnp.asarray(args)
-                E_mp2f12 = restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, options, cabs_space, deriv_order=deriv_order)
+                E_mp2f12 = restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, options, cabs_set, deriv_order=deriv_order)
                 return E_mp2f12
         elif method =='ccsd':
             def partial_wrapper(*args):

@@ -1,16 +1,23 @@
-import psi4 
+import psi4
+import jax
 import jax.numpy as jnp
-import numpy as np
+from jax.lax import fori_loop
 
-def build_CABS(molecule, basis_name, cabs_name):
+from ..methods.ints import compute_f12_oeints
+from ..methods.energy_utils import symmetric_orthogonalization
+
+def build_RIBS(molecule, basis_set, cabs_name):
     """
-    Builds and returns CABS
-    Provide molecule from Psi4,
-    OBS name, CABS name, and
-    MO coefficients from RHF
+    Builds basis set for
+    CABS procedure
     """
+
     # Libint uses the suffix 'cabs' but Psi4 uses 'optri'
-    psi4_name = cabs_name.lower().replace('cabs', 'optri')
+    basis_name = basis_set.name()
+    try:
+        psi4_name = cabs_name.lower().replace('cabs', 'optri')
+    except:
+        raise Exception("Must use a cc-pVXZ-F12 or aug-cc-pVXZ basis set for F12 methods.")
 
     keys = ["BASIS","CABS_BASIS"]
     targets = [basis_name, psi4_name]
@@ -18,29 +25,56 @@ def build_CABS(molecule, basis_name, cabs_name):
     others = [basis_name, basis_name]
 
     # Creates combined basis set in Python
-    obs = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
     ao_union = psi4.driver.qcdb.libmintsbasisset.BasisSet.pyconstruct_combined(molecule.save_string_xyz(), keys, targets, roles, others)
     ao_union['name'] = cabs_name
-    ao_union = psi4.core.BasisSet.construct_from_pydict(molecule, ao_union, 0)
-    ri_space = psi4.core.OrbitalSpace.build_ri_space(ao_union, 1.0e-8)
+    ribs_set = psi4.core.BasisSet.construct_from_pydict(molecule, ao_union, 0)
 
-    C_ribs = np.array(ri_space.C()) # Orthogonalizes the AOs of the RI space
+    return ribs_set
+
+def build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options):
+    """
+    Builds and returns 
+    CABS transformation matrix
+    """
+
+    # Orthogonalize combined basis set
+    S_ao_ribs_ribs = compute_f12_oeints(geom, cabs_set, cabs_set, xyz_path, deriv_order, options, True)
+    C_ribs = symmetric_orthogonalization(S_ao_ribs_ribs, 1.0e-8)
 
     # Compute the overlap matrix between OBS and RIBS, then orthogonalizes the RIBS
-    mints = psi4.core.MintsHelper(obs)
-    S_ao_obs_ribs = np.array(mints.ao_overlap(obs, ri_space.basisset()))
-    C12 = np.einsum('Pq,qQ->PQ', S_ao_obs_ribs, C_ribs)
+    S_ao_obs_ribs = compute_f12_oeints(geom, basis_set, cabs_set, xyz_path, deriv_order, options, True)
+    C12 = jnp.dot(S_ao_obs_ribs, C_ribs)
 
-    # Compute the eigenvectors and eigenvalues of S12.T * S12
-    _, S, Vt = np.linalg.svd(C12)
+    nN, Vt = null_svd(C12)
+
+    V_N = jnp.transpose(Vt[nN:, :])
+
+    C_cabs = jnp.dot(C_ribs, V_N)
+
+    return C_cabs
+
+@jax.custom_jvp
+def null_svd(C12, cutoff = 1.0e-6):
+    """
+    Grabs the null vectors from the V matrix
+    of an SVD procedure and returns the 
+    number of null vecs and the null vec matrix
+    """
+    # Compute the eigenvectors and eigenvalues of C12.T @ C12
+    _, S, Vt = jnp.linalg.svd(C12)
 
     # Collect the eigenvectors that are associated with (near) zero eignevalues
-    ncabs = S.shape[0]
-    for eval_i in S:
-        if abs(eval_i) < 1.0e-6: ncabs += 1
-    V_N = Vt[ncabs:, :].T
+    def loop_zero_vals(idx, count):
+        count += jax.lax.cond(abs(S[idx]) < cutoff, lambda: 1, lambda: 0)
+        return count
+    nN = fori_loop(0, S.shape[0], loop_zero_vals, S.shape[0])
 
-    # Make sure the CABS is an orthonormal set
-    C_cabs = psi4.core.Matrix.from_array(np.einsum('pQ,QP->pP', C_ribs, V_N))
+    return nN, Vt
 
-    return psi4.core.OrbitalSpace(ri_space.id(), cabs_name, C_cabs, ri_space.basisset(), ri_space.integral())
+@null_svd.defjvp
+def null_svd_jvp(primals, tangents):
+  C12, cutoff = primals
+  C12_dot, cutoff_dot = tangents
+  primal_out = null_svd(C12, cutoff)
+  tangent_out = null_svd(C12_dot, cutoff)
+  return primal_out, tangent_out

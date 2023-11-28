@@ -7,8 +7,6 @@ import h5py
 import psi4
 import os
 
-from .energy_utils import chem2phys
-
 # Check for Libint interface
 from ..integrals import TEI
 from ..integrals import OEI
@@ -58,36 +56,59 @@ def compute_integrals(geom, basis_set, xyz_path, deriv_order, options):
     libint_interface.finalize()
     return S, T, V, G
 
-def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options):
+def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options, cabs):
     # Load integral algo, decides to compute integrals in memory or use disk
     algo = options['integral_algo']
     basis1_name = basis1.name()
     basis2_name = basis2.name()
     libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis1_name, basis2_name)
 
-    if algo == 'libint_disk':
-        # Check disk for currently existing integral derivatives
-        check = check_oei_disk(geom, basis1, basis2, xyz_path, deriv_order)
+    if cabs:
+        if algo == 'libint_disk':
+            # Check disk for currently existing integral derivatives
+            check = check_oei_disk(geom, basis1, basis2, xyz_path, deriv_order)
+    
+            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'disk')
+            # If disk integral derivs are right, nothing to do
+            if check:
+                S = oei_obj.overlap(geom)
+            else:
+                libint_interface.oei_deriv_disk(deriv_order)
+                S = oei_obj.overlap(geom)
 
-        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'f12_disk')
-        # If disk integral derivs are right, nothing to do
-        if check:
-            T = oei_obj.kinetic(geom)
-            V = oei_obj.potential(geom)
         else:
-            libint_interface.oei_deriv_disk(deriv_order)
-            T = oei_obj.kinetic(geom)
-            V = oei_obj.potential(geom)
+            # Precompute OEI derivatives
+            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'core')
+            # Compute integrals
+            S = oei_obj.overlap(geom)
+        
+        libint_interface.finalize()
+        return S
 
     else:
-        # Precompute TEI derivatives
-        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'f12_core')
-        # Compute integrals
-        T = oei_obj.kinetic(geom)
-        V = oei_obj.potential(geom)
+        if algo == 'libint_disk':
+            # Check disk for currently existing integral derivatives
+            check = check_oei_disk(geom, basis1, basis2, xyz_path, deriv_order)
 
-    libint_interface.finalize()
-    return T + V
+            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'disk')
+            # If disk integral derivs are right, nothing to do
+            if check:
+                T = oei_obj.kinetic(geom)
+                V = oei_obj.potential(geom)
+            else:
+                libint_interface.oei_deriv_disk(deriv_order)
+                T = oei_obj.kinetic(geom)
+                V = oei_obj.potential(geom)
+
+        else:
+            # Precompute OEI derivatives
+            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'core')
+            # Compute integrals
+            T = oei_obj.kinetic(geom)
+            V = oei_obj.potential(geom)
+        
+        libint_interface.finalize()
+        return T, V
 
 def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path, deriv_order, options):
     # Load integral algo, decides to compute integrals in memory or use disk
@@ -103,7 +124,7 @@ def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path,
         # Check disk for currently existing integral derivatives
         check = check_tei_disk(geom, basis1, basis2, basis3, basis4, int_type, xyz_path, deriv_order)
 
-        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, options, 'f12_disk')
+        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, options, 'disk')
         # If disk integral derivs are right, nothing to do
         if check:
             match int_type:
@@ -137,7 +158,7 @@ def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path,
 
     else:
         # Precompute TEI derivatives
-        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, options, 'f12_core')
+        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, options, 'core')
         # Compute integrals
         match int_type:
             case "f12":
@@ -152,7 +173,7 @@ def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path,
                 F = tei_obj.eri(geom)
 
     libint_interface.finalize()
-    return chem2phys(F)
+    return F
 
 def check_oei_disk(geom, basis1, basis2, xyz_path, deriv_order, address=None):
     # TODO need to check geometry and basis set name in addition to nbf
@@ -176,7 +197,11 @@ def check_oei_disk(geom, basis1, basis2, xyz_path, deriv_order, address=None):
         oeifile.close()
         correct_int_derivs = correct_deriv_order and correct_nbf1 and correct_nbf2
 
-    # TODO flesh out this logic for determining if partials file contains all integrals needed
+    if correct_int_derivs:
+        print("Integral derivatives appear to be correct. Avoiding recomputation.")
+    return correct_int_derivs
+
+"""     # TODO flesh out this logic for determining if partials file contains all integrals needed
     # for particular address
     elif (os.path.exists("oei_partials.h5")):
         print("Found currently existing partial oei derivatives in working directory. Assuming they are correct.")
@@ -193,11 +218,7 @@ def check_oei_disk(geom, basis1, basis2, xyz_path, deriv_order, address=None):
         correct_nbf1 = oeifile[sample_dataset_name].shape[0] == nbf1
         correct_nbf2 = oeifile[sample_dataset_name].shape[1] == nbf2
         oeifile.close()
-        correct_int_derivs = correct_deriv_order and correct_nbf1 and correct_nbf2
-
-    if correct_int_derivs:
-        print("Integral derivatives appear to be correct. Avoiding recomputation.")
-    return correct_int_derivs
+        correct_int_derivs = correct_deriv_order and correct_nbf1 and correct_nbf2 """
 
 def check_tei_disk(geom, basis1, basis2, basis3, basis4, int_type, xyz_path, deriv_order, address=None):
     # TODO need to check geometry and basis set name in addition to nbf
@@ -224,11 +245,12 @@ def check_tei_disk(geom, basis1, basis2, basis3, basis4, int_type, xyz_path, der
         correct_nbf4 = erifile[sample_dataset_name].shape[3] == nbf4
         erifile.close()
         correct_int_derivs = correct_deriv_order and correct_nbf1 and correct_nbf2 and correct_nbf3 and correct_nbf4
-        if correct_int_derivs:
-            print("Integral derivatives appear to be correct. Avoiding recomputation.")
-        return correct_int_derivs
+    
+    if correct_int_derivs:
+        print("Integral derivatives appear to be correct. Avoiding recomputation.")
+    return correct_int_derivs
 
-    # TODO flesh out this logic for determining if partials file contains all integrals needed
+"""     # TODO flesh out this logic for determining if partials file contains all integrals needed
     # for particular address
     elif ((os.path.exists("eri_partials.h5"))):
         print("Found currently existing partial tei derivatives in working directory. Assuming they are correct.")
@@ -250,3 +272,4 @@ def check_tei_disk(geom, basis1, basis2, basis3, basis4, int_type, xyz_path, der
         if correct_int_derivs:
             print("Integral derivatives appear to be correct. Avoiding recomputation.")
         return correct_int_derivs
+ """
