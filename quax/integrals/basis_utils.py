@@ -31,7 +31,7 @@ def build_RIBS(molecule, basis_set, cabs_name):
 
     return ribs_set
 
-def build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options):
+def build_CABS(geom, basis_set, cabs_set, C_obs, xyz_path, deriv_order, options):
     """
     Builds and returns 
     CABS transformation matrix
@@ -46,39 +46,21 @@ def build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options):
 
     # Compute the overlap matrix between OBS and RIBS, then orthogonalizes the RIBS
     S_ao_obs_ribs = compute_f12_oeints(geom, basis_set, cabs_set, xyz_path, deriv_order, options, True)
-    C12 = jnp.dot(S_ao_obs_ribs, C_ribs)
+    C12 = jnp.dot(C_obs.T, jnp.dot(S_ao_obs_ribs, C_ribs))
 
-    nN, Vt = null_svd(C12)
+    # Compute the eigenvectors and eigenvalues of C12.T @ C12
+    CTC = jnp.dot(C12.T, C12)
+    S2, V = jax.scipy.linalg.eigh(CTC)
 
-    V_N = jnp.transpose(Vt[nN:, :])
+    def loop_zero_vals(idx, count):
+        count += jax.lax.cond(abs(S2[idx]) < 1.0e-8, lambda: 1, lambda: 0)
+        return count
+    ncabs = jax.lax.fori_loop(0, S2.shape[0], loop_zero_vals, 0)
+
+    V_N = V.at[:, :ncabs].get()    
+
     C_cabs = jnp.dot(C_ribs, V_N)
 
     psi4.set_num_threads(threads)
 
     return C_cabs
-
-@jax.custom_jvp
-def null_svd(C12, cutoff = 1.0e-6):
-    """
-    Grabs the null vectors from the V matrix
-    of an SVD procedure and returns the 
-    number of null vecs and the null vec matrix
-    """
-    # Compute the eigenvectors and eigenvalues of C12.T @ C12
-    _, S, Vt = jnp.linalg.svd(C12)
-
-    # Collect the eigenvectors that are associated with (near) zero eignevalues
-    def loop_zero_vals(idx, count):
-        count += jax.lax.cond(abs(S[idx]) < cutoff, lambda: 1, lambda: 0)
-        return count
-    nN = fori_loop(0, S.shape[0], loop_zero_vals, S.shape[0])
-
-    return nN, Vt
-
-@null_svd.defjvp
-def null_svd_jvp(primals, tangents):
-  C12, cutoff = primals
-  C12_dot, cutoff_dot = tangents
-  primal_out = null_svd(C12, cutoff)
-  tangent_out = null_svd(C12_dot, cutoff)
-  return primal_out, tangent_out
