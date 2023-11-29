@@ -68,7 +68,7 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
 
     # Load molecule data
     geom2d = np.asarray(molecule.geometry())
-    geom_list = geom2d.reshape(-1).tolist() 
+    geom_list = geom2d.reshape(-1).tolist()
     geom = jnp.asarray(geom2d.flatten())
     dim = geom.reshape(-1).shape[0]
     xyz_file_name = "geom.xyz"

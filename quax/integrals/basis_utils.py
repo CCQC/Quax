@@ -36,6 +36,9 @@ def build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options):
     Builds and returns 
     CABS transformation matrix
     """
+    # Make Thread Safe
+    threads = psi4.get_num_threads()
+    psi4.set_num_threads(1)
 
     # Orthogonalize combined basis set
     S_ao_ribs_ribs = compute_f12_oeints(geom, cabs_set, cabs_set, xyz_path, deriv_order, options, True)
@@ -48,8 +51,9 @@ def build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options):
     nN, Vt = null_svd(C12)
 
     V_N = jnp.transpose(Vt[nN:, :])
-
     C_cabs = jnp.dot(C_ribs, V_N)
+
+    psi4.set_num_threads(threads)
 
     return C_cabs
 

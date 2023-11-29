@@ -66,7 +66,6 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
             V_ij = V[i, j, o, o]
             GD_ij = G[i, j, v, v] * D_ij
             V_ij -= jnp.tensordot(C, GD_ij, [(2, 3), (0, 1)])
-            print(V_ij)
 
             V_s = 0.25 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd * (V_ij[i, j] + V_ij[j, i])
 
@@ -76,8 +75,6 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
             B_ij = B - (X * (f[i, i] + f[j, j]))
             CD_ij = jnp.einsum('mnab,ab->mnab', C, D_ij, optimize='optimal')
             B_ij -= jnp.tensordot(C, CD_ij, [(2, 3), (2, 3)])
-            print(B_ij)
-
             B_s = 0.125 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd \
                          * (B_ij[i, j, i, j] + B_ij[j, i, i, j]) \
                          * (t_(i, j, i, j) + t_(i, j, j, i)) * kd
