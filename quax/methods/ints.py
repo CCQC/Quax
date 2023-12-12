@@ -189,7 +189,7 @@ def check_oei_disk(geom, basis1, basis2, xyz_path, deriv_order, address=None):
         nbf1 = basis1.nbf()
         nbf2 = basis2.nbf()
         # Check if there are `deriv_order` datasets in the eri file
-        correct_deriv_order = len(oeifile) >= 3 * (deriv_order)
+        correct_deriv_order = len(oeifile) >= (3 * deriv_order)
         # Check nbf dimension of integral arrays
         sample_dataset_name = list(oeifile.keys())[0]
         correct_nbf1 = oeifile[sample_dataset_name].shape[0] == nbf1

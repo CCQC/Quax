@@ -47,12 +47,12 @@ def restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, 
     
     def rhf_iter(F,D):
         E_scf = jnp.einsum('pq,pq->', F + H, D) + Enuc
-        Fp = jnp.dot(A.T, jnp.dot(F, A))
+        Fp = A.T @ F @ A
         Fp = Fp + shift 
         eps, C2 = jnp.linalg.eigh(Fp)
-        C = jnp.dot(A, C2)
+        C = A @ C2
         Cocc = C[:, :ndocc]
-        D = jnp.dot(Cocc, Cocc.T)
+        D = Cocc @ Cocc.T
         return E_scf, D, C, eps
 
     iteration = 0
@@ -77,7 +77,7 @@ def restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, 
         # Update convergence error
         if iteration > 1:
             diis_e = jnp.einsum('ij,jk,kl->il', F, D, S) - jnp.einsum('ij,jk,kl->il', S, D, F)
-            diis_e = A.dot(diis_e).dot(A)
+            diis_e = A @ diis_e @ A
             dRMS = jnp.mean(diis_e ** 2) ** 0.5
         # Compute energy, transform Fock and diagonalize, get new density
         E_scf, D, C, eps = rhf_iter(F, D)

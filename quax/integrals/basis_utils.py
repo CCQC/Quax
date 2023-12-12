@@ -31,7 +31,7 @@ def build_RIBS(molecule, basis_set, cabs_name):
 
     return ribs_set
 
-def build_CABS(geom, basis_set, cabs_set, C_obs, xyz_path, deriv_order, options):
+def build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options):
     """
     Builds and returns 
     CABS transformation matrix
@@ -46,18 +46,18 @@ def build_CABS(geom, basis_set, cabs_set, C_obs, xyz_path, deriv_order, options)
 
     # Compute the overlap matrix between OBS and RIBS, then orthogonalizes the RIBS
     S_ao_obs_ribs = compute_f12_oeints(geom, basis_set, cabs_set, xyz_path, deriv_order, options, True)
-    C12 = jnp.dot(C_obs.T, jnp.dot(S_ao_obs_ribs, C_ribs))
 
-    # Compute the eigenvectors and eigenvalues of C12.T @ C12
-    CTC = jnp.dot(C12.T, C12)
-    S2, V = jax.scipy.linalg.eigh(CTC)
+    # Compute the eigenvectors and eigenvalues of C2.T @ S12.T @ S12 @ C2
+    S22 = jnp.dot(S_ao_obs_ribs.T, S_ao_obs_ribs)
+    CTC = C_ribs.T @ S22 @ C_ribs
+    S2, V = jnp.linalg.eigh(CTC)
 
     def loop_zero_vals(idx, count):
-        count += jax.lax.cond(abs(S2[idx]) < 1.0e-8, lambda: 1, lambda: 0)
+        count += jax.lax.cond(abs(S2[idx]) < 1.0e-6, lambda: 1, lambda: 0)
         return count
     ncabs = jax.lax.fori_loop(0, S2.shape[0], loop_zero_vals, 0)
 
-    V_N = V.at[:, :ncabs].get()    
+    V_N = V.at[:, :ncabs].get()
 
     C_cabs = jnp.dot(C_ribs, V_N)
 

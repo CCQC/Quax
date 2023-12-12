@@ -22,8 +22,8 @@ def symmetric_orthogonalization(S, cutoff = 1.0e-12):
     evals, evecs = jnp.linalg.eigh(S)
 
     def loop_evals(idx, M):
-        val = jax.lax.cond(abs(evals[idx]) > cutoff,
-                           lambda: jnp.reciprocal(jnp.sqrt(evals[idx])),
+        val = jax.lax.cond(abs(evals[idx]) > cutoff * jnp.max(abs(evals)),
+                           lambda: 1 / jnp.sqrt(evals[idx]),
                            lambda: 0.0)
         
         M = M.at[idx, idx].set(val)
@@ -31,7 +31,7 @@ def symmetric_orthogonalization(S, cutoff = 1.0e-12):
     
     sqrtm = jax.lax.fori_loop(0, evals.shape[0], loop_evals, jnp.zeros(S.shape))
 
-    A = jnp.dot(evecs, jnp.dot(sqrtm, jnp.transpose(evecs)))
+    A = evecs @ sqrtm @ evecs.T
     return A
 
 def cholesky_orthogonalization(S):
