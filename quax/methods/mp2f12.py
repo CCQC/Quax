@@ -14,42 +14,34 @@ from .mp2 import restricted_mp2
 def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, options, cabs_set, deriv_order=0):
     nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
-    E_mp2, C_obs, eps = restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
+    E_mp2, C_obs, eps = restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order, return_aux_data=True)
+    eps_occ, eps_vir = eps[:ndocc], eps[ndocc:]
 
     print("Running MP2-F12 Computation...")
     C_cabs = build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options)
 
     nobs = C_obs.shape[0]
-    nri = C_cabs.shape[0]
-	
-    o, v, p, c, A = slice(0, ndocc), slice(ndocc, nobs), slice(0, nobs), slice(nobs, nri), slice(0, nri)
-
-    eps_occ, eps_vir = eps[o], eps[v]
+    nri = C_obs.shape[0] + C_cabs.shape[1]
 
     # Fock
-    h = form_h(geom, basis_set, cabs_set, C_obs, C_cabs, nobs, nri, xyz_path, deriv_order, options)
-    G = form_G(geom, basis_set, cabs_set, C_obs, C_cabs, nobs, nri, xyz_path, deriv_order, options)
-    f, fk, k = form_Fock(h, (G[A, o, A, o], G[A, o, o, A]))
+    f, fk, k = form_Fock(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
     # V Intermediate
-    FG = form_FG(geom, basis_set, C_obs, ndocc, xyz_path, deriv_order, options)
-    F = form_F(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
-    V = form_V(FG, (F[o, o, o, c], F[o, o, p, p]), (G[o, o, o, c], G[o, o, p, p]))
+    V = form_V(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
     # X Intermediate
-    F2 = form_F2(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
-    X = form_X(F2[o, o, o, o], (F[o, o, o, c], F[o, o, p, p]))
+    X = form_X(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
     # C Intermediate
-    C = form_C(F[o, o, v, c], f[v, c])
+    C = form_C(geom, basis_set, cabs_set, f[ndocc:nobs, nobs:], C_obs, C_cabs, ndocc, nobs, xyz_path, deriv_order, options)
 
     # B Intermediate
-    Uf = form_Uf(geom, basis_set, C_obs, ndocc, xyz_path, deriv_order, options)
-    B = form_B(Uf, F2, (F, F[o, o, o, A], F[o, o, c, o], F[o, o, v, p], F[o, o, c, A], F[o, o, v, c]),\
-               (f, f[o, o], f[p, p], f[A, o], f[p, c]), fk[o, A], k)
+    B = form_B(geom, basis_set, cabs_set, f, k, fk[:ndocc, :], C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
-    D = -1.0 * jnp.reciprocal(eps_occ.reshape(-1, 1, 1, 1) + eps_occ.reshape(-1, 1, 1) - eps_vir.reshape(-1, 1) - eps_vir)
-    Dv = slice(0, nobs - ndocc)
+    D = -1.0 / (eps_occ.reshape(-1, 1, 1, 1) + eps_occ.reshape(-1, 1, 1) - eps_vir.reshape(-1, 1) - eps_vir)
+
+    G = two_body_mo_computer(geom, "eri", basis_set, basis_set, basis_set, basis_set,\
+                             C_obs, C_obs, C_obs, C_obs, xyz_path, deriv_order, options)
     
     # indices = jnp.asarray(jnp.triu_indices(ndocc)).reshape(2,-1).T
 
@@ -61,20 +53,19 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
         for j in range(i, ndocc):
             kd = jax.lax.cond(i == j, lambda: 1.0, lambda: 2.0)
 
-            D_ij = D[i, j, Dv, Dv]
+            D_ij = D[i, j, :, :]
 
-            V_ij = V[i, j, o, o]
-            GD_ij = G[i, j, v, v] * D_ij
-            V_ij -= jnp.tensordot(C, GD_ij, [(2, 3), (0, 1)])
+            GD_ij = G[i, j, ndocc:, ndocc:] * D_ij
+            V_ij = V[i, j, :, :] - jnp.tensordot(C, GD_ij, [(2, 3), (0, 1)])
 
             V_s = 0.25 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd * (V_ij[i, j] + V_ij[j, i])
 
             V_t = 0.25 * jax.lax.cond(i != j, lambda: (t_(i, j, i, j) - t_(i, j, j, i))
                                                    * kd * (V_ij[i, j] - V_ij[j, i]), lambda: 0.0)
 
-            B_ij = B - (X * (f[i, i] + f[j, j]))
             CD_ij = jnp.einsum('mnab,ab->mnab', C, D_ij, optimize='optimal')
-            B_ij -= jnp.tensordot(C, CD_ij, [(2, 3), (2, 3)])
+            B_ij = B - (X * (f[i, i] + f[j, j])) - jnp.tensordot(C, CD_ij, [(2, 3), (2, 3)])
+
             B_s = 0.125 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd \
                          * (B_ij[i, j, i, j] + B_ij[j, i, i, j]) \
                          * (t_(i, j, i, j) + t_(i, j, j, i)) * kd
@@ -84,8 +75,13 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
                                                      * (t_(i, j, i, j) - t_(i, j, j, i)) * kd,
                                                      lambda: 0.0)
 
-            dE_mp2f12 += kd * (2.0 * V_s + B_s)         # Singlet Pair Energy
-            dE_mp2f12 += 3.0 * kd * (2.0 * V_t + B_t)   # Triplet Pair Energy
+            E_s = kd * (2.0 * V_s + B_s)         # Singlet Pair Energy
+            E_t = 3.0 * kd * (2.0 * V_t + B_t)   # Triplet Pair Energy
+
+            # print(E_s)
+            # print(E_t)
+
+            dE_mp2f12 += E_s + E_t
 
     #     return f12_corr
 
@@ -113,11 +109,11 @@ def one_body_mo_computer(geom, bs1, bs2, C1, C2, xyz_path, deriv_order, options)
     """
     T, V = compute_f12_oeints(geom, bs1, bs2, xyz_path, deriv_order, options, False)
     AO = T + V
-    MO = jnp.dot(C1.T, jnp.dot(AO, C2))
+    MO = C1.T @ AO @ C2
     return MO
 
 def form_h(geom, basis_set, cabs_set, C_obs, C_cabs, nobs, nri, xyz_path, deriv_order, options):
-    tv = jnp.empty((nri, nri))
+    tv = jnp.zeros((nri, nri))
 
     mo1 = one_body_mo_computer(geom, basis_set, basis_set, C_obs, C_obs, xyz_path, deriv_order, options)
     tv = tv.at[:nobs, :nobs].set(mo1) # <O|O>
@@ -140,35 +136,64 @@ def two_body_mo_computer(geom, int_type, bs1, bs2, bs3, bs4, C1, C2, C3, C4, xyz
     and then transforms to MOs
     """
     AO = compute_f12_teints(geom, bs1, bs3, bs2, bs4, int_type, xyz_path, deriv_order, options)
-    AO = jnp.transpose(AO, (0,2,1,3))
-    MO = partial_tei_transformation(AO, C1, C2, C3, C4)
+    MO = partial_tei_transformation(AO, C1, C3, C2, C4)
+    MO = jnp.swapaxes(MO, 1, 2)
     return MO
 
-def form_G(geom, basis_set, cabs_set, C_obs, C_cabs, nobs, nri, xyz_path, deriv_order, options):
-    eri = jnp.empty((nri, nobs, nri, nri))
+def form_J(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):
+    eri = jnp.zeros((nri, ndocc, nri, ndocc))
+    C_occ = C_obs.at[:, :ndocc].get()
 
     mo1 = two_body_mo_computer(geom, "eri", basis_set, basis_set, basis_set, basis_set,\
-                              C_obs, C_obs, C_obs, C_obs, xyz_path, deriv_order, options)
-    eri = eri.at[:nobs, :nobs, :nobs, :nobs].set(mo1) # <OO|OO>
+                               C_obs, C_occ, C_obs, C_occ, xyz_path, deriv_order, options)
+    eri = eri.at[:nobs, :, :nobs, :].set(mo1) # <Oo|Oo>
 
     mo2 = two_body_mo_computer(geom, "eri", cabs_set, basis_set, basis_set, basis_set,\
-                              C_cabs, C_obs, C_obs, C_obs, xyz_path, deriv_order, options)
-    eri = eri.at[nobs:nri, :nobs, :nobs, :nobs].set(mo2) # <CO|OO>
-    eri = eri.at[:nobs, :nobs, nobs:nri, :nobs].set(jnp.transpose(mo2, (2,3,0,1))) # <OO|CO>
-    eri = eri.at[:nobs, :nobs, :nobs, nobs:nri].set(jnp.transpose(mo2, (3,2,1,0))) # <OO|OC>
+                              C_cabs, C_occ, C_obs, C_occ, xyz_path, deriv_order, options)
+    eri = eri.at[nobs:nri, :, :nobs, :].set(mo2) # <Co|Oo>
+    eri = eri.at[:nobs, :, nobs:nri, :].set(jnp.transpose(mo2, (2,3,0,1))) # <Oo|Co>
+
+    mo3 = two_body_mo_computer(geom, "eri", cabs_set, basis_set, cabs_set, basis_set,\
+                              C_cabs, C_occ, C_cabs, C_occ, xyz_path, deriv_order, options)
+    eri = eri.at[nobs:nri, :, nobs:nri, :].set(mo3) # <Co|Co>
+
+    return eri
+
+def form_K(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):
+    eri = jnp.empty((nri, ndocc, ndocc, nri))
+    C_occ = C_obs.at[:, :ndocc].get()
+
+    mo1 = two_body_mo_computer(geom, "eri", basis_set, basis_set, basis_set, basis_set,\
+                              C_obs, C_occ, C_occ, C_obs, xyz_path, deriv_order, options)
+    eri = eri.at[:nobs, :, :, :nobs].set(mo1) # <Oo|oO>
+
+    mo2 = two_body_mo_computer(geom, "eri", cabs_set, basis_set, basis_set, basis_set,\
+                              C_cabs, C_occ, C_occ, C_obs, xyz_path, deriv_order, options)
+    eri = eri.at[nobs:nri, :, :, :nobs].set(mo2) # <Co|oO>
+    eri = eri.at[:nobs, :, :, nobs:nri].set(jnp.transpose(mo2, (3,2,1,0))) # <Oo|oC>
 
     mo3 = two_body_mo_computer(geom, "eri", cabs_set, basis_set, basis_set, cabs_set,\
-                              C_cabs, C_obs, C_obs, C_cabs, xyz_path, deriv_order, options)
-    eri = eri.at[nobs:nri, :nobs, :nobs, nobs:nri].set(mo3) # <CO|OC>
+                              C_cabs, C_occ, C_occ, C_cabs, xyz_path, deriv_order, options)
+    eri = eri.at[nobs:nri, :, :, nobs:nri].set(mo3) # <Co|oC>
 
-    mo4 = two_body_mo_computer(geom, "eri", cabs_set, basis_set, cabs_set, basis_set,\
-                              C_cabs, C_obs, C_cabs, C_obs, xyz_path, deriv_order, options)
-    eri = eri.at[nobs:nri, :nobs, nobs:nri, :nobs].set(mo4) # <CO|CO>
+    return eri
+
+def form_ooO1(geom, int_type, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):
+    eri = jnp.zeros((ndocc, ndocc, nobs, nri))
+    C_occ = C_obs.at[:, :ndocc].get()
+
+    mo1 = two_body_mo_computer(geom, int_type, basis_set, basis_set, basis_set, basis_set,\
+                              C_occ, C_occ, C_obs, C_obs, xyz_path, deriv_order, options)
+    eri = eri.at[:, :, :, :nobs].set(mo1) # <oo|OO>
+
+    mo2 = two_body_mo_computer(geom, int_type, basis_set, basis_set, basis_set, cabs_set,\
+                               C_occ, C_occ, C_obs, C_cabs, xyz_path, deriv_order, options)
+    eri = eri.at[:, :, :, nobs:].set(mo2) # <oo|OC>
 
     return eri
 
 def form_F(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):
-    f12 = jnp.empty((ndocc, ndocc, nri, nri))
+    f12 = jnp.zeros((ndocc, ndocc, nri, nri))
     C_occ = C_obs.at[:, :ndocc].get()
 
     mo1 = two_body_mo_computer(geom, "f12", basis_set, basis_set, basis_set, basis_set,\
@@ -187,7 +212,7 @@ def form_F(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path,
     return f12
 
 def form_F2(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):
-    f12_squared = jnp.empty((ndocc, ndocc, ndocc, nri))
+    f12_squared = jnp.zeros((ndocc, ndocc, ndocc, nri))
     C_occ = C_obs.at[:, :ndocc].get()
 
     mo1 = two_body_mo_computer(geom, "f12_squared", basis_set, basis_set, basis_set, basis_set,\
@@ -200,68 +225,68 @@ def form_F2(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path
 
     return f12_squared
 
-def form_FG(geom, basis_set, C_obs, ndocc, xyz_path, deriv_order, options):
-    C_occ = C_obs.at[:, :ndocc].get()
-
-    f12g12 = two_body_mo_computer(geom, "f12g12", basis_set, basis_set, basis_set, basis_set,\
-                                  C_occ, C_occ, C_occ, C_occ, xyz_path, deriv_order, options)
-    return f12g12
-
-def form_Uf(geom, basis_set, C_obs, ndocc, xyz_path, deriv_order, options):
-    C_occ = C_obs.at[:, :ndocc].get()
-
-    f12_double_commutator = two_body_mo_computer(geom, "f12_double_commutator",\
-                                    basis_set, basis_set, basis_set, basis_set,\
-                                    C_occ, C_occ, C_occ, C_occ, xyz_path, deriv_order, options)
-    return f12_double_commutator
-
 # Fock
-def form_Fock(h, Fock_G):
+def form_Fock(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):
 
-    G_1o1o, G_1oo1 = Fock_G
+    h = form_h(geom, basis_set, cabs_set, C_obs, C_cabs, nobs, nri, xyz_path, deriv_order, options)
+    J = form_J(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
+    K = form_K(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
     
     # Fock Matrix without Exchange
-    fk = h + 2.0 * jnp.einsum('piqi->pq', G_1o1o, optimize='optimal')
+    fk = h + (2.0 * jnp.einsum('piqi->pq', J, optimize='optimal'))
 
     # Exchange
-    k =  jnp.einsum('piiq->pq', G_1oo1, optimize='optimal')
+    k =  jnp.einsum('piiq->pq', K, optimize='optimal')
 
     f = fk - k
 
     return f, fk, k
 
 # F12 Intermediates
-def form_V(FG, VX_F, V_G):
+def form_V(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):
+    C_occ = C_obs.at[:, :ndocc].get()
     
-    G_oooc, G_oopq = V_G
-    F_oooc, F_oopq = VX_F
+    FG = two_body_mo_computer(geom, "f12g12", basis_set, basis_set, basis_set, basis_set,\
+                              C_occ, C_occ, C_occ, C_occ, xyz_path, deriv_order, options)
+    G = form_ooO1(geom, "eri", basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
+    F = form_ooO1(geom, "f12", basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
-    ijkl_1 = jnp.tensordot(G_oooc, F_oooc, [(2, 3), (2, 3)])
+    ijkl_1 = jnp.tensordot(G[:, :, :ndocc, nobs:], F[:, :, :ndocc, nobs:], [(2, 3), (2, 3)])
     ijkl_2 = jnp.transpose(ijkl_1, (1,0,3,2))
-    ijkl_3 = jnp.tensordot(G_oopq, F_oopq, [(2, 3), (2, 3)])
+    ijkl_3 = jnp.tensordot(G[:, :, :nobs, :nobs], F[:, :, :nobs, :nobs], [(2, 3), (2, 3)])
 
     return FG - ijkl_1 - ijkl_2 - ijkl_3
 
-def form_X(F2_oooo, VX_F):
+def form_X(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):
+    C_occ = C_obs.at[:, :ndocc].get()
     
-    F_oooc, F_oopq = VX_F
+    F2 = two_body_mo_computer(geom, "f12_squared", basis_set, basis_set, basis_set, basis_set,\
+                              C_occ, C_occ, C_occ, C_occ, xyz_path, deriv_order, options)
+    F = form_ooO1(geom, "f12", basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
-    ijkl_1 = jnp.tensordot(F_oooc, F_oooc, [(2, 3), (2, 3)])
+    ijkl_1 = jnp.tensordot(F[:, :, :ndocc, nobs:], F[:, :, :ndocc, nobs:], [(2, 3), (2, 3)])
     ijkl_2 = jnp.transpose(ijkl_1, (1,0,3,2))
-    ijkl_3 = jnp.tensordot(F_oopq, F_oopq, [(2, 3), (2, 3)])
+    ijkl_3 = jnp.tensordot(F[:, :, :nobs, :nobs], F[:, :, :nobs, :nobs], [(2, 3), (2, 3)])
 
-    return F2_oooo - ijkl_1 - ijkl_2 - ijkl_3
+    return F2 - ijkl_1 - ijkl_2 - ijkl_3
 
-def form_C(F_oovc, f_vc):
+def form_C(geom, basis_set, cabs_set, f_vc, C_obs, C_cabs, ndocc, nobs, xyz_path, deriv_order, options):
+    C_occ = C_obs.at[:, :ndocc].get()
 
-    klab = jnp.tensordot(F_oovc, f_vc, [(3), (1)])
+    F = two_body_mo_computer(geom, "f12", basis_set, basis_set, basis_set, cabs_set,\
+                              C_occ, C_occ, C_obs, C_cabs, xyz_path, deriv_order, options)
+
+    klab = jnp.tensordot(F[:, :, ndocc:nobs, :], f_vc, [(3), (1)])
 
     return klab + jnp.transpose(klab, (1,0,3,2))
 
-def form_B(Uf, F2, B_F, B_f, fk_o1, k):
-
-    F, F_ooo1, F_ooco, F_oovq, F_ooc1, F_oovc = B_F
-    f, f_oo, f_pq, f_1o, f_pc = B_f
+def form_B(geom, basis_set, cabs_set, f, k, fk_o1, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):
+    C_occ = C_obs.at[:, :ndocc].get()
+    
+    Uf = two_body_mo_computer(geom, "f12_double_commutator", basis_set, basis_set, basis_set, basis_set,\
+                              C_occ, C_occ, C_occ, C_occ, xyz_path, deriv_order, options)
+    F2 = form_F2(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
+    F = form_F(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
     # Term 2
     terms = jnp.tensordot(F2, fk_o1, [(3), (1)])
@@ -270,20 +295,24 @@ def form_B(Uf, F2, B_F, B_f, fk_o1, k):
     terms -= jnp.tensordot(jnp.tensordot(F, k, [(3), (0)]), F, [(2, 3), (2, 3)])
 
     # Term 4
-    terms -= jnp.tensordot(jnp.tensordot(F_ooo1, f, [(3), (0)]), F_ooo1, [(2, 3), (2, 3)])
+    terms -= jnp.tensordot(jnp.tensordot(F[:, :, :ndocc, :], f, [(3), (0)]), \
+                           F[:, :, :ndocc, :], [(2, 3), (2, 3)])
 
     # Term 5
-    terms += jnp.tensordot(jnp.tensordot(F_ooco, f_oo, [(3), (0)]), F_ooco, [(2, 3), (2, 3)])
+    terms += jnp.tensordot(jnp.tensordot(F[:, :, nobs:, :ndocc], f[:ndocc, :ndocc], [(3), (0)]), \
+                           F[:, :, nobs:, :ndocc], [(2, 3), (2, 3)])
 
     # Term 6
-    terms -= jnp.tensordot(jnp.tensordot(F_oovq, f_pq, [(3), (0)]), F_oovq, [(2, 3), (2, 3)])
+    terms -= jnp.tensordot(jnp.tensordot(F[:, :, ndocc:nobs, :nobs], f[:nobs, :nobs], [(3), (0)]), \
+                           F[:, :, ndocc:nobs, :nobs], [(2, 3), (2, 3)])
 
     # Term 7
-    terms -= 2.0 * jnp.tensordot(jnp.tensordot(F_ooc1, f_1o, [(3), (0)]), F_ooco, [(2, 3), (2, 3)])
+    terms -= 2.0 * jnp.tensordot(jnp.tensordot(F[:, :, nobs:, :], f[:, :ndocc], [(3), (0)]), \
+                                 F[:, :, nobs:, :ndocc], [(2, 3), (2, 3)])
 
     # Term 8
-    terms -= 2.0 * jnp.tensordot(jnp.tensordot(F_oovq, f_pc, [(3), (0)]), F_oovc, [(2, 3), (2, 3)])
-
+    terms -= 2.0 * jnp.tensordot(jnp.tensordot(F[:, :, ndocc:nobs, :nobs], f[:nobs, nobs:], [(3), (0)]), \
+                                 F[:, :, ndocc:nobs, nobs:], [(2, 3), (2, 3)])
 
     B_nosymm = Uf + terms + jnp.transpose(terms, (1,0,3,2))
 
