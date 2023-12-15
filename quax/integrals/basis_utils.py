@@ -52,14 +52,15 @@ def build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options):
     CTC = C_ribs.T @ S22 @ C_ribs
     S2, V = jnp.linalg.eigh(CTC)
 
-    def loop_zero_vals(idx, count):
-        count += jax.lax.cond(abs(S2[idx]) < 1.0e-6, lambda: 1, lambda: 0)
-        return count
-    ncabs = jax.lax.fori_loop(0, S2.shape[0], loop_zero_vals, 0)
+    ### PROBLEM CHILD ###
 
-    V_N = V.at[:, :ncabs].get()
+    ncabs = jnp.where(S2 < 1.0e-6, True, False)
+
+    V_N = V[:, ncabs]
 
     C_cabs = jnp.dot(C_ribs, V_N)
+
+    ### PROBLEM CHILD ###
 
     psi4.set_num_threads(threads)
 

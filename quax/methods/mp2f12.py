@@ -20,6 +20,12 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
     print("Running MP2-F12 Computation...")
     C_cabs = build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options)
 
+    # S_ao = compute_f12_oeints(geom, cabs_set, cabs_set, xyz_path, deriv_order, options, True)
+    # test = C_cabs.T @ S_ao @ C_cabs
+    # print(test)
+
+    # return jnp.array([0, 0])
+
     nobs = C_obs.shape[0]
     nri = C_obs.shape[0] + C_cabs.shape[1]
 
@@ -33,7 +39,7 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
     X = form_X(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
     # C Intermediate
-    C = form_C(geom, basis_set, cabs_set, f[ndocc:nobs, nobs:], C_obs, C_cabs, ndocc, nobs, xyz_path, deriv_order, options)
+    C = form_C(geom, basis_set, cabs_set, f[nobs:, ndocc:nobs], C_obs, C_cabs, ndocc, nobs, xyz_path, deriv_order, options)
 
     # B Intermediate
     B = form_B(geom, basis_set, cabs_set, f, k, fk[:ndocc, :], C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
@@ -55,8 +61,8 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
 
             D_ij = D[i, j, :, :]
 
-            GD_ij = G[i, j, ndocc:, ndocc:] * D_ij
-            V_ij = V[i, j, :, :] - jnp.tensordot(C, GD_ij, [(2, 3), (0, 1)])
+            GD_ij = jnp.einsum('ab,ab->ab', G[i, j, ndocc:, ndocc:], D_ij, optimize='optimal')
+            V_ij = V[i, j, :, :] - jnp.einsum('klab,ab->kl', C, GD_ij, optimize='optimal')
 
             V_s = 0.25 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd * (V_ij[i, j] + V_ij[j, i])
 
@@ -64,7 +70,7 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
                                                    * kd * (V_ij[i, j] - V_ij[j, i]), lambda: 0.0)
 
             CD_ij = jnp.einsum('mnab,ab->mnab', C, D_ij, optimize='optimal')
-            B_ij = B - (X * (f[i, i] + f[j, j])) - jnp.tensordot(C, CD_ij, [(2, 3), (2, 3)])
+            B_ij = B - (X * (f[i, i] + f[j, j])) - jnp.einsum('klab,mnab->klmn', C, CD_ij, optimize='optimal')
 
             B_s = 0.125 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd \
                          * (B_ij[i, j, i, j] + B_ij[j, i, i, j]) \
@@ -132,8 +138,8 @@ def two_body_mo_computer(geom, int_type, bs1, bs2, bs3, bs4, C1, C2, C3, C4, xyz
     """
     General two-body MO computer
     that computes the AOs in chem notation,
-    returns them in phys notation,
-    and then transforms to MOs
+    then transforms to MOs,
+    and returns the MOs in phys notation
     """
     AO = compute_f12_teints(geom, bs1, bs3, bs2, bs4, int_type, xyz_path, deriv_order, options)
     MO = partial_tei_transformation(AO, C1, C3, C2, C4)
@@ -228,12 +234,12 @@ def form_F2(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path
 # Fock
 def form_Fock(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):
 
-    h = form_h(geom, basis_set, cabs_set, C_obs, C_cabs, nobs, nri, xyz_path, deriv_order, options)
+    fk = form_h(geom, basis_set, cabs_set, C_obs, C_cabs, nobs, nri, xyz_path, deriv_order, options)
     J = form_J(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
     K = form_K(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
     
     # Fock Matrix without Exchange
-    fk = h + (2.0 * jnp.einsum('piqi->pq', J, optimize='optimal'))
+    fk += 2.0 * jnp.einsum('piqi->pq', J, optimize='optimal')
 
     # Exchange
     k =  jnp.einsum('piiq->pq', K, optimize='optimal')
@@ -241,6 +247,22 @@ def form_Fock(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_pa
     f = fk - k
 
     return f, fk, k
+
+# CABS Singles
+def cabs_singles(f, ndocc, nri):
+    all_vir = nri - ndocc
+
+    e_ij, C_ij = jnp.linalg.eigh(f[:ndocc, :ndocc])
+    e_AB, C_AB = jnp.linalg.eigh(f[ndocc:, ndocc:])
+
+    f_iA = C_ij @ f[:ndocc, ndocc:] @ C_AB.T
+
+    E_s = 0.0
+    for A in range(all_vir):
+        for i in range(ndocc):
+            E_s += (2 * f_iA[i, A] ** 2) / (e_ij[i] - e_AB[A])
+
+    return E_s
 
 # F12 Intermediates
 def form_V(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):
@@ -251,9 +273,9 @@ def form_V(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path,
     G = form_ooO1(geom, "eri", basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
     F = form_ooO1(geom, "f12", basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
-    ijkl_1 = jnp.tensordot(G[:, :, :ndocc, nobs:], F[:, :, :ndocc, nobs:], [(2, 3), (2, 3)])
-    ijkl_2 = jnp.transpose(ijkl_1, (1,0,3,2))
-    ijkl_3 = jnp.tensordot(G[:, :, :nobs, :nobs], F[:, :, :nobs, :nobs], [(2, 3), (2, 3)])
+    ijkl_1 = jnp.einsum('ijmy,klmy->ijkl', G[:, :, :ndocc, nobs:], F[:, :, :ndocc, nobs:], optimize='optimal')
+    ijkl_2 = jnp.transpose(ijkl_1, (1,0,3,2)) # ijxn,klxn->ijkl
+    ijkl_3 = jnp.einsum('ijrs,klrs->ijkl', G[:, :, :nobs, :nobs], F[:, :, :nobs, :nobs], optimize='optimal')
 
     return FG - ijkl_1 - ijkl_2 - ijkl_3
 
@@ -264,19 +286,19 @@ def form_X(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path,
                               C_occ, C_occ, C_occ, C_occ, xyz_path, deriv_order, options)
     F = form_ooO1(geom, "f12", basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
-    ijkl_1 = jnp.tensordot(F[:, :, :ndocc, nobs:], F[:, :, :ndocc, nobs:], [(2, 3), (2, 3)])
-    ijkl_2 = jnp.transpose(ijkl_1, (1,0,3,2))
-    ijkl_3 = jnp.tensordot(F[:, :, :nobs, :nobs], F[:, :, :nobs, :nobs], [(2, 3), (2, 3)])
+    ijkl_1 = jnp.einsum('ijmy,klmy->ijkl', F[:, :, :ndocc, nobs:], F[:, :, :ndocc, nobs:], optimize='optimal')
+    ijkl_2 = jnp.transpose(ijkl_1, (1,0,3,2)) # ijxn,klxn->ijkl
+    ijkl_3 = jnp.einsum('ijrs,klrs->ijkl', F[:, :, :nobs, :nobs], F[:, :, :nobs, :nobs], optimize='optimal')
 
     return F2 - ijkl_1 - ijkl_2 - ijkl_3
 
-def form_C(geom, basis_set, cabs_set, f_vc, C_obs, C_cabs, ndocc, nobs, xyz_path, deriv_order, options):
+def form_C(geom, basis_set, cabs_set, f_cv, C_obs, C_cabs, ndocc, nobs, xyz_path, deriv_order, options):
     C_occ = C_obs.at[:, :ndocc].get()
 
     F = two_body_mo_computer(geom, "f12", basis_set, basis_set, basis_set, cabs_set,\
                               C_occ, C_occ, C_obs, C_cabs, xyz_path, deriv_order, options)
 
-    klab = jnp.tensordot(F[:, :, ndocc:nobs, :], f_vc, [(3), (1)])
+    klab = jnp.einsum('klax,xb->klab', F[:, :, ndocc:nobs, :], f_cv, optimize='optimal')
 
     return klab + jnp.transpose(klab, (1,0,3,2))
 
@@ -289,31 +311,30 @@ def form_B(geom, basis_set, cabs_set, f, k, fk_o1, C_obs, C_cabs, ndocc, nobs, n
     F = form_F(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options)
 
     # Term 2
-    terms = jnp.tensordot(F2, fk_o1, [(3), (1)])
+    terms = jnp.einsum('nmlP,kP->nmlk', F2, fk_o1)
 
     # Term 3
-    terms -= jnp.tensordot(jnp.tensordot(F, k, [(3), (0)]), F, [(2, 3), (2, 3)])
+    terms -= jnp.einsum('nmQP,PR,lkQR->nmlk', F, k, F, optimize='optimal')
 
     # Term 4
-    terms -= jnp.tensordot(jnp.tensordot(F[:, :, :ndocc, :], f, [(3), (0)]), \
-                           F[:, :, :ndocc, :], [(2, 3), (2, 3)])
+    terms -= jnp.einsum('nmjP,PR,lkjR->nmlk', F[:, :, :ndocc, :], f, F[:, :, :ndocc, :], optimize='optimal')
 
     # Term 5
-    terms += jnp.tensordot(jnp.tensordot(F[:, :, nobs:, :ndocc], f[:ndocc, :ndocc], [(3), (0)]), \
-                           F[:, :, nobs:, :ndocc], [(2, 3), (2, 3)])
+    terms += jnp.einsum('nmyi,ij,lkyj->nmlk', F[:, :, nobs:, :ndocc], f[:ndocc, :ndocc],\
+                                              F[:, :, nobs:, :ndocc], optimize='optimal')
 
     # Term 6
-    terms -= jnp.tensordot(jnp.tensordot(F[:, :, ndocc:nobs, :nobs], f[:nobs, :nobs], [(3), (0)]), \
-                           F[:, :, ndocc:nobs, :nobs], [(2, 3), (2, 3)])
+    terms -= jnp.einsum('nmbp,pr,lkbr->nmlk', F[:, :, ndocc:nobs, :nobs], f[:nobs, :nobs],\
+                                              F[:, :, ndocc:nobs, :nobs], optimize='optimal')
 
     # Term 7
-    terms -= 2.0 * jnp.tensordot(jnp.tensordot(F[:, :, nobs:, :], f[:, :ndocc], [(3), (0)]), \
-                                 F[:, :, nobs:, :ndocc], [(2, 3), (2, 3)])
+    terms -= 2.0 * jnp.einsum('nmyi,iP,lkyP->nmlk', F[:, :, nobs:, :], f[:, :ndocc],\
+                                                    F[:, :, nobs:, :ndocc], optimize='optimal')
 
     # Term 8
-    terms -= 2.0 * jnp.tensordot(jnp.tensordot(F[:, :, ndocc:nobs, :nobs], f[:nobs, nobs:], [(3), (0)]), \
-                                 F[:, :, ndocc:nobs, nobs:], [(2, 3), (2, 3)])
+    terms -= 2.0 * jnp.einsum('nmbx,xq,lkbq->nmlk', F[:, :, ndocc:nobs, :nobs], f[:nobs, nobs:],\
+                                                    F[:, :, ndocc:nobs, nobs:], optimize='optimal')
 
-    B_nosymm = Uf + terms + jnp.transpose(terms, (1,0,3,2))
+    B_nosymm = Uf + terms + jnp.transpose(terms, (1,0,3,2)) # nmlk->mnkl
 
-    return 0.5 * (B_nosymm + jnp.transpose(B_nosymm, (2,3,0,1)))
+    return 0.5 * (B_nosymm + jnp.transpose(B_nosymm, (2,3,0,1))) # mnkl + klmn
