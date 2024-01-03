@@ -20,7 +20,7 @@ class OEI(object):
         nbf1 = basis1.nbf()
         nbf2 = basis2.nbf()
 
-        if 'core' in mode and max_deriv_order > 0:
+        if mode == 'core' and max_deriv_order > 0:
             # A list of OEI derivative tensors, containing only unique elements
             # corresponding to upper hypertriangle (since derivative tensors are symmetric)
             # Length of tuple is maximum deriv order, each array is (upper triangle derivatives,nbf,nbf)
@@ -109,10 +109,13 @@ class OEI(object):
         deriv_order = np.sum(deriv_vec)
         idx = get_deriv_vec_idx(deriv_vec)
 
-        if 'core' in self.mode:
+        if self.mode == 'core':
             S = self.overlap_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(S)
-        elif 'disk' in self.mode:
+        if self.mode == 'f12':
+            S = libint_interface.overlap_deriv(deriv_vec)
+            return jnp.asarray(S).reshape(self.nbf1,self.nbf2)
+        elif self.mode == 'disk':
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
                 dataset_name = "overlap_deriv" + str(deriv_order)
@@ -136,10 +139,13 @@ class OEI(object):
         deriv_order = np.sum(deriv_vec)
         idx = get_deriv_vec_idx(deriv_vec)
 
-        if 'core' in self.mode:
+        if self.mode == 'core':
             T = self.kinetic_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(T)
-        elif 'disk' in self.mode:
+        if self.mode == 'f12':
+            T = libint_interface.kinetic_deriv(deriv_vec)
+            return jnp.asarray(T).reshape(self.nbf1,self.nbf2)
+        elif self.mode == 'disk':
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
                 dataset_name = "kinetic_deriv" + str(deriv_order)
@@ -163,10 +169,13 @@ class OEI(object):
         deriv_order = np.sum(deriv_vec)
         idx = get_deriv_vec_idx(deriv_vec)
 
-        if 'core' in self.mode:
+        if self.mode == 'core':
             V = self.potential_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(V)
-        elif 'disk' in self.mode:
+        if self.mode == 'f12':
+            V = libint_interface.potential_deriv(deriv_vec)
+            return jnp.asarray(V).reshape(self.nbf1,self.nbf2)
+        elif self.mode == 'disk':
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
                 dataset_name = "potential_deriv" + str(deriv_order)
@@ -223,12 +232,13 @@ class OEI(object):
 
     # Define Batching rules, this is only needed since jax.jacfwd will call vmap on the JVP's
     # of each oei function
+    # When the input argument of deriv_batch is batched along the 0'th axis
+    # we want to evaluate every 2d slice, gather up a (ncart, n,n) array,
+    # (expand dims at 0 and concatenate at 0)
+    # and then return the results, indicating the out batch axis
+    # is in the 0th position (return results, 0)
+
     def overlap_deriv_batch(self, batched_args, batch_dims):
-        # When the input argument of deriv_batch is batched along the 0'th axis
-        # we want to evaluate every 2d slice, gather up a (ncart, n,n) array,
-        # (expand dims at 0 and concatenate at 0)
-        # and then return the results, indicating the out batch axis
-        # is in the 0th position (return results, 0)
         geom_batch, deriv_batch = batched_args
         geom_dim, deriv_dim = batch_dims
         results = []

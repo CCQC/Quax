@@ -21,15 +21,7 @@ def symmetric_orthogonalization(S, cutoff = 1.0e-12):
     """
     evals, evecs = jnp.linalg.eigh(S)
 
-    def loop_evals(idx, M):
-        val = jax.lax.cond(abs(evals[idx]) > cutoff * jnp.max(abs(evals)),
-                           lambda: 1 / jnp.sqrt(evals[idx]),
-                           lambda: 0.0)
-        
-        M = M.at[idx, idx].set(val)
-        return M
-    
-    sqrtm = jax.lax.fori_loop(0, evals.shape[0], loop_evals, jnp.zeros(S.shape))
+    sqrtm = jnp.diag(jnp.where(abs(evals) > cutoff, 1 / jnp.sqrt(abs(evals)), 0.0))
 
     A = evecs @ sqrtm @ evecs.T
     return A

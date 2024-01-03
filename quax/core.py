@@ -8,7 +8,7 @@ import numpy as np
 import os
 import h5py
 
-from .integrals.basis_utils import build_RIBS
+from .methods.basis_utils import build_RIBS
 from .methods.hartree_fock import restricted_hartree_fock
 from .methods.mp2 import restricted_mp2
 from .methods.mp2f12 import restricted_mp2_f12

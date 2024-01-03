@@ -3447,10 +3447,10 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("f12_double_commutator_deriv_disk", &f12_double_commutator_deriv_disk, "Computes gradient norm of contracted Gaussian-type geminal integral nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
     m.def("oei_deriv_core", &oei_deriv_core, "Computes a single OEI integral derivative tensor, in memory.");
     m.def("eri_deriv_core", &eri_deriv_core, "Computes a single coulomb integral nuclear derivative tensor, in memory.");
-    m.def("f12_deriv_core", &f12_deriv_core, "Computes a single contracted Gaussian-type geminal integral nuclear derivative tensor, in memory.");
-    m.def("f12_squared_deriv_core", &f12_squared_deriv_core, "Computes a single sqaured contracted Gaussian-type geminal integral nuclear derivative tensor, in memory.");
-    m.def("f12g12_deriv_core", &f12g12_deriv_core, "Computes a single contracted Gaussian-type geminal times Coulomb repulsion integral nuclear derivative tensor, in memory.");
-    m.def("f12_double_commutator_deriv_core", &f12_double_commutator_deriv_core, "Computes a single gradient norm of contracted Gaussian-type geminal integral nuclear derivative tensor, in memory.");
+    //m.def("f12_partial_deriv_core", &f12_deriv_core, "Computes a single contracted Gaussian-type geminal integral nuclear derivative tensor, in memory.");
+    //m.def("f12_squared_partial_deriv_core", &f12_squared_deriv_core, "Computes a single sqaured contracted Gaussian-type geminal integral nuclear derivative tensor, in memory.");
+    //m.def("f12g12_partial_deriv_core", &f12g12_deriv_core, "Computes a single contracted Gaussian-type geminal times Coulomb repulsion integral nuclear derivative tensor, in memory.");
+    //m.def("f12_double_commutator_partial_deriv_core", &f12_double_commutator_deriv_core, "Computes a single gradient norm of contracted Gaussian-type geminal integral nuclear derivative tensor, in memory.");
     //TODO partial derivative impl's
     //m.def("eri_partial_deriv_disk", &eri_partial_deriv_disk, "Computes a subset of the full coulomb integral nuclear derivative tensor and writes them to disk with HDF5");
      m.attr("LIBINT2_MAX_DERIV_ORDER") = LIBINT2_MAX_DERIV_ORDER;

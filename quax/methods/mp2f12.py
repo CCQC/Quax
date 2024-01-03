@@ -6,9 +6,9 @@ import psi4
 import sys
 jnp.set_printoptions(threshold=sys.maxsize, linewidth=100)
 
-from ..integrals.basis_utils import build_CABS
+from .basis_utils import build_CABS
 from .ints import compute_f12_oeints, compute_f12_teints
-from .energy_utils import partial_tei_transformation
+from .energy_utils import partial_tei_transformation, cartesian_product
 from .mp2 import restricted_mp2
 
 def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, options, cabs_set, deriv_order=0):
@@ -49,53 +49,44 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
     G = two_body_mo_computer(geom, "eri", basis_set, basis_set, basis_set, basis_set,\
                              C_obs, C_obs, C_obs, C_obs, xyz_path, deriv_order, options)
     
-    # indices = jnp.asarray(jnp.triu_indices(ndocc)).reshape(2,-1).T
+    indices = jnp.asarray(jnp.triu_indices(ndocc)).reshape(2,-1).T
 
-    # def loop_energy(idx, f12_corr):
-        # i, j = indices[idx]
-    
-    dE_mp2f12 = 0.0
-    for i in range(ndocc):
-        for j in range(i, ndocc):
-            kd = jax.lax.cond(i == j, lambda: 1.0, lambda: 2.0)
+    def loop_energy(idx, f12_corr):
+        i, j = indices[idx]
+        kd = jax.lax.cond(i == j, lambda: 1.0, lambda: 2.0)
 
-            D_ij = D[i, j, :, :]
+        D_ij = D[i, j, :, :]
 
-            GD_ij = jnp.einsum('ab,ab->ab', G[i, j, ndocc:, ndocc:], D_ij, optimize='optimal')
-            V_ij = V[i, j, :, :] - jnp.einsum('klab,ab->kl', C, GD_ij, optimize='optimal')
+        GD_ij = jnp.einsum('ab,ab->ab', G[i, j, ndocc:, ndocc:], D_ij, optimize='optimal')
+        V_ij = V[i, j, :, :] - jnp.einsum('klab,ab->kl', C, GD_ij, optimize='optimal')
 
-            V_s = 0.25 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd * (V_ij[i, j] + V_ij[j, i])
+        V_s = 0.25 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd * (V_ij[i, j] + V_ij[j, i])
 
-            V_t = 0.25 * jax.lax.cond(i != j, lambda: (t_(i, j, i, j) - t_(i, j, j, i))
-                                                   * kd * (V_ij[i, j] - V_ij[j, i]), lambda: 0.0)
+        V_t = 0.25 * jax.lax.cond(i != j, lambda: (t_(i, j, i, j) - t_(i, j, j, i))
+                                               * kd * (V_ij[i, j] - V_ij[j, i]), lambda: 0.0)
 
-            CD_ij = jnp.einsum('mnab,ab->mnab', C, D_ij, optimize='optimal')
-            B_ij = B - (X * (f[i, i] + f[j, j])) - jnp.einsum('klab,mnab->klmn', C, CD_ij, optimize='optimal')
+        CD_ij = jnp.einsum('mnab,ab->mnab', C, D_ij, optimize='optimal')
+        B_ij = B - (X * (f[i, i] + f[j, j])) - jnp.einsum('klab,mnab->klmn', C, CD_ij, optimize='optimal')
 
-            B_s = 0.125 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd \
-                         * (B_ij[i, j, i, j] + B_ij[j, i, i, j]) \
-                         * (t_(i, j, i, j) + t_(i, j, j, i)) * kd
+        B_s = 0.125 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd \
+                     * (B_ij[i, j, i, j] + B_ij[j, i, i, j]) \
+                     * (t_(i, j, i, j) + t_(i, j, j, i)) * kd
 
-            B_t = 0.125 * jax.lax.cond(i != j, lambda: (t_(i, j, i, j) - t_(i, j, j, i)) * kd
-                                                     * (B_ij[i, j, i, j] - B_ij[j, i, i, j])
-                                                     * (t_(i, j, i, j) - t_(i, j, j, i)) * kd,
-                                                     lambda: 0.0)
+        B_t = 0.125 * jax.lax.cond(i != j, lambda: (t_(i, j, i, j) - t_(i, j, j, i)) * kd
+                                                 * (B_ij[i, j, i, j] - B_ij[j, i, i, j])
+                                                 * (t_(i, j, i, j) - t_(i, j, j, i)) * kd,
+                                                 lambda: 0.0)
 
-            E_s = kd * (2.0 * V_s + B_s)         # Singlet Pair Energy
-            E_t = 3.0 * kd * (2.0 * V_t + B_t)   # Triplet Pair Energy
+        f12_corr += kd * (2.0 * V_s + B_s)         # Singlet Pair Energy
+        f12_corr += 3.0 * kd * (2.0 * V_t + B_t)   # Triplet Pair Energy
 
-            # print(E_s)
-            # print(E_t)
+        return f12_corr
 
-            dE_mp2f12 += E_s + E_t
+    dE_mp2f12 = fori_loop(0, indices.shape[0], loop_energy, 0.0)
 
-    #     return f12_corr
+    E_s = cabs_singles(f, ndocc, nri)
 
-    # dE_mp2f12 = fori_loop(0, indices.shape[0], loop_energy, 0.0)
-
-    jax.debug.print("OG: {e}", e=dE_mp2f12)
-
-    return dE_mp2f12
+    return E_mp2 + dE_mp2f12 + E_s
 
 # Fixed Amplitude Ansatz
 @jax.jit
@@ -255,12 +246,15 @@ def cabs_singles(f, ndocc, nri):
     e_ij, C_ij = jnp.linalg.eigh(f[:ndocc, :ndocc])
     e_AB, C_AB = jnp.linalg.eigh(f[ndocc:, ndocc:])
 
-    f_iA = C_ij @ f[:ndocc, ndocc:] @ C_AB.T
+    f_iA = C_ij.T @ f[:ndocc, ndocc:] @ C_AB
 
-    E_s = 0.0
-    for A in range(all_vir):
-        for i in range(ndocc):
-            E_s += (2 * f_iA[i, A] ** 2) / (e_ij[i] - e_AB[A])
+    indices = cartesian_product(jnp.arange(ndocc), jnp.arange(all_vir))
+    
+    def loop_singles(idx, singles):
+        i, A = indices[idx]
+        singles += 2 * f_iA[i, A]**2 / (e_ij[i] - e_AB[A])
+        return singles
+    E_s = fori_loop(0, indices.shape[0], loop_singles, 0.0)
 
     return E_s
 

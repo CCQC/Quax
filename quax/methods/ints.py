@@ -78,7 +78,7 @@ def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options, cab
 
         else:
             # Precompute OEI derivatives
-            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'core')
+            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'f12')
             # Compute integrals
             S = oei_obj.overlap(geom)
         
@@ -102,7 +102,7 @@ def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options, cab
 
         else:
             # Precompute OEI derivatives
-            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'core')
+            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'f12')
             # Compute integrals
             T = oei_obj.kinetic(geom)
             V = oei_obj.potential(geom)
@@ -158,7 +158,7 @@ def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path,
 
     else:
         # Precompute TEI derivatives
-        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, options, 'core')
+        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, options, 'f12')
         # Compute integrals
         match int_type:
             case "f12":

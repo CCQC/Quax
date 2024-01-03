@@ -22,7 +22,7 @@ class TEI(object):
         nbf3 = basis3.nbf()
         nbf4 = basis4.nbf()
 
-        if 'core' in mode and max_deriv_order > 0:
+        if mode == 'core' and max_deriv_order > 0:
             # A list of ERI derivative tensors, containing only unique elements
             # corresponding to upper hypertriangle (since derivative tensors are symmetric)
             # Length of tuple is maximum deriv order, each array is (upper triangle derivatives,nbf,nbf,nbf,nbf)
@@ -145,12 +145,16 @@ class TEI(object):
         idx = get_deriv_vec_idx(deriv_vec)
 
         # Use eri derivatives in memory
-        if 'core' in self.mode:
+        if self.mode == 'core':
             G = self.eri_derivatives[deriv_order-1][idx,:,:,:,:]
             return jnp.asarray(G)
 
+        if self.mode == 'f12':
+            G = libint_interface.eri_deriv(deriv_vec)
+            return jnp.asarray(G).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
+
         # Read from disk
-        elif 'disk' in self.mode:
+        elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
             if os.path.exists("eri_derivs.h5"):
                 file_name = "eri_derivs.h5"
@@ -178,12 +182,12 @@ class TEI(object):
         idx = get_deriv_vec_idx(deriv_vec)
 
         # Use f12 derivatives in memory
-        if 'core' in self.mode:
+        if self.mode == 'f12':
             F = libint_interface.f12_deriv(beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
-        elif 'disk' in self.mode:
+        elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
             if os.path.exists("f12_derivs.h5"):
                 file_name = "f12_derivs.h5"
@@ -211,12 +215,12 @@ class TEI(object):
         idx = get_deriv_vec_idx(deriv_vec)
 
         # Use f12 squared derivatives in memory
-        if 'core' in self.mode:
+        if self.mode == 'f12':
             F = libint_interface.f12_squared_deriv(beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
-        elif 'disk' in self.mode:
+        elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
             if os.path.exists("f12_squared_derivs.h5"):
                 file_name = "f12_squared_derivs.h5"
@@ -244,12 +248,12 @@ class TEI(object):
         idx = get_deriv_vec_idx(deriv_vec)
 
         # Use f12g12 derivatives in memory
-        if 'core' in self.mode:
+        if self.mode == 'f12':
             F = libint_interface.f12g12_deriv(beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
-        elif 'disk' in self.mode:
+        elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
             if os.path.exists("f12g12_derivs.h5"):
                 file_name = "f12g12_derivs.h5"
@@ -277,12 +281,12 @@ class TEI(object):
         idx = get_deriv_vec_idx(deriv_vec)
 
         # Use f12 double commutator derivatives in memory
-        if 'core' in self.mode:
+        if self.mode == 'f12':
             F = libint_interface.f12_double_commutator_deriv(beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
-        elif 'disk' in self.mode:
+        elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
             if os.path.exists("f12_double_commutator_derivs.h5"):
                 file_name = "f12_double_commutator_derivs.h5"
@@ -307,6 +311,8 @@ class TEI(object):
     # Create Jacobian-vector product rule, which given some input args (primals)
     # and a tangent std basis vector (tangent), returns the function evaluated at that point (primals_out)
     # and the slice of the Jacobian (tangents_out)
+    # For high-order differentiation, we add the current value of deriv_vec to the incoming tangent vector
+
     def eri_jvp(self, primals, tangents):
         geom, = primals
         primals_out = self.eri(geom)
@@ -316,8 +322,6 @@ class TEI(object):
     def eri_deriv_jvp(self, primals, tangents):
         geom, deriv_vec = primals
         primals_out = self.eri_deriv(geom, deriv_vec)
-        # Here we add the current value of deriv_vec to the incoming tangent vector,
-        # so that nested higher order differentiation works
         tangents_out = self.eri_deriv(geom, deriv_vec + tangents[0])
         return primals_out, tangents_out
 
@@ -330,8 +334,6 @@ class TEI(object):
     def f12_deriv_jvp(self, primals, tangents):
         geom, beta, deriv_vec = primals
         primals_out = self.f12_deriv(geom, beta, deriv_vec)
-        # Here we add the current value of deriv_vec to the incoming tangent vector,
-        # so that nested higher order differentiation works
         tangents_out = self.f12_deriv(geom, beta, deriv_vec + tangents[0])
         return primals_out, tangents_out
 
@@ -344,8 +346,6 @@ class TEI(object):
     def f12_squared_deriv_jvp(self, primals, tangents):
         geom, beta, deriv_vec = primals
         primals_out = self.f12_squared_deriv(geom, beta, deriv_vec)
-        # Here we add the current value of deriv_vec to the incoming tangent vector,
-        # so that nested higher order differentiation works
         tangents_out = self.f12_squared_deriv(geom, beta, deriv_vec + tangents[0])
         return primals_out, tangents_out
 
@@ -358,8 +358,6 @@ class TEI(object):
     def f12g12_deriv_jvp(self, primals, tangents):
         geom, beta, deriv_vec = primals
         primals_out = self.f12g12_deriv(geom, beta, deriv_vec)
-        # Here we add the current value of deriv_vec to the incoming tangent vector,
-        # so that nested higher order differentiation works
         tangents_out = self.f12g12_deriv(geom, beta, deriv_vec + tangents[0])
         return primals_out, tangents_out
 
@@ -372,18 +370,17 @@ class TEI(object):
     def f12_double_commutator_deriv_jvp(self, primals, tangents):
         geom, beta, deriv_vec = primals
         primals_out = self.f12_double_commutator_deriv(geom, beta, deriv_vec)
-        # Here we add the current value of deriv_vec to the incoming tangent vector,
-        # so that nested higher order differentiation works
         tangents_out = self.f12_double_commutator_deriv(geom, beta, deriv_vec + tangents[0])
         return primals_out, tangents_out
 
     # Define Batching rules, this is only needed since jax.jacfwd will call vmap on the JVP of tei
+    # When the input argument of deriv_batch is batched along the 0'th axis
+    # we want to evaluate every 4d slice, gather up a (ncart, n,n,n,n) array,
+    # (expand dims at 0 and concatenate at 0)
+    # and then return the results, indicating the out batch axis
+    # is in the 0th position (return results, 0)
+
     def eri_deriv_batch(self, batched_args, batch_dims):
-        # When the input argument of deriv_batch is batched along the 0'th axis
-        # we want to evaluate every 4d slice, gather up a (ncart, n,n,n,n) array,
-        # (expand dims at 0 and concatenate at 0)
-        # and then return the results, indicating the out batch axis
-        # is in the 0th position (return results, 0)
         geom_batch, deriv_batch = batched_args
         geom_dim, deriv_dim = batch_dims
         results = []
@@ -394,11 +391,6 @@ class TEI(object):
         return results, 0
     
     def f12_deriv_batch(self, batched_args, batch_dims):
-        # When the input argument of deriv_batch is batched along the 0'th axis
-        # we want to evaluate every 4d slice, gather up a (ncart, n,n,n,n) array,
-        # (expand dims at 0 and concatenate at 0)
-        # and then return the results, indicating the out batch axis
-        # is in the 0th position (return results, 0)
         geom_batch, beta_batch, deriv_batch = batched_args
         geom_dim, beta_dim, deriv_dim = batch_dims
         results = []
@@ -409,11 +401,6 @@ class TEI(object):
         return results, 0
 
     def f12_squared_deriv_batch(self, batched_args, batch_dims):
-        # When the input argument of deriv_batch is batched along the 0'th axis
-        # we want to evaluate every 4d slice, gather up a (ncart, n,n,n,n) array,
-        # (expand dims at 0 and concatenate at 0)
-        # and then return the results, indicating the out batch axis
-        # is in the 0th position (return results, 0)
         geom_batch, beta_batch, deriv_batch = batched_args
         geom_dim, beta_dim, deriv_dim = batch_dims
         results = []
@@ -424,11 +411,6 @@ class TEI(object):
         return results, 0
 
     def f12g12_deriv_batch(self, batched_args, batch_dims):
-        # When the input argument of deriv_batch is batched along the 0'th axis
-        # we want to evaluate every 4d slice, gather up a (ncart, n,n,n,n) array,
-        # (expand dims at 0 and concatenate at 0)
-        # and then return the results, indicating the out batch axis
-        # is in the 0th position (return results, 0)
         geom_batch, beta_batch, deriv_batch = batched_args
         geom_dim, beta_dim, deriv_dim = batch_dims
         results = []
@@ -439,11 +421,6 @@ class TEI(object):
         return results, 0
 
     def f12_double_commutator_deriv_batch(self, batched_args, batch_dims):
-        # When the input argument of deriv_batch is batched along the 0'th axis
-        # we want to evaluate every 4d slice, gather up a (ncart, n,n,n,n) array,
-        # (expand dims at 0 and concatenate at 0)
-        # and then return the results, indicating the out batch axis
-        # is in the 0th position (return results, 0)
         geom_batch, beta_batch, deriv_batch = batched_args
         geom_dim, beta_dim, deriv_dim = batch_dims
         results = []
