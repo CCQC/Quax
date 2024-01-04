@@ -65,6 +65,7 @@ def build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options):
 def F_ij(s, m):
     """
     Code from https://github.com/williamberman/svd-derivative/blob/main/svd-derivative.ipynb
+    Can be numerically unstable if singular values are degenerate
     """
 
     F_ij = lambda i, j: jax.lax.cond(i == j, lambda: 0., lambda: 1 / (s[j]**2 - s[i]**2))
@@ -106,7 +107,7 @@ def svd_full_jvp(primals, tangents):
 
     dD1 = F * (S1 @ dP1 + dP1.T @ S1)
 
-    dD2 = jnp.linalg.inv(S1) @ dP[:, m:]
+    dD2 = jnp.linalg.inv(S1) @ dP[:, m:] # Can be numerically unstable due to inversion
 
     dD3 = jnp.zeros((n-m, n-m))
 

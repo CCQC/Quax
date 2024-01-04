@@ -3,19 +3,20 @@ import setuptools
 if __name__ == "__main__":
     setuptools.setup(
         name='quax',
-        version="0.1.1",
+        version="0.2.0a1",
         description='Arbitrary order derivatives of electronic structure computations.',
-        author='Adam Abbott',
-        author_email='adabbott@uga.edu',
+        author='Adam Abbott, Erica Mitchell',
+        author_email='adabbott@uga.edu, emitchell@uga.edu',
         url="none",
         license='BSD-3C',
         packages=setuptools.find_packages(where="quax"),
         package_dir={"": "quax"},
         install_requires=[
-            'numpy>=1.7',
-            'jax>=0.2.9',
-            'jaxlib>=0.1.61',
+            'numpy>=1.23',
+            'jax>=0.4.19',
+            'jaxlib>=0.4.19',
             'h5py>=2.8.0'
+            'scipy>=1.9'
         ],
         extras_require={
             'tests': [
