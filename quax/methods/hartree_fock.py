@@ -1,7 +1,6 @@
 import jax 
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
-import numpy as np
 import psi4
 
 from .ints import compute_integrals
@@ -36,7 +35,7 @@ def restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, 
     if spectral_shift:
         # Shifting eigenspectrum requires lower convergence.
         convergence = 1e-8 
-        fudge = jnp.asarray(np.linspace(0, 1, nbf)) * convergence
+        fudge = jnp.asarray(jnp.linspace(0, 1, nbf)) * convergence
         shift = jnp.diag(fudge)
     else:
         shift = jnp.zeros_like(S)

@@ -2,6 +2,7 @@ import psi4
 import jax
 import jax.numpy as jnp
 from jax.lax import fori_loop
+import functools
 
 from .ints import compute_f12_oeints
 from .energy_utils import symmetric_orthogonalization
@@ -42,12 +43,19 @@ def build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options):
 
     # Orthogonalize combined basis set
     S_ao_ribs_ribs = compute_f12_oeints(geom, cabs_set, cabs_set, xyz_path, deriv_order, options, True)
+
+    if options['spectral_shift']:
+        convergence = 1e-8
+        fudge = jnp.asarray(jnp.linspace(0, 1, S_ao_ribs_ribs.shape[0])) * convergence
+        shift = jnp.diag(fudge)
+        S_ao_ribs_ribs += shift
+
     C_ribs = symmetric_orthogonalization(S_ao_ribs_ribs, 1.0e-8)
 
     # Compute the overlap matrix between OBS and RIBS
     S_ao_obs_ribs = compute_f12_oeints(geom, basis_set, cabs_set, xyz_path, deriv_order, options, True)
 
-    U, S, Vt = svd_full(S_ao_obs_ribs @ C_ribs)
+    _, S, Vt = svd_full(S_ao_obs_ribs @ C_ribs)
 
     def loop_zero_vals(idx, count):
         count += jax.lax.cond(abs(S[idx]) < 1.0e-6, lambda: 1, lambda: 0)
@@ -64,7 +72,6 @@ def build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options):
 
 def F_ij(s, m):
     """
-    Code from https://github.com/williamberman/svd-derivative/blob/main/svd-derivative.ipynb
     Can be numerically unstable if singular values are degenerate
     """
 
