@@ -90,17 +90,17 @@ class OEI(object):
 
     # Create primitive evaluation rules
     def overlap_impl(self, geom):
-        S = libint_interface.overlap()
+        S = libint_interface.compute_1e_int("overlap")
         S = S.reshape(self.nbf1, self.nbf2)
         return jnp.asarray(S)
 
     def kinetic_impl(self, geom):
-        T = libint_interface.kinetic()
+        T = libint_interface.compute_1e_int("kinetic")
         T = T.reshape(self.nbf1, self.nbf2)
         return jnp.asarray(T)
 
     def potential_impl(self, geom):
-        V = libint_interface.potential()
+        V = libint_interface.compute_1e_int("potential")
         V = V.reshape(self.nbf1, self.nbf2)
         return jnp.asarray(V)
 
@@ -113,15 +113,17 @@ class OEI(object):
             S = self.overlap_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(S)
         if self.mode == 'f12':
-            S = libint_interface.overlap_deriv(deriv_vec)
+            S = libint_interface.compute_1e_deriv("overlap", deriv_vec)
             return jnp.asarray(S).reshape(self.nbf1,self.nbf2)
         elif self.mode == 'disk':
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
-                dataset_name = "overlap_deriv" + str(deriv_order)
+                dataset_name = "overlap_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
             elif os.path.exists("oei_partials.h5"):
                 file_name = "oei_partials.h5"
-                dataset_name = "overlap_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset_name = "overlap_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
             else:
                 raise Exception("Something went wrong reading integral derivative file")
             with h5py.File(file_name, 'r') as f:
@@ -143,15 +145,17 @@ class OEI(object):
             T = self.kinetic_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(T)
         if self.mode == 'f12':
-            T = libint_interface.kinetic_deriv(deriv_vec)
+            T = libint_interface.compute_1e_deriv("kinetic", deriv_vec)
             return jnp.asarray(T).reshape(self.nbf1,self.nbf2)
         elif self.mode == 'disk':
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
-                dataset_name = "kinetic_deriv" + str(deriv_order)
+                dataset_name = "kinetic_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
             elif os.path.exists("oei_partials.h5"):
                 file_name = "oei_partials.h5"
-                dataset_name = "kinetic_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset_name = "kinetic_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
             else:
                 raise Exception("Something went wrong reading integral derivative file")
             with h5py.File(file_name, 'r') as f:
@@ -173,15 +177,17 @@ class OEI(object):
             V = self.potential_derivatives[deriv_order-1][idx,:,:]
             return jnp.asarray(V)
         if self.mode == 'f12':
-            V = libint_interface.potential_deriv(deriv_vec)
+            V = libint_interface.compute_1e_deriv("potential", deriv_vec)
             return jnp.asarray(V).reshape(self.nbf1,self.nbf2)
         elif self.mode == 'disk':
             if os.path.exists("oei_derivs.h5"):
                 file_name = "oei_derivs.h5"
-                dataset_name = "potential_deriv" + str(deriv_order)
+                dataset_name = "potential_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
             elif os.path.exists("oei_partials.h5"):
                 file_name = "oei_partials.h5"
-                dataset_name = "potential_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset_name = "potential_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
             else:
                 raise Exception("Something went wrong reading integral derivative file")
             with h5py.File(file_name, 'r') as f:

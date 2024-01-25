@@ -115,27 +115,27 @@ class TEI(object):
 
     # Create primitive evaluation rules
     def eri_impl(self, geom):
-        G = libint_interface.eri()
+        G = libint_interface.compute_2e_int("eri", 0.)
         G = G.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(G)
 
     def f12_impl(self, geom, beta):
-        F = libint_interface.f12(beta)
+        F = libint_interface.compute_2e_int("f12", beta)
         F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
 
     def f12_squared_impl(self, geom, beta):
-        F = libint_interface.f12_squared(beta)
+        F = libint_interface.compute_2e_int("f12_squared", beta)
         F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
 
     def f12g12_impl(self, geom, beta):
-        F = libint_interface.f12g12(beta)
+        F = libint_interface.compute_2e_int("f12g12", beta)
         F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
     
     def f12_double_commutator_impl(self, geom, beta):
-        F = libint_interface.f12_double_commutator(beta)
+        F = libint_interface.compute_2e_int("f12_double_commutator", beta)
         F = F.reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
         return jnp.asarray(F)
 
@@ -150,19 +150,23 @@ class TEI(object):
             return jnp.asarray(G)
 
         if self.mode == 'f12':
-            G = libint_interface.eri_deriv(deriv_vec)
+            G = libint_interface.compute_2e_deriv("eri", 0., deriv_vec)
             return jnp.asarray(G).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
         elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
-            if os.path.exists("eri_derivs.h5"):
-                file_name = "eri_derivs.h5"
-                dataset_name = "eri_deriv" + str(deriv_order)
+            if os.path.exists("tei_derivs.h5"):
+                file_name = "tei_derivs.h5"
+                dataset_name = "eri_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                      + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
+                                      + "_deriv" + str(deriv_order)
             # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
-            elif os.path.exists("eri_partials.h5"):
-                file_name = "eri_partials.h5"
-                dataset_name = "eri_deriv" + str(deriv_order) + "_" + str(idx)
+            elif os.path.exists("tei_partials.h5"):
+                file_name = "tei_partials.h5"
+                dataset_name = "eri_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                      + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
+                                      + "_deriv" + str(deriv_order) + "_" + str(idx)
             else:
                 raise Exception("ERI derivatives not found on disk")
 
@@ -183,19 +187,23 @@ class TEI(object):
 
         # Use f12 derivatives in memory
         if self.mode == 'f12':
-            F = libint_interface.f12_deriv(beta, deriv_vec)
+            F = libint_interface.compute_2e_deriv("f12", beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
         elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
-            if os.path.exists("f12_derivs.h5"):
-                file_name = "f12_derivs.h5"
-                dataset_name = "f12_deriv" + str(deriv_order)
+            if os.path.exists("tei_derivs.h5"):
+                file_name = "tei_derivs.h5"
+                dataset_name = "f12_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                      + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
+                                      + "_deriv" + str(deriv_order)
             # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
-            elif os.path.exists("f12_partials.h5"):
-                file_name = "f12_partials.h5"
-                dataset_name = "f12_deriv" + str(deriv_order) + "_" + str(idx)
+            elif os.path.exists("tei_partials.h5"):
+                file_name = "tei_partials.h5"
+                dataset_name = "f12_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                      + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
+                                      + "_deriv" + str(deriv_order) + "_" + str(idx)
             else:
                 raise Exception("F12 derivatives not found on disk")
 
@@ -216,19 +224,23 @@ class TEI(object):
 
         # Use f12 squared derivatives in memory
         if self.mode == 'f12':
-            F = libint_interface.f12_squared_deriv(beta, deriv_vec)
+            F = libint_interface.compute_2e_deriv("f12_squared", beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
         elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
-            if os.path.exists("f12_squared_derivs.h5"):
-                file_name = "f12_squared_derivs.h5"
-                dataset_name = "f12_squared_deriv" + str(deriv_order)
+            if os.path.exists("tei_derivs.h5"):
+                file_name = "tei_derivs.h5"
+                dataset_name = "f12_squared_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                      + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
+                                      + "_deriv" + str(deriv_order)
             # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
-            elif os.path.exists("f12_squared_partials.h5"):
-                file_name = "f12_squared_partials.h5"
-                dataset_name = "f12_squared_deriv" + str(deriv_order) + "_" + str(idx)
+            elif os.path.exists("tei_partials.h5"):
+                file_name = "tei_partials.h5"
+                dataset_name = "f12_squared_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                      + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
+                                      + "_deriv" + str(deriv_order) + "_" + str(idx)
             else:
                 raise Exception("F12 Squared derivatives not found on disk")
 
@@ -249,19 +261,23 @@ class TEI(object):
 
         # Use f12g12 derivatives in memory
         if self.mode == 'f12':
-            F = libint_interface.f12g12_deriv(beta, deriv_vec)
+            F = libint_interface.compute_2e_deriv("f12g12", beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
         elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
-            if os.path.exists("f12g12_derivs.h5"):
-                file_name = "f12g12_derivs.h5"
-                dataset_name = "f12g12_deriv" + str(deriv_order)
+            if os.path.exists("tei_derivs.h5"):
+                file_name = "tei_derivs.h5"
+                dataset_name = "f12g12_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                      + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
+                                      + "_deriv" + str(deriv_order)
             # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
-            elif os.path.exists("f12g12_partials.h5"):
-                file_name = "f12g12_partials.h5"
-                dataset_name = "f12g12_deriv" + str(deriv_order) + "_" + str(idx)
+            elif os.path.exists("tei_partials.h5"):
+                file_name = "tei_partials.h5"
+                dataset_name = "f12g12_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                      + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
+                                      + "_deriv" + str(deriv_order) + "_" + str(idx)
             else:
                 raise Exception("F12G12 derivatives not found on disk")
 
@@ -282,19 +298,23 @@ class TEI(object):
 
         # Use f12 double commutator derivatives in memory
         if self.mode == 'f12':
-            F = libint_interface.f12_double_commutator_deriv(beta, deriv_vec)
+            F = libint_interface.compute_2e_deriv("f12_double_commutator", beta, deriv_vec)
             return jnp.asarray(F).reshape(self.nbf1, self.nbf2, self.nbf3, self.nbf4)
 
         # Read from disk
         elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
-            if os.path.exists("f12_double_commutator_derivs.h5"):
-                file_name = "f12_double_commutator_derivs.h5"
-                dataset_name = "f12_double_commutator_deriv" + str(deriv_order)
+            if os.path.exists("tei_derivs.h5"):
+                file_name = "tei_derivs.h5"
+                dataset_name = "f12_double_commutator_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                      + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
+                                      + "_deriv" + str(deriv_order)
             # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
-            elif os.path.exists("f12_double_commutator_partials.h5"):
-                file_name = "f12_double_commutator_partials.h5"
-                dataset_name = "f12_double_commutator_deriv" + str(deriv_order) + "_" + str(idx)
+            elif os.path.exists("tei_partials.h5"):
+                file_name = "tei_partials.h5"
+                dataset_name = "f12_double_commutator_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                      + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
+                                      + "_deriv" + str(deriv_order) + "_" + str(idx)
             else:
                 raise Exception("F12 Double Commutator derivatives not found on disk")
 

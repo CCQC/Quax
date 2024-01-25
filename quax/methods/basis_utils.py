@@ -45,7 +45,7 @@ def build_CABS(geom, basis_set, cabs_set, xyz_path, deriv_order, options):
     S_ao_ribs_ribs = compute_f12_oeints(geom, cabs_set, cabs_set, xyz_path, deriv_order, options, True)
 
     if options['spectral_shift']:
-        convergence = 1e-8
+        convergence = 1e-10
         fudge = jnp.asarray(jnp.linspace(0, 1, S_ao_ribs_ribs.shape[0])) * convergence
         shift = jnp.diag(fudge)
         S_ao_ribs_ribs += shift
@@ -74,21 +74,16 @@ def F_ij(s, m):
     """
     Can be numerically unstable if singular values are degenerate
     """
-
     F_ij = lambda i, j: jax.lax.cond(i == j, lambda: 0., lambda: 1 / (s[j]**2 - s[i]**2))
     F_fun = jax.vmap(jax.vmap(F_ij, (None, 0)), (0, None))
 
     indices = jnp.arange(m)
-    F = F_fun(indices, indices)
 
-    return F
+    return F_fun(indices, indices)
 
 @jax.custom_jvp
 def svd_full(A):
-
-    U, S, Vt = jnp.linalg.svd(A)
-
-    return U, S, Vt
+    return jnp.linalg.svd(A)
 
 @svd_full.defjvp
 def svd_full_jvp(primals, tangents):
@@ -102,7 +97,7 @@ def svd_full_jvp(primals, tangents):
 
     dP = U.T @ dA @ Vt.T
 
-    dS = jnp.fill_diagonal(jnp.zeros((m, n)), 1, inplace=False) * dP
+    dS = jnp.diagonal(dP)
 
     S1 = jnp.diag(S)
 
@@ -116,13 +111,11 @@ def svd_full_jvp(primals, tangents):
 
     dD2 = jnp.linalg.inv(S1) @ dP[:, m:] # Can be numerically unstable due to inversion
 
-    dD3 = jnp.zeros((n-m, n-m))
-
     dD_left = jnp.concatenate((dD1, dD2.T))
-    dD_right = jnp.concatenate((-dD2, dD3))
+    dD_right = jnp.concatenate((-dD2, jnp.zeros((n-m, n-m))))
 
     dD = jnp.concatenate((dD_left, dD_right), axis=1)
 
     dV = Vt.T @ dD
 
-    return (U, S, Vt), (dU, jnp.diagonal(dS), dV.T)
+    return (U, S, Vt), (dU, dS, dV.T)
