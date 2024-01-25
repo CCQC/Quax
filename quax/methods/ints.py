@@ -233,9 +233,9 @@ def check_tei_disk(int_type, basis1, basis2, basis3, basis4, deriv_order, addres
     correct_int_derivs = False
     correct_nbf1 = correct_nbf2 = correct_nbf3 = correct_nbf4 = correct_deriv_order = False
 
-    if ((os.path.exists("tei_derivs.h5"))):
+    if ((os.path.exists(int_type + "_derivs.h5"))):
         print("Found currently existing " + int_type + " integral derivatives in your working directory. Trying to use them.")
-        erifile = h5py.File('tei_derivs.h5', 'r')
+        erifile = h5py.File(int_type + '_derivs.h5', 'r')
         nbf1 = basis1.nbf()
         nbf2 = basis2.nbf()
         nbf3 = basis3.nbf()

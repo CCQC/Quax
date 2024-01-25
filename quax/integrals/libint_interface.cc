@@ -75,6 +75,25 @@ libint2::BasisSet make_ao_cabs(std::string obs_name, libint2::BasisSet cabs) {
     return cabs;
 }
 
+// Returns number of basis functions
+int nbf(std::string basis, std::string xyzfilename) {
+    libint2::initialize();
+    atoms = get_atoms(xyzfilename);
+
+    // Move harddrive load of basis and xyz to happen only once
+    libint2::BasisSet bs = libint2::BasisSet(basis, atoms);
+    bs.set_pure(false); // use cartesian gaussians
+    if (basis.find("-cabs", 10) != std::string::npos) {
+        bs = make_ao_cabs(basis, bs);
+    }
+
+    int nbf = static_cast<int>(bs.nbf());
+
+    libint2::finalize();
+
+    return nbf;
+}
+
 // Must call initialize before computing ints 
 void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
                 std::string basis3, std::string basis4) {
@@ -447,6 +466,8 @@ py::array compute_1e_deriv(std::string type, std::vector<int> deriv_vec) {
             auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
             auto n2 = bs2[s2].size();    // number of basis functions in shell 2
 
+            // If the atoms are the same we ignore it as the derivatives will be zero.
+            if (atom1 == atom2 && type != "potential") continue;
             // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
             std::vector<long> shell_atom_index_list{atom1, atom2};
 
@@ -878,12 +899,6 @@ void compute_1e_deriv_disk(std::string type, int max_deriv_order) {
 void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) { 
     std::cout << "Writing two-electron " << type << " integral derivative tensors up to order " 
                                          << max_deriv_order << " to disk...";
-    const H5std_string file_name("tei_derivs.h5");
-    H5File* file = new H5File(file_name,H5F_ACC_TRUNC);
-    double fillvalue = 0.0;
-    DSetCreatPropList plist;
-    plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
-
     // Check to make sure you are not flooding the disk.
     long total_deriv_slices = 0;
     for (int i = 1; i <= max_deriv_order; i++){
@@ -891,6 +906,13 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
     }
     double check = (nbf1 * nbf2 * nbf3 * nbf4 * total_deriv_slices * 8) * (1e-9);
     assert(check < 50 && "Total disk space required for ERI's exceeds 50 GB. Increase threshold and recompile to proceed.");
+
+    // Create H5 File and prepare to fill with 0.0's                                         
+    const H5std_string file_name(type + "_derivs.h5");
+    H5File* file = new H5File(file_name,H5F_ACC_TRUNC);
+    double fillvalue = 0.0;
+    DSetCreatPropList plist;
+    plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
 
     for (int deriv_order = 1; deriv_order <= max_deriv_order; deriv_order++){
         // Number of unique shell derivatives output by libint (number of indices in buffer)
@@ -1582,4 +1604,3 @@ PYBIND11_MODULE(libint_interface, m) {
     //m.def("compute_2e_partial_deriv_disk", &compute_2e_partial_deriv_disk, "Computes a subset of the full coulomb integral nuclear derivative tensor and writes them to disk with HDF5");
      m.attr("LIBINT2_MAX_DERIV_ORDER") = LIBINT2_MAX_DERIV_ORDER;
 }
-

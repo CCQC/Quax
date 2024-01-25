@@ -156,14 +156,14 @@ class TEI(object):
         # Read from disk
         elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
-            if os.path.exists("tei_derivs.h5"):
-                file_name = "tei_derivs.h5"
+            if os.path.exists("eri_derivs.h5"):
+                file_name = "eri_derivs.h5"
                 dataset_name = "eri_" + str(self.nbf1) + "_" + str(self.nbf2)\
                                       + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
                                       + "_deriv" + str(deriv_order)
             # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
-            elif os.path.exists("tei_partials.h5"):
-                file_name = "tei_partials.h5"
+            elif os.path.exists("eri_partials.h5"):
+                file_name = "eri_partials.h5"
                 dataset_name = "eri_" + str(self.nbf1) + "_" + str(self.nbf2)\
                                       + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
                                       + "_deriv" + str(deriv_order) + "_" + str(idx)
@@ -193,14 +193,14 @@ class TEI(object):
         # Read from disk
         elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
-            if os.path.exists("tei_derivs.h5"):
-                file_name = "tei_derivs.h5"
+            if os.path.exists("f12_derivs.h5"):
+                file_name = "f12_derivs.h5"
                 dataset_name = "f12_" + str(self.nbf1) + "_" + str(self.nbf2)\
                                       + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
                                       + "_deriv" + str(deriv_order)
             # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
-            elif os.path.exists("tei_partials.h5"):
-                file_name = "tei_partials.h5"
+            elif os.path.exists("f12_partials.h5"):
+                file_name = "f12_partials.h5"
                 dataset_name = "f12_" + str(self.nbf1) + "_" + str(self.nbf2)\
                                       + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
                                       + "_deriv" + str(deriv_order) + "_" + str(idx)
@@ -230,14 +230,14 @@ class TEI(object):
         # Read from disk
         elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
-            if os.path.exists("tei_derivs.h5"):
-                file_name = "tei_derivs.h5"
+            if os.path.exists("f12_squared_derivs.h5"):
+                file_name = "f12_squared_derivs.h5"
                 dataset_name = "f12_squared_" + str(self.nbf1) + "_" + str(self.nbf2)\
                                       + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
                                       + "_deriv" + str(deriv_order)
             # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
-            elif os.path.exists("tei_partials.h5"):
-                file_name = "tei_partials.h5"
+            elif os.path.exists("f12_squared_partials.h5"):
+                file_name = "f12_squared_partials.h5"
                 dataset_name = "f12_squared_" + str(self.nbf1) + "_" + str(self.nbf2)\
                                       + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
                                       + "_deriv" + str(deriv_order) + "_" + str(idx)
@@ -267,14 +267,14 @@ class TEI(object):
         # Read from disk
         elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
-            if os.path.exists("tei_derivs.h5"):
-                file_name = "tei_derivs.h5"
+            if os.path.exists("f12g12_derivs.h5"):
+                file_name = "f12g12_derivs.h5"
                 dataset_name = "f12g12_" + str(self.nbf1) + "_" + str(self.nbf2)\
                                       + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
                                       + "_deriv" + str(deriv_order)
             # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
-            elif os.path.exists("tei_partials.h5"):
-                file_name = "tei_partials.h5"
+            elif os.path.exists("f12g12_partials.h5"):
+                file_name = "f12g12_partials.h5"
                 dataset_name = "f12g12_" + str(self.nbf1) + "_" + str(self.nbf2)\
                                       + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
                                       + "_deriv" + str(deriv_order) + "_" + str(idx)
@@ -304,14 +304,14 @@ class TEI(object):
         # Read from disk
         elif self.mode == 'disk':
             # By default, look for full derivative tensor file with datasets named (type)_deriv(order)
-            if os.path.exists("tei_derivs.h5"):
-                file_name = "tei_derivs.h5"
+            if os.path.exists("f12_double_commutator_derivs.h5"):
+                file_name = "f12_double_commutator_derivs.h5"
                 dataset_name = "f12_double_commutator_" + str(self.nbf1) + "_" + str(self.nbf2)\
                                       + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
                                       + "_deriv" + str(deriv_order)
             # if not found, look for partial derivative tensor file with datasets named (type)_deriv(order)_(flattened_uppertri_idx)
-            elif os.path.exists("tei_partials.h5"):
-                file_name = "tei_partials.h5"
+            elif os.path.exists("f12_double_commutator_partials.h5"):
+                file_name = "f12_double_commutator_partials.h5"
                 dataset_name = "f12_double_commutator_" + str(self.nbf1) + "_" + str(self.nbf2)\
                                       + "_" + str(self.nbf3) + "_" + str(self.nbf4)\
                                       + "_deriv" + str(deriv_order) + "_" + str(idx)
