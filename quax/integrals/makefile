@@ -2,11 +2,11 @@
 # Eigen headers, Python headers, Pybind11 headers, Libint API headers libint2.h libint2.hpp, the rest of the Libint2 headers, and the library location of libint2.a,
 CC      := g++
 # Options passed to compiler, add "-fopenmp" if intending to use OpenMP
-CFLAGS  := -O3 -fPIC -fopenmp
+CFLAGS  := -O3 -fPIC -fopenmp -g
 # Libint prefix location (where /include, /include/libint2, /lib, /share are located) 
-LIBINT_PREFIX := /home/ecm23353/psi_env
+LIBINT_PREFIX := /home/vulcan/ecm23353/.conda/envs/f12
 # Conda prefix location, it is suggested to use conda to install nearly all dependencies
-CONDA_PREFIX := /home/ecm23353/psi_env
+CONDA_PREFIX := /home/vulcan/ecm23353/.conda/envs/f12
 
 I1 := $(LIBINT_PREFIX)/include
 I2 := $(LIBINT_PREFIX)/include/libint2

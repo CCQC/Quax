@@ -17,7 +17,7 @@ def compute_integrals(geom, basis_set, xyz_path, deriv_order, options):
     # Load integral algo, decides to compute integrals in memory or use disk 
     algo = options['integral_algo']
     basis_name = basis_set.name()
-    libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name)
+    libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name, options['ints_tolerance'])
 
     if algo == 'libint_disk':
         # Check disk for currently existing integral derivatives
@@ -61,7 +61,7 @@ def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options, cab
     algo = options['integral_algo']
     basis1_name = basis1.name()
     basis2_name = basis2.name()
-    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis1_name, basis2_name)
+    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis1_name, basis2_name, options['ints_tolerance'])
 
     if cabs:
         if algo == 'libint_disk':
@@ -123,7 +123,7 @@ def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path,
     basis2_name = basis2.name()
     basis3_name = basis3.name()
     basis4_name = basis4.name()
-    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis3_name, basis4_name)
+    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis3_name, basis4_name, options['ints_tolerance'])
 
     if algo == 'libint_disk':
         # Check disk for currently existing integral derivatives

@@ -29,6 +29,7 @@ std::vector<long> shell2atom_1, shell2atom_2, shell2atom_3, shell2atom_4;
 size_t max_nprim;
 int max_l;
 int nthreads = 1;
+double threshold;
 
 // Creates atom objects from xyz file path
 std::vector<libint2::Atom> get_atoms(std::string xyzfilename) 
@@ -96,11 +97,13 @@ int nbf(std::string basis, std::string xyzfilename) {
 
 // Must call initialize before computing ints 
 void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
-                std::string basis3, std::string basis4) {
+                std::string basis3, std::string basis4, double ints_tol) {
     libint2::initialize();
     atoms = get_atoms(xyzfilename);
     natom = atoms.size();
     ncart = natom * 3;
+
+    threshold = ints_tol;
 
     // Move harddrive load of basis and xyz to happen only once
     bs1 = libint2::BasisSet(basis1, atoms);
@@ -280,8 +283,71 @@ std::vector<std::vector<int>> generate_multi_index_lookup(int nparams, int deriv
     return combos;
 }
 
+// Computes non-negligible shell pair list
+std::vector<std::pair<int, int>> build_shellpairs() {
+    const auto bs1_equiv_bs2 = (bs1 == bs2);
+
+    // construct the 2-electron repulsion integrals engine
+    std::vector<libint2::Engine> engines(nthreads);
+    engines[0] = libint2::Engine(libint2::Operator::overlap, max_nprim, max_l);
+    engines[0].set_precision(0.);
+    for (size_t i = 1; i != nthreads; ++i) {
+        engines[i] = engines[0];
+    }
+
+    std::vector<std::vector<std::pair<int, int>>> threads_sp_list(nthreads);
+    double threshold_sq = threshold * threshold;
+
+    #pragma omp parallel num_threads(nthreads)
+    {
+        int thread_id = 0;
+#ifdef _OPENMP
+        thread_id = omp_get_thread_num();
+#endif
+        auto &engine = engines[thread_id];
+        const auto &buf = engine.results();
+
+        // loop over permutationally-unique set of shells
+        for (auto s1 = 0l, s12 = 0l; s1 != bs1.size(); ++s1) {
+            auto n1 = bs1[s1].size();
+
+            auto s2_max = bs1_equiv_bs2 ? s1 : bs2.size() - 1;
+            for (auto s2 = 0; s2 <= s2_max; ++s2, ++s12) {
+                if (s12 % nthreads != thread_id) continue;
+
+                auto on_same_center = (bs1[s1].O == bs2[s2].O);
+                bool significant = on_same_center;
+                if (!on_same_center) {
+                    auto n2 = bs2[s2].size();
+                    engines[thread_id].compute(bs1[s1], bs2[s2]);
+                    double normsq = std::inner_product(buf[0], buf[0] + n1 * n2, buf[0], 0.0);
+                    significant = (normsq >= threshold_sq);
+                }
+
+                if (significant) {
+                    threads_sp_list[thread_id].push_back(std::make_pair(s1, s2));
+                } else {
+                    std::cout << "Removed Set: " << s1 << " " << s2 << std::endl;
+                }
+            }
+        }
+    }  // end of compute
+
+    for (int thread = 1; thread < nthreads; ++thread) {
+        for (const auto &pair : threads_sp_list[thread]) {
+            threads_sp_list[0].push_back(pair);
+        }
+    }
+
+    return threads_sp_list[0];
+}
+
 // Compute one-electron integral
 py::array compute_1e_int(std::string type) {
+    // Shell pairs after screening
+    const auto bs1_equiv_bs2 = (bs1 == bs2);
+    auto shellpairs = build_shellpairs();
+
     // Integral engine
     std::vector<libint2::Engine> engines(nthreads);
     
@@ -303,26 +369,38 @@ py::array compute_1e_int(std::string type) {
     size_t length = nbf1 * nbf2;
     std::vector<double> result(length); // vector to store integral array
 
-#pragma omp parallel for collapse(2) num_threads(nthreads)
-    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
-        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
-            auto bf1 = shell2bf_1[s1];  // first basis function in first shell
-            auto n1 = bs1[s1].size(); // number of basis functions in first shell
-            auto bf2 = shell2bf_2[s2];  // first basis function in second shell
-            auto n2 = bs2[s2].size(); // number of basis functions in second shell
+#pragma omp parallel for num_threads(nthreads)
+    for (const auto &pair : shellpairs) {
+        int p1 = pair.first;
+        int p2 = pair.second;
 
-            size_t thread_id = 0;
+        const auto &s1 = bs1[p1];
+        const auto &s2 = bs2[p2];
+        auto n1 = bs1[p1].size(); // number of basis functions in first shell
+        auto n2 = bs2[p2].size(); // number of basis functions in first shell
+        auto bf1 = shell2bf_1[p1];  // first basis function in first shell
+        auto bf2 = shell2bf_2[p2];  // first basis function in second shell
+
+        size_t thread_id = 0;
 #ifdef _OPENMP
-            thread_id = omp_get_thread_num();
+        thread_id = omp_get_thread_num();
 #endif
-            engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
-            const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
+        engines[thread_id].compute(s1, s2); // Compute shell set
+        const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
 
-            auto ints_shellset = buf_vec[0];    // Location of the computed integrals
-            if (ints_shellset == nullptr)
-                continue;  // nullptr returned if the entire shell-set was screened out
+        auto ints_shellset = buf_vec[0];    // Location of the computed integrals
+        if (ints_shellset == nullptr)
+            continue;  // nullptr returned if the entire shell-set was screened out
 
-            // Loop over shell block, keeping a total count idx for the size of shell set
+        // Loop over shell block, keeping a total count idx for the size of shell set
+        if (bs1_equiv_bs2 && p1 != p2) {
+            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                    result[(bf1 + f1) * nbf2 + bf2 + f2] = ints_shellset[idx];
+                    result[(bf2 + f2) * nbf1 + bf1 + f1] = ints_shellset[idx];
+                }
+            }
+        } else {
             for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                 for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                     result[(bf1 + f1) * nbf2 + bf2 + f2] = ints_shellset[idx];
@@ -1324,6 +1402,10 @@ void oei_deriv_disk(int max_deriv_order) {
 
 // Computes a single 'deriv_order' derivative tensor of OEIs, keeps everything in core memory
 std::vector<py::array> oei_deriv_core(int deriv_order) {
+    // Shell pairs after screening
+    const auto bs1_equiv_bs2 = true; // Only used for HF-type integrals
+    auto shellpairs = build_shellpairs();
+
     // how many shell derivatives in the Libint buffer for overlap/kinetic integrals
     // how many shell and operator derivatives for potential integrals
     int nshell_derivs = how_many_derivs(2, deriv_order);
@@ -1357,95 +1439,109 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
     std::vector<double> T(length);
     std::vector<double> V(length);
 
-#pragma omp parallel for collapse(2) num_threads(nthreads)
-    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
-        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
-            auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
-            auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
-            auto n1 = bs1[s1].size();    // number of basis functions in shell 1
-            auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
-            auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
-            auto n2 = bs2[s2].size();    // number of basis functions in shell 2
-            std::vector<long> shell_atom_index_list{atom1, atom2};
+#pragma omp parallel for num_threads(nthreads)
+    for (const auto &pair : shellpairs) {
+        int p1 = pair.first;
+        int p2 = pair.second;
 
-            size_t thread_id = 0;
+        const auto &s1 = bs1[p1];
+        const auto &s2 = bs2[p2];
+        auto n1 = bs1[p1].size(); // number of basis functions in first shell
+        auto n2 = bs2[p2].size(); // number of basis functions in first shell
+        auto bf1 = shell2bf_1[p1];  // first basis function in first shell
+        auto bf2 = shell2bf_2[p2];  // first basis function in second shell    
+        auto atom1 = shell2atom_1[p1]; // Atom index of shell 1
+        auto atom2 = shell2atom_2[p2]; // Atom index of shell 2
+        std::vector<long> shell_atom_index_list{atom1, atom2};
+
+        size_t thread_id = 0;
 #ifdef _OPENMP
-            thread_id = omp_get_thread_num();
+        thread_id = omp_get_thread_num();
 #endif
-            s_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
-            t_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
-            v_engines[thread_id].compute(bs1[s1], bs2[s2]); // Compute shell set
-            const auto& overlap_buffer = s_engines[thread_id].results(); // will point to computed shell sets
-            const auto& kinetic_buffer = t_engines[thread_id].results(); // will point to computed shell sets
-            const auto& potential_buffer = v_engines[thread_id].results(); // will point to computed shell sets
+        s_engines[thread_id].compute(s1, s2); // Compute shell set
+        t_engines[thread_id].compute(s1, s2); // Compute shell set
+        v_engines[thread_id].compute(s1, s2); // Compute shell set
+        const auto& overlap_buffer = s_engines[thread_id].results(); // will point to computed shell sets
+        const auto& kinetic_buffer = t_engines[thread_id].results(); // will point to computed shell sets
+        const auto& potential_buffer = v_engines[thread_id].results(); // will point to computed shell sets
 
-            // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
-            // For 1st derivatives of 2 atom system, this is 6. 2nd derivatives of 2 atom system: 21, etc
-            for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
-                size_t offset_nuc_idx = nuc_idx * nbf1 * nbf2;
+        // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+        // For 1st derivatives of 2 atom system, this is 6. 2nd derivatives of 2 atom system: 21, etc
+        for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+            size_t offset_nuc_idx = nuc_idx * nbf1 * nbf2;
 
-                // Look up multidimensional cartesian derivative index
-                auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
-                // For overlap/kinetic and potential sepearately, create a vector of vectors called `indices`, where each subvector
-                // is your possible choices for the first derivative operator, second, third, etc and the total number of subvectors is order of differentiation
-                // What follows fills these indices
-                std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
-                std::vector<std::vector<int>> potential_indices(deriv_order, std::vector<int> (0,0));
+            // Look up multidimensional cartesian derivative index
+            auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+            // For overlap/kinetic and potential sepearately, create a vector of vectors called `indices`, where each subvector
+            // is your possible choices for the first derivative operator, second, third, etc and the total number of subvectors is order of differentiation
+            // What follows fills these indices
+            std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+            std::vector<std::vector<int>> potential_indices(deriv_order, std::vector<int> (0,0));
 
-                // Loop over each cartesian coordinate index which we are differentiating wrt for this nuclear cartesian derivative index
-                // and check to see if it is present in the shell duet, and where it is present in the potential operator
-                for (int j = 0; j < multi_cart_idx.size(); j++){
-                    int desired_atom_idx = multi_cart_idx[j] / 3;
-                    int desired_coord = multi_cart_idx[j] % 3;
-                    // Loop over shell indices
-                    for (int i = 0; i < 2; i++){
-                        int atom_idx = shell_atom_index_list[i];
-                        if (atom_idx == desired_atom_idx) {
-                            int tmp = 3 * i + desired_coord;
-                            indices[j].push_back(tmp);
-                            potential_indices[j].push_back(tmp);
-                        }
-                    }
-                    // Now for potentials only, loop over each atom in molecule, and if this derivative
-                    // differentiates wrt that atom, we also need to collect that index.
-                    for (int i = 0; i < natom; i++){
-                        if (i == desired_atom_idx) {
-                            int tmp = 3 * (i + 2) + desired_coord;
-                            potential_indices[j].push_back(tmp);
-                        }
+            // Loop over each cartesian coordinate index which we are differentiating wrt for this nuclear cartesian derivative index
+            // and check to see if it is present in the shell duet, and where it is present in the potential operator
+            for (int j = 0; j < multi_cart_idx.size(); j++){
+                int desired_atom_idx = multi_cart_idx[j] / 3;
+                int desired_coord = multi_cart_idx[j] % 3;
+                // Loop over shell indices
+                for (int i = 0; i < 2; i++){
+                    int atom_idx = shell_atom_index_list[i];
+                    if (atom_idx == desired_atom_idx) {
+                        int tmp = 3 * i + desired_coord;
+                        indices[j].push_back(tmp);
+                        potential_indices[j].push_back(tmp);
                     }
                 }
-
-                // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
-                // and the total number of subvectors is the order of differentiation
-                // Now we want all combinations where we pick exactly one index from each subvector.
-                // This is achievable through a cartesian product
-                std::vector<std::vector<int>> index_combos = cartesian_product(indices);
-                std::vector<std::vector<int>> potential_index_combos = cartesian_product(potential_indices);
-                std::vector<int> buffer_indices;
-                std::vector<int> potential_buffer_indices;
-                // Overlap/Kinetic integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
-                for (auto vec : index_combos)  {
-                    std::sort(vec.begin(), vec.end());
-                    int buf_idx = 0;
-                    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                    buffer_indices.push_back(buf_idx);
+                // Now for potentials only, loop over each atom in molecule, and if this derivative
+                // differentiates wrt that atom, we also need to collect that index.
+                for (int i = 0; i < natom; i++){
+                    if (i == desired_atom_idx) {
+                        int tmp = 3 * (i + 2) + desired_coord;
+                        potential_indices[j].push_back(tmp);
+                    }
                 }
-                // Potential integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
-                for (auto vec : potential_index_combos)  {
-                    std::sort(vec.begin(), vec.end());
-                    int buf_idx = 0;
-                    auto it = lower_bound(potential_buffer_multidim_lookup.begin(), potential_buffer_multidim_lookup.end(), vec);
-                    if (it != potential_buffer_multidim_lookup.end()) buf_idx = it - potential_buffer_multidim_lookup.begin();
-                    potential_buffer_indices.push_back(buf_idx);
-                }
+            }
 
-                // Loop over shell block for each buffer index which contributes to this derivative
-                // Overlap and Kinetic
-                for(auto i = 0; i < buffer_indices.size(); ++i) {
-                    auto overlap_shellset = overlap_buffer[buffer_indices[i]];
-                    auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
+            // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+            // and the total number of subvectors is the order of differentiation
+            // Now we want all combinations where we pick exactly one index from each subvector.
+            // This is achievable through a cartesian product
+            std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+            std::vector<std::vector<int>> potential_index_combos = cartesian_product(potential_indices);
+            std::vector<int> buffer_indices;
+            std::vector<int> potential_buffer_indices;
+            // Overlap/Kinetic integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+            for (auto vec : index_combos)  {
+                std::sort(vec.begin(), vec.end());
+                int buf_idx = 0;
+                auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                buffer_indices.push_back(buf_idx);
+            }
+            // Potential integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+            for (auto vec : potential_index_combos)  {
+                std::sort(vec.begin(), vec.end());
+                int buf_idx = 0;
+                auto it = lower_bound(potential_buffer_multidim_lookup.begin(), potential_buffer_multidim_lookup.end(), vec);
+                if (it != potential_buffer_multidim_lookup.end()) buf_idx = it - potential_buffer_multidim_lookup.begin();
+                potential_buffer_indices.push_back(buf_idx);
+            }
+
+            // Loop over shell block for each buffer index which contributes to this derivative
+            // Overlap and Kinetic
+            for(auto i = 0; i < buffer_indices.size(); ++i) {
+                auto overlap_shellset = overlap_buffer[buffer_indices[i]];
+                auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
+                if (bs1_equiv_bs2 && p1 != p2) {
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                            S[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] += overlap_shellset[idx];
+                            S[(bf2 + f2) * nbf1 + bf1 + f1 + offset_nuc_idx] += overlap_shellset[idx];
+                            T[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] += kinetic_shellset[idx];
+                            T[(bf2 + f2) * nbf1 + bf1 + f1 + offset_nuc_idx] += kinetic_shellset[idx];
+                        }
+                    }
+                } else {
                     for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                         for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                             S[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] += overlap_shellset[idx];
@@ -1453,17 +1549,26 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
                         }
                     }
                 }
-                // Potential
-                for(auto i = 0; i < potential_buffer_indices.size(); ++i) {
-                    auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
+            }
+            // Potential
+            for(auto i = 0; i < potential_buffer_indices.size(); ++i) {
+                auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
+                if (bs1_equiv_bs2 && p1 != p2) {
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                            V[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] += potential_shellset[idx];
+                            V[(bf2 + f2) * nbf1 + bf1 + f1 + offset_nuc_idx] += potential_shellset[idx];
+                        }
+                    }
+                } else {
                     for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                         for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
                             V[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] += potential_shellset[idx];
                         }
                     }
                 }
-            } // Unique nuclear cartesian derivative indices loop
-        }
+            }
+        } // Unique nuclear cartesian derivative indices loop
     } // shell duet loops
     return {py::array(S.size(), S.data()), py::array(T.size(), T.data()), py::array(V.size(), V.data())}; // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround
 } // oei_deriv_core function

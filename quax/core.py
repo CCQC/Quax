@@ -38,6 +38,7 @@ def check_options(options):
                        'damp_factor': 0.5,
                        'spectral_shift': True,
                        'integral_algo': 'libint_core',
+                       'ints_tolerance': 1.0e-14,
                        'beta': 1.0
                       }
 
