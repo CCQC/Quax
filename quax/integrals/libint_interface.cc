@@ -342,6 +342,76 @@ std::vector<std::pair<int, int>> build_shellpairs(libint2::BasisSet A, libint2::
     return threads_sp_list[0];
 }
 
+// Schwarz-Screening of two-electron integrals
+std::vector<std::pair<int, int>> schwarz_screening(libint2::BasisSet A, libint2::BasisSet B){
+
+    const auto A_equiv_B = (A == B);
+
+    // construct the 2-electron repulsion integrals engine
+    std::vector<libint2::Engine> engines(nthreads);
+    engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l);
+    engines[0].set_precision(0.);
+    for (size_t i = 1; i != nthreads; ++i) {
+        engines[i] = engines[0];
+    }
+
+    std::vector<double> shell_pair_values(A.size() * B.size());
+    double max_integral = 0.0;
+
+    // loop over permutationally-unique set of shells
+    #pragma omp parallel num_threads(nthreads)
+    {
+        int thread_id = 0;
+#ifdef _OPENMP
+        thread_id = omp_get_thread_num();
+#endif
+        auto &engine = engines[thread_id];
+
+        // loop over permutationally-unique set of shells
+        for (auto s1 = 0l, s12 = 0l; s1 != A.size(); ++s1) {
+            auto n1 = A[s1].size();
+
+            auto s2_max = A_equiv_B ? s1 : B.size() - 1;
+            for (auto s2 = 0; s2 <= s2_max; ++s2, ++s12) {
+                if (s12 % nthreads != thread_id) continue;
+
+                auto n2 = B[s2].size();
+
+                engines[thread_id].compute(A[s1], B[s2], A[s1], B[s2]);
+                const double *buffer = const_cast<double *>(engine.results()[0]);
+
+                double shell_max_val = 0.0;
+                for (int f1 = 0; f1 != n1; f1++) {
+                    for (int f2 = 0; f2 != n2; f2++) {
+                        shell_max_val =
+                            std::max(shell_max_val, std::fabs(buffer[f1 * (n1 * n2 * n2 + n2) + f2 * (n1 * n2 + 1)]));
+                    }
+                }
+                max_integral = std::max(max_integral, shell_max_val);
+                shell_pair_values[s1 * B.size() + s2] = shell_max_val;
+            }
+        }
+    }
+
+    double threshold_sq = threshold * threshold;
+    double threshold_sq_over_max = threshold_sq / max_integral;
+
+    std::vector<std::pair<int, int>> shell_pairs;
+
+    for (auto s1 = 0l, s12 = 0l; s1 != A.size(); ++s1) {
+        auto s2_max = A_equiv_B ? s1 : B.size() - 1;
+        for (auto s2 = 0; s2 <= s2_max; ++s2, ++s12) {
+            if (shell_pair_values[s1 * B.size() + s2] >= threshold_sq_over_max) {
+                shell_pairs.push_back(std::make_pair(s1, s2));
+            } else {
+                std::cout << "Removed: " << s1 << " " << s2 << std::endl;
+            }
+        }
+    }
+
+    return shell_pairs;
+}
+
 // Compute one-electron integral
 py::array compute_1e_int(std::string type) {
     // Shell pairs after screening
@@ -413,6 +483,13 @@ py::array compute_1e_int(std::string type) {
 
 // Computes two-electron integrals
 py::array compute_2e_int(std::string type, double beta) {
+    // Shell screening
+    const auto bs1_equiv_bs2 = (bs1 == bs2);
+    const auto bs1_equiv_bs3 = (bs1 == bs3);
+    const auto bs3_equiv_bs4 = (bs3 == bs4);
+    const auto shellpairs_bra = schwarz_screening(bs1, bs2);
+    const auto shellpairs_ket = schwarz_screening(bs3, bs4);
+
     // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++?
     // avoids last line, which copies
     std::vector<libint2::Engine> eri_engines(nthreads);
@@ -447,41 +524,113 @@ py::array compute_2e_int(std::string type, double beta) {
     size_t length = nbf1 * nbf2 * nbf3 * nbf4;
     std::vector<double> result(length);
     
-#pragma omp parallel for collapse(4) num_threads(nthreads)
-    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
-        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
-            for(auto s3=0; s3 != bs3.size(); ++s3) {
-                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
-                    auto bf1 = shell2bf_1[s1];  // first basis function in first shell
-                    auto n1 = bs1[s1].size(); // number of basis functions in first shell
-                    auto bf2 = shell2bf_2[s2];  // first basis function in second shell
-                    auto n2 = bs2[s2].size(); // number of basis functions in second shell
-                    auto bf3 = shell2bf_3[s3];  // first basis function in third shell
-                    auto n3 = bs3[s3].size(); // number of basis functions in third shell
-                    auto bf4 = shell2bf_4[s4];  // first basis function in fourth shell
-                    auto n4 = bs4[s4].size(); // number of basis functions in fourth shell
+#pragma omp parallel for num_threads(nthreads)
+    for (const auto &pair : shellpairs_bra) {
+        int p1 = pair.first;
+        int p2 = pair.second;
 
-                    int thread_id = 0;
+        const auto &s1 = bs1[p1];
+        const auto &s2 = bs2[p2];
+        auto n1 = bs1[p1].size(); // number of basis functions in first shell
+        auto n2 = bs2[p2].size(); // number of basis functions in first shell
+        auto bf1 = shell2bf_1[p1];  // first basis function in first shell
+        auto bf2 = shell2bf_2[p2];  // first basis function in second shell
+
+        for (const auto &pair : shellpairs_ket) {
+            int p3 = pair.first;
+            int p4 = pair.second;
+
+            const auto &s3 = bs1[p3];
+            const auto &s4 = bs2[p4];
+            auto n3 = bs3[p3].size(); // number of basis functions in first shell
+            auto n4 = bs4[p4].size(); // number of basis functions in first shell
+            auto bf3 = shell2bf_3[p3];  // first basis function in first shell
+            auto bf4 = shell2bf_4[p4];  // first basis function in second shell
+
+            int thread_id = 0;
 #ifdef _OPENMP
-                    thread_id = omp_get_thread_num();
+            thread_id = omp_get_thread_num();
 #endif
-                    eri_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
-                    const auto& buf_vec = eri_engines[thread_id].results(); // will point to computed shell sets
+            eri_engines[thread_id].compute(s1, s2, s3, s4); // Compute shell set
+            const auto& buf_vec = eri_engines[thread_id].results(); // will point to computed shell sets
 
-                    auto ints_shellset = buf_vec[0];    // Location of the computed integrals
-                    if (ints_shellset == nullptr)
-                        continue;  // nullptr returned if the entire shell-set was screened out
+            auto ints_shellset = buf_vec[0];    // Location of the computed integrals
+            if (ints_shellset == nullptr)
+                continue;  // nullptr returned if the entire shell-set was screened out
 
-                    // Loop over shell block, keeping a total count idx for the size of shell set
-                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                        size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
-                        for(auto f2 = 0; f2 != n2; ++f2) {
-                            size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
-                            for(auto f3 = 0; f3 != n3; ++f3) {
-                                size_t offset_3 = (bf3 + f3) * nbf4;
-                                for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
-                                    result[offset_1 + offset_2 + offset_3 + bf4 + f4] = ints_shellset[idx];
-                                }
+            std::cout << "(" << p1 << ", " << p2 << ", " << ", " << p3 << ", " << p4 << ")" << std::endl;
+
+            if (bs1_equiv_bs2 && p1 != p2 && bs3_equiv_bs4 && p3 != p4) {
+                // Loop over shell block, keeping a total count idx for the size of shell set
+                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                    size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                    size_t offset_1_T = (bf1 + f1) * nbf3 * nbf4;
+                    for(auto f2 = 0; f2 != n2; ++f2) {
+                        size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                        size_t offset_2_T = (bf2 + f2) * nbf1 * nbf3 * nbf4;
+                        for(auto f3 = 0; f3 != n3; ++f3) {
+                            size_t offset_3 = (bf3 + f3) * nbf4;
+                            size_t offset_3_T = bf3 + f3;
+                            for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                size_t offset_4 = bf4 + f4;
+                                size_t offset_4_T = (bf4 + f4) * nbf3;
+                                result[offset_1 + offset_2 + offset_3 + offset_4] = 
+                                    result[offset_1_T + offset_2_T + offset_3_T + offset_4_T] = ints_shellset[idx];
+                                std::cout << "Loop (12|34) = (21|43) : " << ints_shellset[idx] << std::endl;
+                            }
+                        }
+                    }
+                }
+            } else if (bs1_equiv_bs2 && p1 != p2) {
+                // Loop over shell block, keeping a total count idx for the size of shell set
+                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                    size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                    size_t offset_1_T = (bf1 + f1) * nbf3 * nbf4;
+                    for(auto f2 = 0; f2 != n2; ++f2) {
+                        size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                        size_t offset_2_T = (bf2 + f2) * nbf1 * nbf3 * nbf4;
+                        for(auto f3 = 0; f3 != n3; ++f3) {
+                            size_t offset_3 = (bf3 + f3) * nbf4;
+                            for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                size_t offset_4 = bf4 + f4;
+                                result[offset_1 + offset_2 + offset_3 + offset_4] =
+                                    result[offset_1_T + offset_2_T + offset_3 + offset_4] = ints_shellset[idx];
+                                std::cout << "Loop (12|34) = (21|34) : " << ints_shellset[idx] << std::endl;
+                            }
+                        }
+                    }
+                }
+            } else if (bs3_equiv_bs4 && p3 != p4) {
+                // Loop over shell block, keeping a total count idx for the size of shell set
+                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                    size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                    for(auto f2 = 0; f2 != n2; ++f2) {
+                        size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                        for(auto f3 = 0; f3 != n3; ++f3) {
+                            size_t offset_3 = (bf3 + f3) * nbf4;
+                            size_t offset_3_T = bf3 + f3;
+                            for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                size_t offset_4 = bf4 + f4;
+                                size_t offset_4_T = (bf4 + f4) * nbf3;
+                                result[offset_1 + offset_2 + offset_3 + offset_4] =
+                                    result[offset_1 + offset_2 + offset_3_T + offset_4_T] = ints_shellset[idx];
+                                std::cout << "Loop (12|34) = (12|43) : " << ints_shellset[idx] << std::endl;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Loop over shell block, keeping a total count idx for the size of shell set
+                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                    size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                    for(auto f2 = 0; f2 != n2; ++f2) {
+                        size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                        for(auto f3 = 0; f3 != n3; ++f3) {
+                            size_t offset_3 = (bf3 + f3) * nbf4;
+                            for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                size_t offset_4 = bf4 + f4;
+                                result[offset_1 + offset_2 + offset_3 + offset_4] = ints_shellset[idx];
+                                std::cout << "Loop (12|34) : " << ints_shellset[idx] << std::endl;
                             }
                         }
                     }
