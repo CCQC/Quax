@@ -365,7 +365,6 @@ std::vector<std::pair<int, int>> schwarz_screening(libint2::BasisSet A, libint2:
 #ifdef _OPENMP
         thread_id = omp_get_thread_num();
 #endif
-        auto &engine = engines[thread_id];
 
         // loop over permutationally-unique set of shells
         for (auto s1 = 0l, s12 = 0l; s1 != A.size(); ++s1) {
@@ -378,7 +377,9 @@ std::vector<std::pair<int, int>> schwarz_screening(libint2::BasisSet A, libint2:
                 auto n2 = B[s2].size();
 
                 engines[thread_id].compute(A[s1], B[s2], A[s1], B[s2]);
-                const double *buffer = const_cast<double *>(engine.results()[0]);
+                const double * buffer = const_cast<double *>(engines[thread_id].results()[0]);
+
+                if (buffer == nullptr) continue;
 
                 double shell_max_val = 0.0;
                 for (int f1 = 0; f1 != n1; f1++) {
@@ -558,8 +559,7 @@ py::array compute_2e_int(std::string type, double beta) {
             if (ints_shellset == nullptr)
                 continue;  // nullptr returned if the entire shell-set was screened out
 
-            std::cout << "(" << p1 << ", " << p2 << ", " << ", " << p3 << ", " << p4 << ")" << std::endl;
-
+            auto full = false;
             if (bs1_equiv_bs2 && p1 != p2 && bs3_equiv_bs4 && p3 != p4) {
                 // Loop over shell block, keeping a total count idx for the size of shell set
                 for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
@@ -576,12 +576,13 @@ py::array compute_2e_int(std::string type, double beta) {
                                 size_t offset_4_T = (bf4 + f4) * nbf3;
                                 result[offset_1 + offset_2 + offset_3 + offset_4] = 
                                     result[offset_1_T + offset_2_T + offset_3_T + offset_4_T] = ints_shellset[idx];
-                                std::cout << "Loop (12|34) = (21|43) : " << ints_shellset[idx] << std::endl;
                             }
                         }
                     }
                 }
-            } else if (bs1_equiv_bs2 && p1 != p2) {
+                full = true;
+            } 
+            if (bs1_equiv_bs2 && p1 != p2) {
                 // Loop over shell block, keeping a total count idx for the size of shell set
                 for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                     size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
@@ -595,12 +596,13 @@ py::array compute_2e_int(std::string type, double beta) {
                                 size_t offset_4 = bf4 + f4;
                                 result[offset_1 + offset_2 + offset_3 + offset_4] =
                                     result[offset_1_T + offset_2_T + offset_3 + offset_4] = ints_shellset[idx];
-                                std::cout << "Loop (12|34) = (21|34) : " << ints_shellset[idx] << std::endl;
                             }
                         }
                     }
                 }
-            } else if (bs3_equiv_bs4 && p3 != p4) {
+                full = true;
+            } 
+            if (bs3_equiv_bs4 && p3 != p4) {
                 // Loop over shell block, keeping a total count idx for the size of shell set
                 for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                     size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
@@ -614,12 +616,13 @@ py::array compute_2e_int(std::string type, double beta) {
                                 size_t offset_4_T = (bf4 + f4) * nbf3;
                                 result[offset_1 + offset_2 + offset_3 + offset_4] =
                                     result[offset_1 + offset_2 + offset_3_T + offset_4_T] = ints_shellset[idx];
-                                std::cout << "Loop (12|34) = (12|43) : " << ints_shellset[idx] << std::endl;
                             }
                         }
                     }
                 }
-            } else {
+                full = true;
+            } 
+            if (full == false) {
                 // Loop over shell block, keeping a total count idx for the size of shell set
                 for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                     size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
@@ -630,7 +633,6 @@ py::array compute_2e_int(std::string type, double beta) {
                             for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
                                 size_t offset_4 = bf4 + f4;
                                 result[offset_1 + offset_2 + offset_3 + offset_4] = ints_shellset[idx];
-                                std::cout << "Loop (12|34) : " << ints_shellset[idx] << std::endl;
                             }
                         }
                     }

@@ -15,7 +15,7 @@ if __name__ == "__main__":
             'numpy>=1.23',
             'jax>=0.4.19',
             'jaxlib>=0.4.19',
-            'h5py>=2.8.0'
+            'h5py>=2.8.0',
             'scipy>=1.9'
         ],
         extras_require={
