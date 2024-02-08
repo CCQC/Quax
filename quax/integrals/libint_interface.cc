@@ -797,6 +797,12 @@ py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv
     // to multidimensional shell derivative index
     const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
+    // Shell screening
+    const auto bs1_equiv_bs2 = (bs1 == bs2);
+    const auto bs3_equiv_bs4 = (bs3 == bs4);
+    const auto shellpairs_bra = schwarz_screening(bs1, bs2);
+    const auto shellpairs_ket = schwarz_screening(bs3, bs4);
+
     // ERI derivative integral engine
     std::vector<libint2::Engine> engines(nthreads);
 
@@ -831,95 +837,177 @@ py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv
     size_t length = nbf1 * nbf2 * nbf3 * nbf4;
     std::vector<double> result(length);
 
-#pragma omp parallel for collapse(4) num_threads(nthreads)
-    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
-        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
-            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
-                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
-                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
-                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
-                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
-                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
-                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
-                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
-                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
-                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
-                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
-                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
-                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
-                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+#pragma omp parallel for num_threads(nthreads)
+    for (const auto &pair : shellpairs_bra) {
+        int p1 = pair.first;
+        int p2 = pair.second;
 
-                    // If the atoms are the same we ignore it as the derivatives will be zero.
-                    if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
-                    // Ensure all desired_atoms correspond to at least one shell atom to
-                    // ensure desired derivative exists. else, skip this shell quartet.
-                    bool atoms_not_present = false;
-                    for (int i = 0; i < deriv_order; i++){
-                        if (atom1 == desired_atom_indices[i]) continue; 
-                        else if (atom2 == desired_atom_indices[i]) continue;
-                        else if (atom3 == desired_atom_indices[i]) continue;
-                        else if (atom4 == desired_atom_indices[i]) continue;
-                        else {atoms_not_present = true; break;}
+        const auto &s1 = bs1[p1];
+        const auto &s2 = bs2[p2];
+        auto n1 = bs1[p1].size(); // number of basis functions in first shell
+        auto n2 = bs2[p2].size(); // number of basis functions in first shell
+        auto bf1 = shell2bf_1[p1];  // first basis function in first shell
+        auto bf2 = shell2bf_2[p2];  // first basis function in second shell
+        auto atom1 = shell2atom_1[p1]; // Atom index of shell 1
+        auto atom2 = shell2atom_2[p2]; // Atom index of shell 2
+
+        for (const auto &pair : shellpairs_ket) {
+            int p3 = pair.first;
+            int p4 = pair.second;
+
+            const auto &s3 = bs3[p3];
+            const auto &s4 = bs4[p4];
+            auto n3 = bs3[p3].size(); // number of basis functions in first shell
+            auto n4 = bs4[p4].size(); // number of basis functions in first shell
+            auto bf3 = shell2bf_3[p3];  // first basis function in first shell
+            auto bf4 = shell2bf_4[p4];  // first basis function in second shell
+            auto atom3 = shell2atom_3[p3]; // Atom index of shell 3
+            auto atom4 = shell2atom_4[p4]; // Atom index of shell 4
+
+            // If the atoms are the same we ignore it as the derivatives will be zero.
+            if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+            // Ensure all desired_atoms correspond to at least one shell atom to
+            // ensure desired derivative exists. else, skip this shell quartet.
+            bool atoms_not_present = false;
+            for (int i = 0; i < deriv_order; i++){
+                if (atom1 == desired_atom_indices[i]) continue; 
+                else if (atom2 == desired_atom_indices[i]) continue;
+                else if (atom3 == desired_atom_indices[i]) continue;
+                else if (atom4 == desired_atom_indices[i]) continue;
+                else {atoms_not_present = true; break;}
+            }
+            if (atoms_not_present) continue;
+
+            // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
+            std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+            
+            // For every desired atom derivative, check shell indices for a match,
+            // add it to subvector for that derivative
+            // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+            std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+            for (int j = 0; j < desired_atom_indices.size(); j++){
+                int desired_atom_idx = desired_atom_indices[j];
+                // Shell indices
+                for (int i = 0; i < 4; i++){
+                    int atom_idx = shell_atom_index_list[i];
+                    if (atom_idx == desired_atom_idx) {
+                        int tmp = 3 * i + desired_coordinates[j];
+                        indices[j].push_back(tmp);
                     }
-                    if (atoms_not_present) continue;
+                }
+            }
+            
+            // Now indices is a vector of vectors, where each subvector is your choices
+            // for the first derivative operator, second, third, etc
+            // and the total number of subvectors is the order of differentiation
+            // Now we want all combinations where we pick exactly one index from each subvector.
+            // This is achievable through a cartesian product 
+            std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+            std::vector<int> buffer_indices;
 
-                    // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
-                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
-                
-                    // For every desired atom derivative, check shell indices for a match,
-                    // add it to subvector for that derivative
-                    // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
-                    std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
-                    for (int j = 0; j < desired_atom_indices.size(); j++){
-                        int desired_atom_idx = desired_atom_indices[j];
-                        // Shell indices
-                        for (int i = 0; i < 4; i++){
-                            int atom_idx = shell_atom_index_list[i];
-                            if (atom_idx == desired_atom_idx) {
-                                int tmp = 3 * i + desired_coordinates[j];
-                                indices[j].push_back(tmp);
+            // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+            for (auto vec : index_combos)  {
+                std::sort(vec.begin(), vec.end());
+                int buf_idx = 0;
+                // buffer_multidim_lookup
+                auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                buffer_indices.push_back(buf_idx);
+            }
+
+            // If we made it this far, the shell derivative we want is contained in the buffer. 
+            int thread_id = 0;
+#ifdef _OPENMP
+            thread_id = omp_get_thread_num();
+#endif
+            engines[thread_id].compute(s1, s2, s3, s4); // Compute shell set
+            const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
+            
+            auto full = false;
+            if (bs1_equiv_bs2 && p1 != p2 && bs3_equiv_bs4 && p3 != p4) {
+                for(auto i = 0; i < buffer_indices.size(); ++i) {
+                    auto ints_shellset = buf_vec[buffer_indices[i]];
+                    if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                        size_t offset_1_T = (bf1 + f1) * nbf3 * nbf4;
+                        for(auto f2 = 0; f2 != n2; ++f2) {
+                            size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                            size_t offset_2_T = (bf2 + f2) * nbf1 * nbf3 * nbf4;
+                            for(auto f3 = 0; f3 != n3; ++f3) {
+                                size_t offset_3 = (bf3 + f3) * nbf4;
+                                size_t offset_3_T = bf3 + f3;
+                                for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                    size_t offset_4 = bf4 + f4;
+                                    size_t offset_4_T = (bf4 + f4) * nbf3;
+                                    result[offset_1 + offset_2 + offset_3 + offset_4] = 
+                                        result[offset_1_T + offset_2_T + offset_3_T + offset_4_T] += ints_shellset[idx];
+                                }
                             }
                         }
                     }
-                    
-                    // Now indices is a vector of vectors, where each subvector is your choices
-                    // for the first derivative operator, second, third, etc
-                    // and the total number of subvectors is the order of differentiation
-                    // Now we want all combinations where we pick exactly one index from each subvector.
-                    // This is achievable through a cartesian product 
-                    std::vector<std::vector<int>> index_combos = cartesian_product(indices);
-                    std::vector<int> buffer_indices;
-
-                    // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                    for (auto vec : index_combos)  {
-                        std::sort(vec.begin(), vec.end());
-                        int buf_idx = 0;
-                        // buffer_multidim_lookup
-                        auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                        if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                        buffer_indices.push_back(buf_idx);
+                }
+                full = true;
+            }
+            if (bs1_equiv_bs2 && p1 != p2) {
+                for(auto i = 0; i < buffer_indices.size(); ++i) {
+                    auto ints_shellset = buf_vec[buffer_indices[i]];
+                    if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                        size_t offset_1_T = (bf1 + f1) * nbf3 * nbf4;
+                        for(auto f2 = 0; f2 != n2; ++f2) {
+                            size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                            size_t offset_2_T = (bf2 + f2) * nbf1 * nbf3 * nbf4;
+                            for(auto f3 = 0; f3 != n3; ++f3) {
+                                size_t offset_3 = (bf3 + f3) * nbf4;
+                                for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                    size_t offset_4 = bf4 + f4;
+                                    result[offset_1 + offset_2 + offset_3 + offset_4] =
+                                        result[offset_1_T + offset_2_T + offset_3 + offset_4] += ints_shellset[idx];
+                                }
+                            }
+                        }
                     }
-
-                    // If we made it this far, the shell derivative we want is contained in the buffer. 
-                    int thread_id = 0;
-#ifdef _OPENMP
-                    thread_id = omp_get_thread_num();
-#endif
-                    engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
-                    const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
-
-                    for(auto i = 0; i < buffer_indices.size(); ++i) {
-                        auto ints_shellset = buf_vec[buffer_indices[i]];
-                        if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
-                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                            size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
-                            for(auto f2 = 0; f2 != n2; ++f2) {
-                                size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
-                                for(auto f3 = 0; f3 != n3; ++f3) {
-                                    size_t offset_3 = (bf3 + f3) * nbf4;
-                                    for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
-                                        result[offset_1 + offset_2 + offset_3 + bf4 + f4] += ints_shellset[idx];
-                                    }
+                }
+                full = true;
+            }
+            if (bs3_equiv_bs4 && p3 != p4) {
+                for(auto i = 0; i < buffer_indices.size(); ++i) {
+                    auto ints_shellset = buf_vec[buffer_indices[i]];
+                    if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                    // Loop over shell block, keeping a total count idx for the size of shell set
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                        for(auto f2 = 0; f2 != n2; ++f2) {
+                            size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                            for(auto f3 = 0; f3 != n3; ++f3) {
+                                size_t offset_3 = (bf3 + f3) * nbf4;
+                                size_t offset_3_T = bf3 + f3;
+                                for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                    size_t offset_4 = bf4 + f4;
+                                    size_t offset_4_T = (bf4 + f4) * nbf3;
+                                    result[offset_1 + offset_2 + offset_3 + offset_4] =
+                                        result[offset_1 + offset_2 + offset_3_T + offset_4_T] += ints_shellset[idx];
+                                }
+                            }
+                        }
+                    }
+                }
+                full = true;
+            }
+            if (full == false) {
+                for(auto i = 0; i < buffer_indices.size(); ++i) {
+                    auto ints_shellset = buf_vec[buffer_indices[i]];
+                    if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                        for(auto f2 = 0; f2 != n2; ++f2) {
+                            size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                            for(auto f3 = 0; f3 != n3; ++f3) {
+                                size_t offset_3 = (bf3 + f3) * nbf4;
+                                for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                    result[offset_1 + offset_2 + offset_3 + bf4 + f4] += ints_shellset[idx];
                                 }
                             }
                         }
@@ -1207,13 +1295,13 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
         }
 
         // Define HDF5 dataset name
-        const H5std_string eri_dset_name(type + "_" + std::to_string(nbf1) + "_" + std::to_string(nbf2)
+        const H5std_string dset_name(type + "_" + std::to_string(nbf1) + "_" + std::to_string(nbf2)
                                          + "_" + std::to_string(nbf3) + "_" + std::to_string(nbf4)
                                          + "_deriv" + std::to_string(deriv_order));
         hsize_t file_dims[] = {nbf1, nbf2, nbf3, nbf4, nderivs_triu};
         DataSpace fspace(5, file_dims);
         // Create dataset for each integral type and write 0.0's into the file 
-        DataSet* eri_dataset = new DataSet(file->createDataSet(eri_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        DataSet* dataset = new DataSet(file->createDataSet(dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
         hsize_t stride[5] = {1, 1, 1, 1, 1}; // stride and block can be used to 
         hsize_t block[5] = {1, 1, 1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
         hsize_t zerostart[5] = {0, 0, 0, 0, 0};
@@ -1247,10 +1335,10 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
                         thread_id = omp_get_thread_num();
 #endif
                         engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
-                        const auto& eri_buffer = engines[thread_id].results(); // will point to computed shell sets
+                        const auto& buffer = engines[thread_id].results(); // will point to computed shell sets
 
                         // Define shell set slab, with extra dimension for unique derivatives, initialized with 0.0's
-                        double eri_shellset_slab [n1][n2][n3][n4][nderivs_triu] = {};
+                        double ints_shellset_slab [n1][n2][n3][n4][nderivs_triu] = {};
                         // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
                         for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
                             // Look up multidimensional cartesian derivative index
@@ -1291,13 +1379,13 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
 
                             // Loop over shell block, keeping a total count idx for the size of shell set
                             for(auto i = 0; i < buffer_indices.size(); ++i) {
-                                auto eri_shellset = eri_buffer[buffer_indices[i]];
-                                if (eri_shellset == nullptr) continue;
+                                auto ints_shellset = buffer[buffer_indices[i]];
+                                if (ints_shellset == nullptr) continue;
                                 for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                                     for(auto f2 = 0; f2 != n2; ++f2) {
                                         for(auto f3 = 0; f3 != n3; ++f3) {
                                             for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
-                                                eri_shellset_slab[f1][f2][f3][f4][nuc_idx] += eri_shellset[idx];
+                                                ints_shellset_slab[f1][f2][f3][f4][nuc_idx] += ints_shellset[idx];
                                             }
                                         }
                                     }
@@ -1318,7 +1406,7 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
                         mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
                         // Write buffer data 'shellset_slab' with data type double from
                         // memory dataspace `mspace` to file dataspace `fspace`
-                        eri_dataset->write(eri_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+                        dataset->write(ints_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
 
                         /* Release lock */
                         omp_unset_lock(&lock);
@@ -1327,7 +1415,7 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
             }
         } // shell quartet loops
         // Close the dataset for this derivative order
-        delete eri_dataset;
+        delete dataset;
     } // deriv order loop
 
     /* Finished lock mechanism, destroy it */
@@ -1824,6 +1912,10 @@ py::array eri_deriv_core(int deriv_order) {
     // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
     const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
 
+    // Shell screening
+    const auto shellpairs_bra = schwarz_screening(bs1, bs2);
+    const auto shellpairs_ket = schwarz_screening(bs3, bs4);
+
     // Libint engine for computing shell quartet derivatives
     std::vector<libint2::Engine> engines(nthreads);
     engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
@@ -1836,93 +1928,173 @@ py::array eri_deriv_core(int deriv_order) {
     size_t length = nbf1 * nbf2 * nbf3 * nbf4 * nderivs_triu;
     std::vector<double> result(length);
 
-    // Begin shell quartet loops
-#pragma omp parallel for collapse(4) num_threads(nthreads)
-    for(auto s1 = 0; s1 != bs1.size(); ++s1) {
-        for(auto s2 = 0; s2 != bs2.size(); ++s2) {
-            for(auto s3 = 0; s3 != bs3.size(); ++s3) {
-                for(auto s4 = 0; s4 != bs4.size(); ++s4) {
-                    auto bf1 = shell2bf_1[s1];     // Index of first basis function in shell 1
-                    auto atom1 = shell2atom_1[s1]; // Atom index of shell 1
-                    auto n1 = bs1[s1].size();    // number of basis functions in shell 1
-                    auto bf2 = shell2bf_2[s2];     // Index of first basis function in shell 2
-                    auto atom2 = shell2atom_2[s2]; // Atom index of shell 2
-                    auto n2 = bs2[s2].size();    // number of basis functions in shell 2
-                    auto bf3 = shell2bf_3[s3];     // Index of first basis function in shell 3
-                    auto atom3 = shell2atom_3[s3]; // Atom index of shell 3
-                    auto n3 = bs3[s3].size();    // number of basis functions in shell 3
-                    auto bf4 = shell2bf_4[s4];     // Index of first basis function in shell 4
-                    auto atom4 = shell2atom_4[s4]; // Atom index of shell 4
-                    auto n4 = bs4[s4].size();    // number of basis functions in shell 4
+#pragma omp parallel for num_threads(nthreads)
+    for (const auto &pair : shellpairs_bra) {
+        int p1 = pair.first;
+        int p2 = pair.second;
 
-                    if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
-                    std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+        const auto &s1 = bs1[p1];
+        const auto &s2 = bs2[p2];
+        auto n1 = bs1[p1].size(); // number of basis functions in first shell
+        auto n2 = bs2[p2].size(); // number of basis functions in first shell
+        auto bf1 = shell2bf_1[p1];  // first basis function in first shell
+        auto bf2 = shell2bf_2[p2];  // first basis function in second shell
+        auto atom1 = shell2atom_1[p1]; // Atom index of shell 1
+        auto atom2 = shell2atom_2[p2]; // Atom index of shell 2
 
-                    int thread_id = 0;
+        for (const auto &pair : shellpairs_ket) {
+            int p3 = pair.first;
+            int p4 = pair.second;
+
+            const auto &s3 = bs3[p3];
+            const auto &s4 = bs4[p4];
+            auto n3 = bs3[p3].size(); // number of basis functions in first shell
+            auto n4 = bs4[p4].size(); // number of basis functions in first shell
+            auto bf3 = shell2bf_3[p3];  // first basis function in first shell
+            auto bf4 = shell2bf_4[p4];  // first basis function in second shell
+            auto atom3 = shell2atom_3[p3]; // Atom index of shell 3
+            auto atom4 = shell2atom_4[p4]; // Atom index of shell 4
+
+            if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
+            std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
+
+            int thread_id = 0;
 #ifdef _OPENMP
-                    thread_id = omp_get_thread_num();
+            thread_id = omp_get_thread_num();
 #endif
-                    engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
-                    const auto& eri_buffer = engines[thread_id].results(); // will point to computed shell sets
+            engines[thread_id].compute(s1, s2, s3, s4); // Compute shell set
+            const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
 
-                    // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
-                    for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
-                        size_t offset_nuc_idx = nuc_idx * nbf1 * nbf2 * nbf3 * nbf4;
+            // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+            for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                size_t offset_nuc_idx = nuc_idx * nbf1 * nbf2 * nbf3 * nbf4;
 
-                        // Look up multidimensional cartesian derivative index
-                        auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+                // Look up multidimensional cartesian derivative index
+                auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
     
-                        // Find out which shell derivatives provided by Libint correspond to this nuclear cartesian derivative
-                        std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
-                        for (int j = 0; j < multi_cart_idx.size(); j++){
-                            int desired_atom_idx = multi_cart_idx[j] / 3;
-                            int desired_coord = multi_cart_idx[j] % 3;
-                            for (int i = 0; i < 4; i++){
-                                int atom_idx = shell_atom_index_list[i];
-                                if (atom_idx == desired_atom_idx) {
-                                    int tmp = 3 * i + desired_coord;
-                                    indices[j].push_back(tmp);
-                                }
-                            }
+                // Find out which shell derivatives provided by Libint correspond to this nuclear cartesian derivative
+                std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+                for (int j = 0; j < multi_cart_idx.size(); j++){
+                    int desired_atom_idx = multi_cart_idx[j] / 3;
+                    int desired_coord = multi_cart_idx[j] % 3;
+                    for (int i = 0; i < 4; i++){
+                        int atom_idx = shell_atom_index_list[i];
+                        if (atom_idx == desired_atom_idx) {
+                            int tmp = 3 * i + desired_coord;
+                            indices[j].push_back(tmp);
                         }
+                    }
+                }
 
-                        // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
-                        // and the total number of subvectors is the order of differentiation
-                        // Now we want all combinations where we pick exactly one index from each subvector.
-                        // This is achievable through a cartesian product 
-                        std::vector<std::vector<int>> index_combos = cartesian_product(indices);
-                        std::vector<int> buffer_indices;
-                        
-                        // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
-                        for (auto vec : index_combos)  {
-                            std::sort(vec.begin(), vec.end());
-                            int buf_idx = 0;
-                            // buffer_multidim_lookup
-                            auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
-                            if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
-                            buffer_indices.push_back(buf_idx);
-                        }
+                // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                // and the total number of subvectors is the order of differentiation
+                // Now we want all combinations where we pick exactly one index from each subvector.
+                // This is achievable through a cartesian product 
+                std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                std::vector<int> buffer_indices;
+                
+                // Binary search to find 1d buffer index from multidimensional shell derivative index in `index_combos`
+                for (auto vec : index_combos)  {
+                    std::sort(vec.begin(), vec.end());
+                    int buf_idx = 0;
+                    // buffer_multidim_lookup
+                    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                    buffer_indices.push_back(buf_idx);
+                }
 
-                        // Loop over shell block, keeping a total count idx for the size of shell set
-                        for(auto i = 0; i < buffer_indices.size(); ++i) {
-                            auto eri_shellset = eri_buffer[buffer_indices[i]];
-                            if (eri_shellset == nullptr) continue;
-                            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                                size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
-                                for(auto f2 = 0; f2 != n2; ++f2) {
-                                    size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
-                                    for(auto f3 = 0; f3 != n3; ++f3) {
-                                        size_t offset_3 = (bf3 + f3) * nbf4;
-                                        for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
-                                            result[offset_1 + offset_2 + offset_3 + bf4 + f4 + offset_nuc_idx] += eri_shellset[idx];
-                                        }
+                auto full = false;
+                if (p1 != p2 && p3 != p4) {
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
+                        auto ints_shellset = buf_vec[buffer_indices[i]];
+                        if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                            size_t offset_1_T = (bf1 + f1) * nbf3 * nbf4;
+                            for(auto f2 = 0; f2 != n2; ++f2) {
+                                size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                size_t offset_2_T = (bf2 + f2) * nbf1 * nbf3 * nbf4;
+                                for(auto f3 = 0; f3 != n3; ++f3) {
+                                    size_t offset_3 = (bf3 + f3) * nbf4;
+                                    size_t offset_3_T = bf3 + f3;
+                                    for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                        size_t offset_4 = bf4 + f4;
+                                        size_t offset_4_T = (bf4 + f4) * nbf3;
+                                        result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] = 
+                                            result[offset_1_T + offset_2_T + offset_3_T + offset_4_T  + offset_nuc_idx] += ints_shellset[idx];
                                     }
                                 }
                             }
                         }
-                    } // For every nuc_idx 0, nderivs_triu
+                    }
+                    full = true;
                 }
-            }
+                if (p1 != p2) {
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
+                        auto ints_shellset = buf_vec[buffer_indices[i]];
+                        if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                            size_t offset_1_T = (bf1 + f1) * nbf3 * nbf4;
+                            for(auto f2 = 0; f2 != n2; ++f2) {
+                                size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                size_t offset_2_T = (bf2 + f2) * nbf1 * nbf3 * nbf4;
+                                for(auto f3 = 0; f3 != n3; ++f3) {
+                                    size_t offset_3 = (bf3 + f3) * nbf4;
+                                    for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                        size_t offset_4 = bf4 + f4;
+                                        result[offset_1 + offset_2 + offset_3 + offset_4  + offset_nuc_idx] =
+                                            result[offset_1_T + offset_2_T + offset_3 + offset_4  + offset_nuc_idx] += ints_shellset[idx];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    full = true;
+                }
+                if (p3 != p4) {
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
+                        auto ints_shellset = buf_vec[buffer_indices[i]];
+                        if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                        // Loop over shell block, keeping a total count idx for the size of shell set
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                            for(auto f2 = 0; f2 != n2; ++f2) {
+                                size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                for(auto f3 = 0; f3 != n3; ++f3) {
+                                    size_t offset_3 = (bf3 + f3) * nbf4;
+                                    size_t offset_3_T = bf3 + f3;
+                                    for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                        size_t offset_4 = bf4 + f4;
+                                        size_t offset_4_T = (bf4 + f4) * nbf3;
+                                        result[offset_1 + offset_2 + offset_3 + offset_4  + offset_nuc_idx] =
+                                            result[offset_1 + offset_2 + offset_3_T + offset_4_T  + offset_nuc_idx] += ints_shellset[idx];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    full = true;
+                }
+                if (full == false) {
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
+                        auto ints_shellset = buf_vec[buffer_indices[i]];
+                        if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
+                            for(auto f2 = 0; f2 != n2; ++f2) {
+                                size_t offset_2 = (bf2 + f2) * nbf3 * nbf4;
+                                for(auto f3 = 0; f3 != n3; ++f3) {
+                                    size_t offset_3 = (bf3 + f3) * nbf4;
+                                    for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
+                                        result[offset_1 + offset_2 + offset_3 + bf4 + f4  + offset_nuc_idx] += ints_shellset[idx];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } // For every nuc_idx 0, nderivs_triu
         }
     } // shell quartet loops
     return py::array(result.size(), result.data()); // This apparently copies data, but it should be fine right? https://github.com/pybind/pybind11/issues/1042 there's a workaround

@@ -111,7 +111,6 @@ class OEI(object):
 
         if self.mode == 'core':
             S = self.overlap_derivatives[deriv_order-1][idx,:,:]
-            jax.debug.print(" {b} ", b=jnp.allclose(S, S.T))
             return jnp.asarray(S)
         if self.mode == 'f12':
             S = libint_interface.compute_1e_deriv("overlap", deriv_vec)
@@ -144,7 +143,6 @@ class OEI(object):
 
         if self.mode == 'core':
             T = self.kinetic_derivatives[deriv_order-1][idx,:,:]
-            jax.debug.print(" {b} ", b=jnp.allclose(T, T.T))
             return jnp.asarray(T)
         if self.mode == 'f12':
             T = libint_interface.compute_1e_deriv("kinetic", deriv_vec)
@@ -177,7 +175,6 @@ class OEI(object):
 
         if self.mode == 'core':
             V = self.potential_derivatives[deriv_order-1][idx,:,:]
-            jax.debug.print(" {b} ", b=jnp.allclose(V, V.T))
             return jnp.asarray(V)
         if self.mode == 'f12':
             V = libint_interface.compute_1e_deriv("potential", deriv_vec)
