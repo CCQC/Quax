@@ -14,7 +14,7 @@ __pycache__/
 *.xyz
 
 # Makefile
-makefile
+**/makefile
 
 # Distribution / packaging
 .Python

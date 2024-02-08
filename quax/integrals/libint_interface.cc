@@ -30,6 +30,7 @@ size_t max_nprim;
 int max_l;
 int nthreads = 1;
 double threshold;
+double max_engine_precision;
 
 // Creates atom objects from xyz file path
 std::vector<libint2::Atom> get_atoms(std::string xyzfilename) 
@@ -147,6 +148,7 @@ void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
                          std::max(bs3.max_nprim(), bs4.max_nprim()));
     max_l = std::max(std::max(bs1.max_l(), bs2.max_l()),
                      std::max(bs3.max_l(), bs4.max_l()));
+    max_engine_precision = std::log(std::numeric_limits<double>::epsilon() * threshold);
 
     // Get number of OMP threads
 #ifdef _OPENMP
@@ -320,15 +322,12 @@ std::vector<std::pair<int, int>> build_shellpairs(libint2::BasisSet A, libint2::
                 if (!on_same_center) {
                     auto n2 = B[s2].size();
                     engines[thread_id].compute(A[s1], B[s2]);
-                    double normsq = std::inner_product(buf[0], buf[0] + n1 * n2, buf[0], 0.0);
+                    double normsq = std::inner_product(buf[0], buf[0] + n1 * n2, buf[0], 0.0); // Frobenius Norm
                     significant = (normsq >= threshold_sq);
                 }
 
-                if (significant) {
+                if (significant)
                     threads_sp_list[thread_id].push_back(std::make_pair(s1, s2));
-                } else {
-                    std::cout << "Removed Set: " << s1 << " " << s2 << std::endl;
-                }
             }
         }
     }  // end of compute
@@ -402,11 +401,8 @@ std::vector<std::pair<int, int>> schwarz_screening(libint2::BasisSet A, libint2:
     for (auto s1 = 0l, s12 = 0l; s1 != A.size(); ++s1) {
         auto s2_max = A_equiv_B ? s1 : B.size() - 1;
         for (auto s2 = 0; s2 <= s2_max; ++s2, ++s12) {
-            if (shell_pair_values[s1 * B.size() + s2] >= threshold_sq_over_max) {
+            if (shell_pair_values[s1 * B.size() + s2] >= threshold_sq_over_max)
                 shell_pairs.push_back(std::make_pair(s1, s2));
-            } else {
-                std::cout << "Removed: " << s1 << " " << s2 << std::endl;
-            }
         }
     }
 
@@ -433,6 +429,7 @@ py::array compute_1e_int(std::string type) {
        throw std::invalid_argument("type must be overlap, kinetic, or potential");
     }
 
+    engines[0].set_precision(max_engine_precision);
     for (size_t i = 1; i != nthreads; ++i) {
         engines[i] = engines[0];
     }
@@ -486,40 +483,40 @@ py::array compute_1e_int(std::string type) {
 py::array compute_2e_int(std::string type, double beta) {
     // Shell screening
     const auto bs1_equiv_bs2 = (bs1 == bs2);
-    const auto bs1_equiv_bs3 = (bs1 == bs3);
     const auto bs3_equiv_bs4 = (bs3 == bs4);
     const auto shellpairs_bra = schwarz_screening(bs1, bs2);
     const auto shellpairs_ket = schwarz_screening(bs3, bs4);
 
     // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++?
     // avoids last line, which copies
-    std::vector<libint2::Engine> eri_engines(nthreads);
+    std::vector<libint2::Engine> engines(nthreads);
 
     if (type == "eri") {
-        eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l);
+        engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l);
     } else if (type == "f12") {
         auto cgtg_params = make_cgtg(beta);
-        eri_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l);
-        eri_engines[0].set_params(cgtg_params);
+        engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l);
+        engines[0].set_params(cgtg_params);
     } else if (type == "f12g12") {
         auto cgtg_params = make_cgtg(beta);
-        eri_engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l);
-        eri_engines[0].set_params(cgtg_params);
+        engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l);
+        engines[0].set_params(cgtg_params);
     } else if (type == "f12_squared") {
         auto cgtg_params = take_square(make_cgtg(beta));
-        eri_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l);
-        eri_engines[0].set_params(cgtg_params);
+        engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l);
+        engines[0].set_params(cgtg_params);
     } else if (type == "f12_double_commutator") {
         auto cgtg_params = make_cgtg(beta);
-        eri_engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, 0,
+        engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, 0,
                                             std::numeric_limits<libint2::scalar_type>::epsilon(),
                                             cgtg_params, libint2::BraKet::xx_xx);
     } else {
         throw std::invalid_argument("type must be eri, f12, f12g12, f12_squared, or f12_double_commutator");
     }
 
+    engines[0].set_precision(max_engine_precision);
     for (size_t i = 1; i != nthreads; ++i) {
-        eri_engines[i] = eri_engines[0];
+        engines[i] = engines[0];
     }
 
     size_t length = nbf1 * nbf2 * nbf3 * nbf4;
@@ -541,8 +538,8 @@ py::array compute_2e_int(std::string type, double beta) {
             int p3 = pair.first;
             int p4 = pair.second;
 
-            const auto &s3 = bs1[p3];
-            const auto &s4 = bs2[p4];
+            const auto &s3 = bs3[p3];
+            const auto &s4 = bs4[p4];
             auto n3 = bs3[p3].size(); // number of basis functions in first shell
             auto n4 = bs4[p4].size(); // number of basis functions in first shell
             auto bf3 = shell2bf_3[p3];  // first basis function in first shell
@@ -552,8 +549,8 @@ py::array compute_2e_int(std::string type, double beta) {
 #ifdef _OPENMP
             thread_id = omp_get_thread_num();
 #endif
-            eri_engines[thread_id].compute(s1, s2, s3, s4); // Compute shell set
-            const auto& buf_vec = eri_engines[thread_id].results(); // will point to computed shell sets
+            engines[thread_id].compute(s1, s2, s3, s4); // Compute shell set
+            const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
 
             auto ints_shellset = buf_vec[0];    // Location of the computed integrals
             if (ints_shellset == nullptr)
@@ -680,6 +677,7 @@ py::array compute_1e_deriv(std::string type, std::vector<int> deriv_vec) {
        throw std::invalid_argument("type must be overlap, kinetic, or potential");
     }
 
+    engines[0].set_precision(max_engine_precision);
     for (size_t i = 1; i != nthreads; ++i) {
         engines[i] = engines[0];
     }
@@ -800,33 +798,34 @@ py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv
     const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // ERI derivative integral engine
-    std::vector<libint2::Engine> eri_engines(nthreads);
+    std::vector<libint2::Engine> engines(nthreads);
 
     if (type == "eri") {
-        eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
+        engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
     } else if (type == "f12") {
         auto cgtg_params = make_cgtg(beta);
-        eri_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
-        eri_engines[0].set_params(cgtg_params);
+        engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
+        engines[0].set_params(cgtg_params);
     } else if (type == "f12g12") {
         auto cgtg_params = make_cgtg(beta);
-        eri_engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l, deriv_order);
-        eri_engines[0].set_params(cgtg_params);
+        engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l, deriv_order);
+        engines[0].set_params(cgtg_params);
     } else if (type == "f12_squared") {
         auto cgtg_params = take_square(make_cgtg(beta));
-        eri_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
-        eri_engines[0].set_params(cgtg_params);
+        engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
+        engines[0].set_params(cgtg_params);
     } else if (type == "f12_double_commutator") {
         auto cgtg_params = make_cgtg(beta);
-        eri_engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, deriv_order,
+        engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, deriv_order,
                                             std::numeric_limits<libint2::scalar_type>::epsilon(),
                                             cgtg_params, libint2::BraKet::xx_xx);
     } else {
         throw std::invalid_argument("type must be eri, f12, f12g12, f12_squared, or f12_double_commutator");
     }
 
+    engines[0].set_precision(max_engine_precision);
     for (size_t i = 1; i != nthreads; ++i) {
-        eri_engines[i] = eri_engines[0];
+        engines[i] = engines[0];
     }
 
     size_t length = nbf1 * nbf2 * nbf3 * nbf4;
@@ -906,8 +905,8 @@ py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv
 #ifdef _OPENMP
                     thread_id = omp_get_thread_num();
 #endif
-                    eri_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
-                    const auto& buf_vec = eri_engines[thread_id].results(); // will point to computed shell sets
+                    engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
 
                     for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
@@ -997,6 +996,7 @@ void compute_1e_deriv_disk(std::string type, int max_deriv_order) {
            throw std::invalid_argument("type must be overlap, kinetic, or potential");
         }
 
+        engines[0].set_precision(max_engine_precision);
         for (size_t i = 1; i != nthreads; ++i) {
             engines[i] = engines[0];
         }
@@ -1176,33 +1176,34 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
         const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
 
         // Libint engine for computing shell quartet derivatives
-        std::vector<libint2::Engine> eri_engines(nthreads);
+        std::vector<libint2::Engine> engines(nthreads);
 
         if (type == "eri") {
-            eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
+            engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
         } else if (type == "f12") {
             auto cgtg_params = make_cgtg(beta);
-            eri_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
-            eri_engines[0].set_params(cgtg_params);
+            engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
+            engines[0].set_params(cgtg_params);
         } else if (type == "f12g12") {
             auto cgtg_params = make_cgtg(beta);
-            eri_engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l, deriv_order);
-            eri_engines[0].set_params(cgtg_params);
+            engines[0] = libint2::Engine(libint2::Operator::cgtg_x_coulomb, max_nprim, max_l, deriv_order);
+            engines[0].set_params(cgtg_params);
         } else if (type == "f12_squared") {
             auto cgtg_params = take_square(make_cgtg(beta));
-            eri_engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
-            eri_engines[0].set_params(cgtg_params);
+            engines[0] = libint2::Engine(libint2::Operator::cgtg, max_nprim, max_l, deriv_order);
+            engines[0].set_params(cgtg_params);
         } else if (type == "f12_double_commutator") {
             auto cgtg_params = make_cgtg(beta);
-            eri_engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, deriv_order,
+            engines[0] = libint2::Engine(libint2::Operator::delcgtg2, max_nprim, max_l, deriv_order,
                                                 std::numeric_limits<libint2::scalar_type>::epsilon(),
                                                 cgtg_params, libint2::BraKet::xx_xx);
         } else {
             throw std::invalid_argument("type must be eri, f12, f12g12, f12_squared, or f12_double_commutator");
         }
 
+        engines[0].set_precision(max_engine_precision);
         for (size_t i = 1; i != nthreads; ++i) {
-            eri_engines[i] = eri_engines[0];
+            engines[i] = engines[0];
         }
 
         // Define HDF5 dataset name
@@ -1245,8 +1246,8 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
 #ifdef _OPENMP
                         thread_id = omp_get_thread_num();
 #endif
-                        eri_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
-                        const auto& eri_buffer = eri_engines[thread_id].results(); // will point to computed shell sets
+                        engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                        const auto& eri_buffer = engines[thread_id].results(); // will point to computed shell sets
 
                         // Define shell set slab, with extra dimension for unique derivatives, initialized with 0.0's
                         double eri_shellset_slab [n1][n2][n3][n4][nderivs_triu] = {};
@@ -1400,6 +1401,10 @@ void oei_deriv_disk(int max_deriv_order) {
         t_engines[0] = libint2::Engine(libint2::Operator::kinetic, max_nprim, max_l, deriv_order);
         v_engines[0] = libint2::Engine(libint2::Operator::nuclear, max_nprim, max_l, deriv_order);
         v_engines[0].set_params(make_point_charges(atoms));
+
+        s_engines[0].set_precision(max_engine_precision);
+        t_engines[0].set_precision(max_engine_precision);
+        v_engines[0].set_precision(max_engine_precision);
         for (size_t i = 1; i != nthreads; ++i) {
             s_engines[i] = s_engines[0];
             t_engines[i] = t_engines[0];
@@ -1650,6 +1655,10 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
     t_engines[0] = libint2::Engine(libint2::Operator::kinetic, max_nprim, max_l, deriv_order);
     v_engines[0] = libint2::Engine(libint2::Operator::nuclear, max_nprim, max_l, deriv_order);
     v_engines[0].set_params(make_point_charges(atoms));
+
+    s_engines[0].set_precision(max_engine_precision);
+    t_engines[0].set_precision(max_engine_precision);
+    v_engines[0].set_precision(max_engine_precision);
     for (size_t i = 1; i != nthreads; ++i) {
         s_engines[i] = s_engines[0];
         t_engines[i] = t_engines[0];
@@ -1816,10 +1825,12 @@ py::array eri_deriv_core(int deriv_order) {
     const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
 
     // Libint engine for computing shell quartet derivatives
-    std::vector<libint2::Engine> eri_engines(nthreads);
-    eri_engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
+    std::vector<libint2::Engine> engines(nthreads);
+    engines[0] = libint2::Engine(libint2::Operator::coulomb, max_nprim, max_l, deriv_order);
+
+    engines[0].set_precision(max_engine_precision);
     for (size_t i = 1; i != nthreads; ++i) {
-        eri_engines[i] = eri_engines[0];
+        engines[i] = engines[0];
     }
 
     size_t length = nbf1 * nbf2 * nbf3 * nbf4 * nderivs_triu;
@@ -1851,8 +1862,8 @@ py::array eri_deriv_core(int deriv_order) {
 #ifdef _OPENMP
                     thread_id = omp_get_thread_num();
 #endif
-                    eri_engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
-                    const auto& eri_buffer = eri_engines[thread_id].results(); // will point to computed shell sets
+                    engines[thread_id].compute(bs1[s1], bs2[s2], bs3[s3], bs4[s4]); // Compute shell set
+                    const auto& eri_buffer = engines[thread_id].results(); // will point to computed shell sets
 
                     // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
                     for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
