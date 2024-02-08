@@ -13,9 +13,6 @@ __pycache__/
 *.h5
 *.xyz
 
-# Makefile
-**/makefile
-
 # Distribution / packaging
 .Python
 env/
