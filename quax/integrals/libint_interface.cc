@@ -1514,8 +1514,6 @@ void oei_deriv_disk(int max_deriv_order) {
         DataSet* overlap_dataset = new DataSet(file->createDataSet(overlap_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
         DataSet* kinetic_dataset = new DataSet(file->createDataSet(kinetic_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
         DataSet* potential_dataset = new DataSet(file->createDataSet(potential_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
-        hsize_t stride[3] = {1, 1, 1}; // stride and block can be used to 
-        hsize_t block[3] = {1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
         hsize_t zerostart[3] = {0, 0, 0};
 
         /* Initialize lock */
@@ -1551,10 +1549,6 @@ void oei_deriv_disk(int max_deriv_order) {
             double overlap_shellset_slab [n1][n2][nderivs_triu] = {};
             double kinetic_shellset_slab [n1][n2][nderivs_triu] = {};
             double potential_shellset_slab [n1][n2][nderivs_triu] = {};
-
-            double overlap_shellset_slab_T [n2][n1][nderivs_triu] = {};
-            double kinetic_shellset_slab_T [n2][n1][nderivs_triu] = {};
-            double potential_shellset_slab_T [n2][n1][nderivs_triu] = {};
 
             // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
             // For 1st derivatives of 2 atom system, this is 6. 2nd derivatives of 2 atom system: 21, etc
@@ -1618,49 +1612,22 @@ void oei_deriv_disk(int max_deriv_order) {
 
                 // Loop over shell block for each buffer index which contributes to this derivative
                 // Overlap and Kinetic
-                if (p1 != p2) {
-                    for(auto i = 0; i < buffer_indices.size(); ++i) {
-                        auto overlap_shellset = overlap_buffer[buffer_indices[i]];
-                        auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
-                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                                overlap_shellset_slab[f1][f2][nuc_idx] += overlap_shellset[idx];
-                                kinetic_shellset_slab[f1][f2][nuc_idx] += kinetic_shellset[idx];
-                                overlap_shellset_slab_T[f2][f1][nuc_idx] += overlap_shellset[idx];
-                                kinetic_shellset_slab_T[f2][f1][nuc_idx] += kinetic_shellset[idx];
-                            }
-                        }
-                    }
-                } else {
-                    for(auto i = 0; i < buffer_indices.size(); ++i) {
-                        auto overlap_shellset = overlap_buffer[buffer_indices[i]];
-                        auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
-                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                                overlap_shellset_slab[f1][f2][nuc_idx] += overlap_shellset[idx];
-                                kinetic_shellset_slab[f1][f2][nuc_idx] += kinetic_shellset[idx];
-                            }
+                for(auto i = 0; i < buffer_indices.size(); ++i) {
+                    auto overlap_shellset = overlap_buffer[buffer_indices[i]];
+                    auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                            overlap_shellset_slab[f1][f2][nuc_idx] += overlap_shellset[idx];
+                            kinetic_shellset_slab[f1][f2][nuc_idx] += kinetic_shellset[idx];
                         }
                     }
                 }
                 // Potential
-                if (p1 != p2) {
-                    for(auto i = 0; i < potential_buffer_indices.size(); ++i) {
-                        auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
-                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                                potential_shellset_slab[f1][f2][nuc_idx] += potential_shellset[idx];
-                                potential_shellset_slab_T[f2][f1][nuc_idx] += potential_shellset[idx];
-                            }
-                        }
-                    }
-                } else {
-                    for(auto i = 0; i < potential_buffer_indices.size(); ++i) {
-                        auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
-                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                                potential_shellset_slab[f1][f2][nuc_idx] += potential_shellset[idx];
-                            }
+                for(auto i = 0; i < potential_buffer_indices.size(); ++i) {
+                    auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
+                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                        for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                            potential_shellset_slab[f1][f2][nuc_idx] += potential_shellset[idx];
                         }
                     }
                 }
@@ -1671,6 +1638,8 @@ void oei_deriv_disk(int max_deriv_order) {
 
             // Now write this shell set slab to HDF5 file
             // Create file space hyperslab, defining where to write data to in file
+            hsize_t stride[3] = {1, 1, 1}; // stride and block can be used to 
+            hsize_t block[3] = {1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
             hsize_t count[3] = {n1, n2, nderivs_triu};
             hsize_t start[3] = {bf1, bf2, 0};
             fspace.selectHyperslab(H5S_SELECT_SET, count, start, stride, block);
@@ -1686,17 +1655,19 @@ void oei_deriv_disk(int max_deriv_order) {
             if (p1 != p2) {
                 // Now write this shell set slab to HDF5 file
                 // Create file space hyperslab, defining where to write data to in file
-                hsize_t count_T[3] = {n2, n1, nderivs_triu};
+                hsize_t stride_T[3] = {1, 1, 1}; // stride and block can be used to 
+                hsize_t block_T[3] = {n2, 1, 1};  // add values to multiple places, useful if symmetry ever used.
+                hsize_t count_T[3] = {1, n1, nderivs_triu};
                 hsize_t start_T[3] = {bf2, bf1, 0};
-                fspace.selectHyperslab(H5S_SELECT_SET, count_T, start_T, stride, block);
+                fspace.selectHyperslab(H5S_SELECT_SET, count_T, start_T, stride_T, block_T);
                 // Create dataspace defining for memory dataset to write to file
                 hsize_t mem_dims_T[] = {n2, n1, nderivs_triu};
                 DataSpace mspace_T(3, mem_dims_T);
-                mspace_T.selectHyperslab(H5S_SELECT_SET, count_T, zerostart, stride, block);
+                mspace_T.selectHyperslab(H5S_SELECT_SET, count_T, zerostart, stride_T, block_T);
                 // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
-                overlap_dataset->write(overlap_shellset_slab_T, PredType::NATIVE_DOUBLE, mspace_T, fspace);
-                kinetic_dataset->write(kinetic_shellset_slab_T, PredType::NATIVE_DOUBLE, mspace_T, fspace);
-                potential_dataset->write(potential_shellset_slab_T, PredType::NATIVE_DOUBLE, mspace_T, fspace);
+                overlap_dataset->write(overlap_shellset_slab, PredType::NATIVE_DOUBLE, mspace_T, fspace);
+                kinetic_dataset->write(kinetic_shellset_slab, PredType::NATIVE_DOUBLE, mspace_T, fspace);
+                potential_dataset->write(potential_shellset_slab, PredType::NATIVE_DOUBLE, mspace_T, fspace);
             }
 
             /* Release lock */
