@@ -342,7 +342,7 @@ std::vector<std::pair<int, int>> build_shellpairs(libint2::BasisSet A, libint2::
 }
 
 // Schwarz-Screening of two-electron integrals
-std::vector<std::pair<int, int>> schwarz_screening(libint2::BasisSet A, libint2::BasisSet B){
+std::tuple<std::vector<std::pair<int, int>>, std::vector<double>> schwarz_screening(libint2::BasisSet A, libint2::BasisSet B){
 
     const auto A_equiv_B = (A == B);
 
@@ -387,8 +387,14 @@ std::vector<std::pair<int, int>> schwarz_screening(libint2::BasisSet A, libint2:
                             std::max(shell_max_val, std::fabs(buffer[f1 * (n1 * n2 * n2 + n2) + f2 * (n1 * n2 + 1)]));
                     }
                 }
+
                 max_integral = std::max(max_integral, shell_max_val);
-                shell_pair_values[s1 * B.size() + s2] = shell_max_val;
+
+                if (A_equiv_B) {
+                    shell_pair_values[s1 * B.size() + s2] = shell_pair_values[s2 * A.size() + s1] = shell_max_val;
+                } else {
+                    shell_pair_values[s1 * B.size() + s2] = shell_max_val;
+                }
             }
         }
     }
@@ -406,7 +412,7 @@ std::vector<std::pair<int, int>> schwarz_screening(libint2::BasisSet A, libint2:
         }
     }
 
-    return shell_pairs;
+    return std::make_tuple(shell_pairs, shell_pair_values);
 }
 
 // Compute one-electron integral
@@ -482,10 +488,13 @@ py::array compute_1e_int(std::string type) {
 // Computes two-electron integrals
 py::array compute_2e_int(std::string type, double beta) {
     // Shell screening
+    std::vector<std::pair<int, int>> shellpairs_bra, shellpairs_ket;
+    std::vector<double> schwarz_bra, schwarz_ket;
     const auto bs1_equiv_bs2 = (bs1 == bs2);
     const auto bs3_equiv_bs4 = (bs3 == bs4);
-    const auto shellpairs_bra = schwarz_screening(bs1, bs2);
-    const auto shellpairs_ket = schwarz_screening(bs3, bs4);
+    std::tie(shellpairs_bra, schwarz_bra) = schwarz_screening(bs1, bs2);
+    std::tie(shellpairs_ket, schwarz_ket) = schwarz_screening(bs3, bs4);
+    auto threshold_sq = threshold * threshold;
 
     // workaround for data copying: perhaps pass an empty numpy array, then populate it in C++?
     // avoids last line, which copies
@@ -544,6 +553,9 @@ py::array compute_2e_int(std::string type, double beta) {
             auto n4 = bs4[p4].size(); // number of basis functions in first shell
             auto bf3 = shell2bf_3[p3];  // first basis function in first shell
             auto bf4 = shell2bf_4[p4];  // first basis function in second shell
+
+            // Perform schwarz screening
+            if (schwarz_bra[p1 * bs2.size() + p2] * schwarz_ket[p3 * bs4.size() + p4] < threshold_sq) continue;
 
             int thread_id = 0;
 #ifdef _OPENMP
@@ -797,10 +809,13 @@ py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv
     const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(12, deriv_order);
 
     // Shell screening
+    std::vector<std::pair<int, int>> shellpairs_bra, shellpairs_ket;
+    std::vector<double> schwarz_bra, schwarz_ket;
     const auto bs1_equiv_bs2 = (bs1 == bs2);
     const auto bs3_equiv_bs4 = (bs3 == bs4);
-    const auto shellpairs_bra = schwarz_screening(bs1, bs2);
-    const auto shellpairs_ket = schwarz_screening(bs3, bs4);
+    std::tie(shellpairs_bra, schwarz_bra) = schwarz_screening(bs1, bs2);
+    std::tie(shellpairs_ket, schwarz_ket) = schwarz_screening(bs3, bs4);
+    auto threshold_sq = threshold * threshold;
 
     // ERI derivative integral engine
     std::vector<libint2::Engine> engines(nthreads);
@@ -844,7 +859,7 @@ py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv
         const auto &s1 = bs1[p1];
         const auto &s2 = bs2[p2];
         auto n1 = bs1[p1].size(); // number of basis functions in first shell
-        auto n2 = bs2[p2].size(); // number of basis functions in first shell
+        auto n2 = bs2[p2].size(); // number of basis functions in second shell
         auto bf1 = shell2bf_1[p1];  // first basis function in first shell
         auto bf2 = shell2bf_2[p2];  // first basis function in second shell
         auto atom1 = shell2atom_1[p1]; // Atom index of shell 1
@@ -856,12 +871,15 @@ py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv
 
             const auto &s3 = bs3[p3];
             const auto &s4 = bs4[p4];
-            auto n3 = bs3[p3].size(); // number of basis functions in first shell
-            auto n4 = bs4[p4].size(); // number of basis functions in first shell
-            auto bf3 = shell2bf_3[p3];  // first basis function in first shell
-            auto bf4 = shell2bf_4[p4];  // first basis function in second shell
+            auto n3 = bs3[p3].size(); // number of basis functions in third shell
+            auto n4 = bs4[p4].size(); // number of basis functions in fourth shell
+            auto bf3 = shell2bf_3[p3];  // first basis function in third shell
+            auto bf4 = shell2bf_4[p4];  // first basis function in fourth shell
             auto atom3 = shell2atom_3[p3]; // Atom index of shell 3
             auto atom4 = shell2atom_4[p4]; // Atom index of shell 4
+
+            // Perform schwarz screening
+            if (schwarz_bra[p1 * bs2.size() + p2] * schwarz_ket[p3 * bs4.size() + p4] < threshold_sq) continue;
 
             // If the atoms are the same we ignore it as the derivatives will be zero.
             if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
@@ -1276,10 +1294,13 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
     assert(check < 50 && "Total disk space required for ERI's exceeds 50 GB. Increase threshold and recompile to proceed.");
 
     // Shell screening
+    std::vector<std::pair<int, int>> shellpairs_bra, shellpairs_ket;
+    std::vector<double> schwarz_bra, schwarz_ket;
     const auto bs1_equiv_bs2 = (bs1 == bs2);
     const auto bs3_equiv_bs4 = (bs3 == bs4);
-    const auto shellpairs_bra = schwarz_screening(bs1, bs2);
-    const auto shellpairs_ket = schwarz_screening(bs3, bs4);
+    std::tie(shellpairs_bra, schwarz_bra) = schwarz_screening(bs1, bs2);
+    std::tie(shellpairs_ket, schwarz_ket) = schwarz_screening(bs3, bs4);
+    auto threshold_sq = threshold * threshold;
     
     // Create H5 File and prepare to fill with 0.0's                                         
     const H5std_string file_name(type + "_derivs.h5");
@@ -1373,6 +1394,9 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
                 auto atom3 = shell2atom_3[p3]; // Atom index of shell 3
                 auto atom4 = shell2atom_4[p4]; // Atom index of shell 4
 
+                // Perform schwarz screening
+                if (schwarz_bra[p1 * bs2.size() + p2] * schwarz_ket[p3 * bs4.size() + p4] < threshold_sq) continue;
+
                 // If the atoms are the same we ignore it as the derivatives will be zero.
                 if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
                 std::vector<long> shell_atom_index_list{atom1, atom2, atom3, atom4};
@@ -1397,7 +1421,6 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
 
                     std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
 
-                    // Find out which 
                     for (int j = 0; j < multi_cart_idx.size(); j++){
                         int desired_atom_idx = multi_cart_idx[j] / 3;
                         int desired_coord = multi_cart_idx[j] % 3;
@@ -1655,6 +1678,8 @@ void oei_deriv_disk(int max_deriv_order) {
         DataSet* overlap_dataset = new DataSet(file->createDataSet(overlap_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
         DataSet* kinetic_dataset = new DataSet(file->createDataSet(kinetic_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
         DataSet* potential_dataset = new DataSet(file->createDataSet(potential_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        hsize_t stride[3] = {1, 1, 1}; // stride and block can be used to 
+        hsize_t block[3] = {1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
         hsize_t zerostart[3] = {0, 0, 0};
 
         /* Initialize lock */
@@ -1687,9 +1712,12 @@ void oei_deriv_disk(int max_deriv_order) {
             const auto& potential_buffer = v_engines[thread_id].results(); // will point to computed shell sets
 
             // Define shell set slabs
-            double overlap_shellset_slab [n1][n2][nderivs_triu] = {};
-            double kinetic_shellset_slab [n1][n2][nderivs_triu] = {};
-            double potential_shellset_slab [n1][n2][nderivs_triu] = {};
+            double overlap_shellset_slab_12 [n1][n2][nderivs_triu] = {};
+            double kinetic_shellset_slab_12 [n1][n2][nderivs_triu] = {};
+            double potential_shellset_slab_12 [n1][n2][nderivs_triu] = {};
+            double overlap_shellset_slab_21 [n2][n1][nderivs_triu] = {};
+            double kinetic_shellset_slab_21 [n2][n1][nderivs_triu] = {};
+            double potential_shellset_slab_21 [n2][n1][nderivs_triu] = {};
 
             // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
             // For 1st derivatives of 2 atom system, this is 6. 2nd derivatives of 2 atom system: 21, etc
@@ -1752,23 +1780,49 @@ void oei_deriv_disk(int max_deriv_order) {
                 }
 
                 // Loop over shell block for each buffer index which contributes to this derivative
-                // Overlap and Kinetic
-                for(auto i = 0; i < buffer_indices.size(); ++i) {
-                    auto overlap_shellset = overlap_buffer[buffer_indices[i]];
-                    auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
-                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                        for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                            overlap_shellset_slab[f1][f2][nuc_idx] += overlap_shellset[idx];
-                            kinetic_shellset_slab[f1][f2][nuc_idx] += kinetic_shellset[idx];
+                if (p1 != p2) {
+                    // Overlap and Kinetic
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
+                        auto overlap_shellset = overlap_buffer[buffer_indices[i]];
+                        auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                                overlap_shellset_slab_12[f1][f2][nuc_idx] =
+                                    overlap_shellset_slab_21[f2][f1][nuc_idx] += overlap_shellset[idx];
+                                kinetic_shellset_slab_12[f1][f2][nuc_idx] =
+                                    kinetic_shellset_slab_21[f2][f1][nuc_idx] += kinetic_shellset[idx];
+                            }
                         }
                     }
-                }
-                // Potential
-                for(auto i = 0; i < potential_buffer_indices.size(); ++i) {
-                    auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
-                    for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
-                        for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                            potential_shellset_slab[f1][f2][nuc_idx] += potential_shellset[idx];
+                    // Potential
+                    for(auto i = 0; i < potential_buffer_indices.size(); ++i) {
+                        auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                                potential_shellset_slab_12[f1][f2][nuc_idx] =
+                                    potential_shellset_slab_21[f2][f1][nuc_idx] += potential_shellset[idx];
+                            }
+                        }
+                    }
+                } else { 
+                    // Overlap and Kinetic
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
+                        auto overlap_shellset = overlap_buffer[buffer_indices[i]];
+                        auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                                overlap_shellset_slab_12[f1][f2][nuc_idx] += overlap_shellset[idx];
+                                kinetic_shellset_slab_12[f1][f2][nuc_idx] += kinetic_shellset[idx];
+                            }
+                        }
+                    }
+                    // Potential
+                    for(auto i = 0; i < potential_buffer_indices.size(); ++i) {
+                        auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                                potential_shellset_slab_12[f1][f2][nuc_idx] += potential_shellset[idx];
+                            }
                         }
                     }
                 }
@@ -1779,8 +1833,6 @@ void oei_deriv_disk(int max_deriv_order) {
 
             // Now write this shell set slab to HDF5 file
             // Create file space hyperslab, defining where to write data to in file
-            hsize_t stride[3] = {1, 1, 1}; // stride and block can be used to 
-            hsize_t block[3] = {1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
             hsize_t count[3] = {n1, n2, nderivs_triu};
             hsize_t start[3] = {bf1, bf2, 0};
             fspace.selectHyperslab(H5S_SELECT_SET, count, start, stride, block);
@@ -1789,26 +1841,24 @@ void oei_deriv_disk(int max_deriv_order) {
             DataSpace mspace(3, mem_dims);
             mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
             // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
-            overlap_dataset->write(overlap_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
-            kinetic_dataset->write(kinetic_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
-            potential_dataset->write(potential_shellset_slab, PredType::NATIVE_DOUBLE, mspace, fspace);
+            overlap_dataset->write(overlap_shellset_slab_12, PredType::NATIVE_DOUBLE, mspace, fspace);
+            kinetic_dataset->write(kinetic_shellset_slab_12, PredType::NATIVE_DOUBLE, mspace, fspace);
+            potential_dataset->write(potential_shellset_slab_12, PredType::NATIVE_DOUBLE, mspace, fspace);
 
             if (p1 != p2) {
                 // Now write this shell set slab to HDF5 file
                 // Create file space hyperslab, defining where to write data to in file
-                hsize_t stride_T[3] = {1, 1, 1}; // stride and block can be used to 
-                hsize_t block_T[3] = {n2, 1, 1};  // add values to multiple places, useful if symmetry ever used.
-                hsize_t count_T[3] = {1, n1, nderivs_triu};
+                hsize_t count_T[3] = {n2, n1, nderivs_triu};
                 hsize_t start_T[3] = {bf2, bf1, 0};
-                fspace.selectHyperslab(H5S_SELECT_SET, count_T, start_T, stride_T, block_T);
+                fspace.selectHyperslab(H5S_SELECT_SET, count_T, start_T, stride, block);
                 // Create dataspace defining for memory dataset to write to file
                 hsize_t mem_dims_T[] = {n2, n1, nderivs_triu};
                 DataSpace mspace_T(3, mem_dims_T);
-                mspace_T.selectHyperslab(H5S_SELECT_SET, count_T, zerostart, stride_T, block_T);
+                mspace_T.selectHyperslab(H5S_SELECT_SET, count_T, zerostart, stride, block);
                 // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
-                overlap_dataset->write(overlap_shellset_slab, PredType::NATIVE_DOUBLE, mspace_T, fspace);
-                kinetic_dataset->write(kinetic_shellset_slab, PredType::NATIVE_DOUBLE, mspace_T, fspace);
-                potential_dataset->write(potential_shellset_slab, PredType::NATIVE_DOUBLE, mspace_T, fspace);
+                overlap_dataset->write(overlap_shellset_slab_21, PredType::NATIVE_DOUBLE, mspace_T, fspace);
+                kinetic_dataset->write(kinetic_shellset_slab_21, PredType::NATIVE_DOUBLE, mspace_T, fspace);
+                potential_dataset->write(potential_shellset_slab_21, PredType::NATIVE_DOUBLE, mspace_T, fspace);
             }
 
             /* Release lock */
@@ -1962,10 +2012,10 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
                     auto kinetic_shellset = kinetic_buffer[buffer_indices[i]];
                     for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                         for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                            S[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] += overlap_shellset[idx];
-                            S[(bf2 + f2) * nbf1 + bf1 + f1 + offset_nuc_idx] += overlap_shellset[idx];
-                            T[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] += kinetic_shellset[idx];
-                            T[(bf2 + f2) * nbf1 + bf1 + f1 + offset_nuc_idx] += kinetic_shellset[idx];
+                            S[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] =
+                                S[(bf2 + f2) * nbf1 + bf1 + f1 + offset_nuc_idx] += overlap_shellset[idx];
+                            T[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] =
+                                T[(bf2 + f2) * nbf1 + bf1 + f1 + offset_nuc_idx] += kinetic_shellset[idx];
                         }
                     }
                 }
@@ -1987,8 +2037,8 @@ std::vector<py::array> oei_deriv_core(int deriv_order) {
                     auto potential_shellset = potential_buffer[potential_buffer_indices[i]];
                     for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                         for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                            V[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] += potential_shellset[idx];
-                            V[(bf2 + f2) * nbf1 + bf1 + f1 + offset_nuc_idx] += potential_shellset[idx];
+                            V[(bf1 + f1) * nbf2 + bf2 + f2 + offset_nuc_idx] =
+                                V[(bf2 + f2) * nbf1 + bf1 + f1 + offset_nuc_idx] += potential_shellset[idx];
                         }
                     }
                 }
@@ -2018,9 +2068,11 @@ py::array eri_deriv_core(int deriv_order) {
     // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
     const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
 
-    // Shell screening
-    const auto shellpairs_bra = schwarz_screening(bs1, bs2);
-    const auto shellpairs_ket = schwarz_screening(bs3, bs4);
+    // Shell screening assumes bs1 == bs2 == bs3 == bs4 for Hartree-Fock
+    std::vector<std::pair<int, int>> shellpairs;
+    std::vector<double> schwarz;
+    std::tie(shellpairs, schwarz) = schwarz_screening(bs1, bs2);
+    auto threshold_sq = threshold * threshold;
 
     // Libint engine for computing shell quartet derivatives
     std::vector<libint2::Engine> engines(nthreads);
@@ -2035,31 +2087,34 @@ py::array eri_deriv_core(int deriv_order) {
     std::vector<double> result(length);
 
 #pragma omp parallel for num_threads(nthreads)
-    for (const auto &pair : shellpairs_bra) {
+    for (const auto &pair : shellpairs) {
         int p1 = pair.first;
         int p2 = pair.second;
 
         const auto &s1 = bs1[p1];
         const auto &s2 = bs2[p2];
         auto n1 = bs1[p1].size(); // number of basis functions in first shell
-        auto n2 = bs2[p2].size(); // number of basis functions in first shell
+        auto n2 = bs2[p2].size(); // number of basis functions in second shell
         auto bf1 = shell2bf_1[p1];  // first basis function in first shell
         auto bf2 = shell2bf_2[p2];  // first basis function in second shell
         auto atom1 = shell2atom_1[p1]; // Atom index of shell 1
         auto atom2 = shell2atom_2[p2]; // Atom index of shell 2
 
-        for (const auto &pair : shellpairs_ket) {
+        for (const auto &pair : shellpairs) {
             int p3 = pair.first;
             int p4 = pair.second;
 
             const auto &s3 = bs3[p3];
             const auto &s4 = bs4[p4];
-            auto n3 = bs3[p3].size(); // number of basis functions in first shell
-            auto n4 = bs4[p4].size(); // number of basis functions in first shell
-            auto bf3 = shell2bf_3[p3];  // first basis function in first shell
-            auto bf4 = shell2bf_4[p4];  // first basis function in second shell
+            auto n3 = bs3[p3].size(); // number of basis functions in third shell
+            auto n4 = bs4[p4].size(); // number of basis functions in fourth shell
+            auto bf3 = shell2bf_3[p3];  // first basis function in third shell
+            auto bf4 = shell2bf_4[p4];  // first basis function in fourth shell
             auto atom3 = shell2atom_3[p3]; // Atom index of shell 3
             auto atom4 = shell2atom_4[p4]; // Atom index of shell 4
+
+            // Perform schwarz screening
+            if (schwarz[p1 * bs2.size() + p2] * schwarz[p3 * bs4.size() + p4] < threshold_sq) continue;
 
             // If the atoms are the same we ignore it as the derivatives will be zero.
             if (atom1 == atom2 && atom1 == atom3 && atom1 == atom4) continue;
