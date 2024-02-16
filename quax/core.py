@@ -155,26 +155,31 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
         # JAX will then collect the internal coordinate partial derivative instead. 
         if method == 'scf' or method == 'hf' or method == 'rhf':
             def partial_wrapper(*args):
+                geom = jnp.asarray(args)
                 E_scf = restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_path,\
                                                 options=options, deriv_order=deriv_order, return_aux_data=False)
                 return E_scf
         elif method =='mp2':
             def partial_wrapper(*args):
+                geom = jnp.asarray(args)
                 E_mp2 = restricted_mp2(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path,\
                                        options=options, deriv_order=deriv_order)
                 return E_mp2
         elif method =='mp2-f12':
             def partial_wrapper(*args):
-                E_mp2f12 = restricted_mp2_f12(geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path,\
-                                              options=options, deriv_order=deriv_order)
+                geom = jnp.asarray(args)
+                E_mp2f12 = restricted_mp2_f12(geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges,\
+                                               xyz_path, options=options, deriv_order=deriv_order)
                 return E_mp2f12
         elif method =='ccsd':
             def partial_wrapper(*args):
+                geom = jnp.asarray(args)
                 E_ccsd = rccsd(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path,\
                                options=options, deriv_order=deriv_order)
                 return E_ccsd
         elif method =='ccsd(t)':
             def partial_wrapper(*args):
+                geom = jnp.asarray(args)
                 E_ccsd_t = rccsd_t(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path,\
                                    options=options, deriv_order=deriv_order)
                 return E_ccsd_t
