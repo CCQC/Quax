@@ -7,18 +7,18 @@ import psi4
 from .energy_utils import partial_tei_transformation, cartesian_product
 from .hartree_fock import restricted_hartree_fock
 
-def restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
-    nelectrons = int(jnp.sum(nuclear_charges)) - charge
+def restricted_mp2(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path, options, deriv_order=0, return_aux_data=False):
     ndocc = nelectrons // 2
-    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
+    ncore = nfrzn // 2
+    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_path, options, deriv_order=deriv_order, return_aux_data=True)
 
     print("Running MP2 Computation...")
     nvirt = G.shape[0] - ndocc
 
-    G = partial_tei_transformation(G, C[:,:ndocc], C[:,ndocc:], C[:,:ndocc], C[:,ndocc:])
+    G = partial_tei_transformation(G, C[:,ncore:ndocc], C[:,ndocc:], C[:,ncore:ndocc], C[:,ndocc:])
 
     # Create tensor dim (occ,vir,occ,vir) of all possible orbital energy denominators
-    eps_occ, eps_vir = eps[:ndocc], eps[ndocc:]
+    eps_occ, eps_vir = eps[ncore:ndocc], eps[ndocc:]
     e_denom = jnp.reciprocal(eps_occ.reshape(-1, 1, 1, 1) - eps_vir.reshape(-1, 1, 1) + eps_occ.reshape(-1, 1) - eps_vir)
 
     # Tensor contraction algo 
@@ -29,7 +29,7 @@ def restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, 
 
     # Loop algo (lower memory, but tei transform is the memory bottleneck)
     # Create all combinations of four loop variables to make XLA compilation easier
-    indices = cartesian_product(jnp.arange(ndocc), jnp.arange(ndocc), jnp.arange(nvirt), jnp.arange(nvirt))
+    indices = cartesian_product(jnp.arange(ndocc-ncore), jnp.arange(ndocc-ncore), jnp.arange(nvirt), jnp.arange(nvirt))
 
     def loop_mp2(idx, mp2_corr):
         i,j,a,b = indices[idx]

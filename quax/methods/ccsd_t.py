@@ -93,8 +93,8 @@ def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
     i, j, k, pT = while_loop(lambda arr0: arr0[0] < o, loop_i, (0, 0, 0, 0.0)) # (i, j, k, pT)
     return pT
 
-def rccsd_t(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=0):
-    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
+def rccsd_t(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path, options, deriv_order=0):
+    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path, options, deriv_order=deriv_order, return_aux_data=True)
 
     print("Running (T) Correction...")
     pT = perturbative_triples(T1, T2, V, fock_Od, fock_Vd)

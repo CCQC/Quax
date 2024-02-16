@@ -1,6 +1,41 @@
 import numpy as np
 import itertools
 
+def atom_to_period(Z):
+    # Period 1, 2, 3, 4, 5, 6, 7
+    full_shell_values = [0, 2, 10, 18, 36, 54, 86, 118]
+
+    for p, shell in enumerate(full_shell_values):
+        if shell > Z:
+            return p
+   
+def period_to_full_shell(p):
+    # Period 1, 2, 3, 4, 5, 6, 7
+    full_shell_values = [0, 2, 10, 18, 36, 54, 86, 118]
+
+    return full_shell_values[p]
+
+def n_frozen_core(mol, Z_mol):
+    nfrzn = 0
+    mol_valence = -1 * Z_mol
+    largest_shell = 0
+
+    for A in range(mol.natom()):
+        Z = mol.charge(A)
+        current_shell = atom_to_period(Z)
+        delta = period_to_full_shell(current_shell - 1)
+
+        if largest_shell < current_shell:
+            largest_shell = current_shell
+
+        mol_valence = mol_valence + Z - delta
+        nfrzn += delta
+
+    if mol_valence <= 0:
+        nfrzn -= period_to_full_shell(largest_shell - 1) - period_to_full_shell(largest_shell - 2)
+
+    return nfrzn
+
 def how_many_derivs(k,n):
     """How many unique Cartesian derivatives for k atoms at nth order"""
     val = 1

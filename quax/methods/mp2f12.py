@@ -11,10 +11,10 @@ from .ints import compute_f12_oeints, compute_f12_teints
 from .energy_utils import partial_tei_transformation, cartesian_product
 from .mp2 import restricted_mp2
 
-def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, options, cabs_set, deriv_order=0):
-    nelectrons = int(jnp.sum(nuclear_charges)) - charge
+def restricted_mp2_f12(geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path, options, deriv_order=0):
+    E_mp2, C_obs, eps = restricted_mp2(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path, options, deriv_order, return_aux_data=True)
     ndocc = nelectrons // 2
-    E_mp2, C_obs, eps = restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order, return_aux_data=True)
+    ncore = nfrzn // 2
     eps_occ, eps_vir = eps[:ndocc], eps[ndocc:]
 
     print("Running MP2-F12 Computation...")
@@ -82,11 +82,35 @@ def restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, optio
 
         return f12_corr
 
-    dE_mp2f12 = fori_loop(0, indices.shape[0], loop_energy, 0.0)
+    start = ndocc if ncore > 0 else 0
+    dE_mp2f12 = fori_loop(start, indices.shape[0], loop_energy, 0.0)
 
     E_s = cabs_singles(f, ndocc, nri)
 
+    print(E_mp2)
+    print(dE_mp2f12)
+    print(E_s)
+
     return E_mp2 + dE_mp2f12 + E_s
+
+# CABS Singles
+def cabs_singles(f, ndocc, nri):
+    all_vir = nri - ndocc
+
+    e_ij, C_ij = jnp.linalg.eigh(f[:ndocc, :ndocc])
+    e_AB, C_AB = jnp.linalg.eigh(f[ndocc:, ndocc:])
+
+    f_iA = C_ij.T @ f[:ndocc, ndocc:] @ C_AB
+
+    indices = cartesian_product(jnp.arange(ndocc), jnp.arange(all_vir))
+
+    def loop_singles(idx, singles):
+        i, A = indices[idx]
+        singles += 2 * f_iA[i, A]**2 / (e_ij[i] - e_AB[A])
+        return singles
+    E_s = fori_loop(0, indices.shape[0], loop_singles, 0.0)
+
+    return E_s
 
 # Fixed Amplitude Ansatz
 @jax.jit
@@ -238,25 +262,6 @@ def form_Fock(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_pa
     f = fk - k
 
     return f, fk, k
-
-# CABS Singles
-def cabs_singles(f, ndocc, nri):
-    all_vir = nri - ndocc
-
-    e_ij, C_ij = jnp.linalg.eigh(f[:ndocc, :ndocc])
-    e_AB, C_AB = jnp.linalg.eigh(f[ndocc:, ndocc:])
-
-    f_iA = C_ij.T @ f[:ndocc, ndocc:] @ C_AB
-
-    indices = cartesian_product(jnp.arange(ndocc), jnp.arange(all_vir))
-    
-    def loop_singles(idx, singles):
-        i, A = indices[idx]
-        singles += 2 * f_iA[i, A]**2 / (e_ij[i] - e_AB[A])
-        return singles
-    E_s = fori_loop(0, indices.shape[0], loop_singles, 0.0)
-
-    return E_s
 
 # F12 Intermediates
 def form_V(geom, basis_set, cabs_set, C_obs, C_cabs, ndocc, nobs, nri, xyz_path, deriv_order, options):

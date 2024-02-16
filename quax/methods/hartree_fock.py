@@ -6,7 +6,7 @@ import psi4
 from .ints import compute_integrals
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 
-def restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
+def restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_path, options, deriv_order=0, return_aux_data=False):
     print("Running Hartree-Fock Computation...")
     # Load keyword options
     maxit = options['maxit']
@@ -14,8 +14,6 @@ def restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, 
     damp_factor = options['damp_factor']
     spectral_shift = options['spectral_shift']
     convergence = 1e-10
-
-    nelectrons = int(jnp.sum(nuclear_charges)) - charge
     ndocc = nelectrons // 2
 
     # If we are doing MP2 or CCSD after, might as well use jit-compiled JK-build, since HF will not be memory bottleneck
@@ -93,6 +91,6 @@ def restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, 
     if not return_aux_data:
         return E_scf
     else:
-        #print("RHF Energy:                ", E_scf)
+        # print("RHF Energy:                ", E_scf)
         return E_scf, C, eps, G
 

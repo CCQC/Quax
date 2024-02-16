@@ -14,7 +14,7 @@ from .methods.mp2 import restricted_mp2
 from .methods.mp2f12 import restricted_mp2_f12
 from .methods.ccsd import rccsd
 from .methods.ccsd_t import rccsd_t
-from .utils import get_required_deriv_vecs
+from .utils import get_required_deriv_vecs, n_frozen_core
 
 psi4.core.be_quiet()
 
@@ -39,6 +39,7 @@ def check_options(options):
                        'spectral_shift': True,
                        'integral_algo': 'libint_core',
                        'ints_tolerance': 1.0e-14,
+                       'freeze_core': False,
                        'beta': 1.0
                       }
 
@@ -78,35 +79,39 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
     mult = molecule.multiplicity()
     charge = molecule.molecular_charge()
     nuclear_charges = jnp.asarray([molecule.charge(i) for i in range(geom2d.shape[0])])
+    nelectrons = int(jnp.sum(nuclear_charges)) - charge
+    nfrzn = n_frozen_core(molecule, charge) if options['freeze_core'] else 0
 
     basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
     nbf = basis_set.nbf()
-    natoms = molecule.natom()
     print("Number of basis functions: ", nbf)
 
     if 'f12' in method:
         cabs_set = build_RIBS(molecule, basis_set, basis_name + '-cabs')
 
     # Energy and full derivative tensor evaluations
-    args = (geom, basis_set, xyz_path, nuclear_charges, charge, options)
     if not partial:
         # Create energy evaluation function
         if method == 'scf' or method == 'hf' or method == 'rhf':
-            def electronic_energy(*args, deriv_order=deriv_order):
-                return restricted_hartree_fock(*args, deriv_order=deriv_order)
+            args = (geom, basis_set, nelectrons, nuclear_charges, xyz_path)
+            def electronic_energy(*args, options=options, deriv_order=deriv_order):
+                return restricted_hartree_fock(*args, options=options, deriv_order=deriv_order)
         elif method =='mp2':
-            def electronic_energy(*args, deriv_order=deriv_order):
-                return restricted_mp2(*args, deriv_order=deriv_order)
+            args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+            def electronic_energy(*args, options=options, deriv_order=deriv_order):
+                return restricted_mp2(*args, options=options, deriv_order=deriv_order)
         elif method =='mp2-f12':
-            args += (cabs_set,)
-            def electronic_energy(*args, deriv_order=deriv_order):
-                return restricted_mp2_f12(*args, deriv_order=deriv_order)
+            args = (geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+            def electronic_energy(*args, options=options, deriv_order=deriv_order):
+                return restricted_mp2_f12(*args, options=options, deriv_order=deriv_order)
         elif method =='ccsd':
-            def electronic_energy(*args, deriv_order=deriv_order):
-                return rccsd(*args, deriv_order=deriv_order)
+            args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+            def electronic_energy(*args, options=options, deriv_order=deriv_order):
+                return rccsd(*args, options=options, deriv_order=deriv_order)
         elif method =='ccsd(t)':
-            def electronic_energy(*args, deriv_order=deriv_order):
-                return rccsd_t(*args, deriv_order=deriv_order)
+            args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+            def electronic_energy(*args, options=options, deriv_order=deriv_order):
+                return rccsd_t(*args, options=options, deriv_order=deriv_order)
         else:
             print("Desired electronic structure method not understood. Use 'scf' 'hf' 'mp2' 'ccsd' or 'ccsd(t)' ")
 
@@ -137,6 +142,7 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
             raise Exception("The length of the index coordinates given by 'partial' argument should be the same as the order of differentiation")
 
         # Estimate memory footprint of two electron integrals partial derivatives
+        natoms = molecule.natom()
         nderivs = get_required_deriv_vecs(natoms, deriv_order, partial).shape[0]
         ngigabytes = nbf**4 * 64 * 8 * nderivs / 1e9
         print("Estimated memory footprint from two-electron integral partial derivatives: {} GB".format(ngigabytes))
@@ -149,28 +155,28 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
         # JAX will then collect the internal coordinate partial derivative instead. 
         if method == 'scf' or method == 'hf' or method == 'rhf':
             def partial_wrapper(*args):
-                geom = jnp.asarray(args)
-                E_scf = restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=False)
+                E_scf = restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_path,\
+                                                options=options, deriv_order=deriv_order, return_aux_data=False)
                 return E_scf
         elif method =='mp2':
             def partial_wrapper(*args):
-                geom = jnp.asarray(args)
-                E_mp2 = restricted_mp2(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
+                E_mp2 = restricted_mp2(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path,\
+                                       options=options, deriv_order=deriv_order)
                 return E_mp2
         elif method =='mp2-f12':
             def partial_wrapper(*args):
-                geom = jnp.asarray(args)
-                E_mp2f12 = restricted_mp2_f12(geom, basis_set, xyz_path, nuclear_charges, charge, options, cabs_set, deriv_order=deriv_order)
+                E_mp2f12 = restricted_mp2_f12(geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path,\
+                                              options=options, deriv_order=deriv_order)
                 return E_mp2f12
         elif method =='ccsd':
             def partial_wrapper(*args):
-                geom = jnp.asarray(args)
-                E_ccsd = rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
+                E_ccsd = rccsd(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path,\
+                               options=options, deriv_order=deriv_order)
                 return E_ccsd
         elif method =='ccsd(t)':
             def partial_wrapper(*args):
-                geom = jnp.asarray(args)
-                E_ccsd_t = rccsd_t(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order)
+                E_ccsd_t = rccsd_t(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path,\
+                                   options=options, deriv_order=deriv_order)
                 return E_ccsd_t
         else:
             raise Exception("Error: Method {} not supported.".format(method))

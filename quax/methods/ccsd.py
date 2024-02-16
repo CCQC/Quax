@@ -6,17 +6,16 @@ import psi4
 from .energy_utils import tei_transformation
 from .hartree_fock import restricted_hartree_fock
 
-def rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=0, return_aux_data=False):
-    # Do HF
-    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_order=deriv_order, return_aux_data=True)
+def rccsd(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path, options, deriv_order=0, return_aux_data=False):
+    ndocc = nelectrons // 2
+    ncore = nfrzn // 2
+    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_path, options, deriv_order=deriv_order, return_aux_data=True)
 
     print("Running CCSD Computation...")
-    nelectrons = int(jnp.sum(nuclear_charges)) - charge
-    ndocc = nelectrons // 2
     nbf = V.shape[0]
     nvir = nbf - ndocc
 
-    o = slice(0, ndocc)
+    o = slice(ncore, ndocc)
     v = slice(ndocc, nbf)
 
     # Save slices of two-electron repulsion integrals in MO basis
@@ -32,7 +31,7 @@ def rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_ord
     d = 1.0 / (fock_Od.reshape(-1, 1) - fock_Vd)
 
     # Initial Amplitudes
-    T1 = jnp.zeros((ndocc, nvir))
+    T1 = jnp.zeros((ndocc - ncore, nvir))
     T2 = D * V[2]
 
     maxit = options['maxit']
@@ -42,7 +41,7 @@ def rccsd(geom, basis_set, xyz_path, nuclear_charges, charge, options, deriv_ord
     while abs(E_ccsd - E_old)  > 1e-9:
         E_old = E_ccsd * 1
 
-        T1, T2 = rccsd_iter(T1, T2, V, d, D, ndocc, nvir)
+        T1, T2 = rccsd_iter(T1, T2, V, d, D)
         E_ccsd = rccsd_energy(T1, T2, V[2])
 
         iteration += 1
@@ -69,7 +68,7 @@ def rccsd_energy(T1, T2, Voovv):
 
 # Jit compiling ccsd is a BAD IDEA.
 # TODO consider breaking up function and jit compiling those which do not use more memory than TEI transformation
-def rccsd_iter(T1, T2, V, d, D, ndocc, nvir):
+def rccsd_iter(T1, T2, V, d, D):
     Voooo, Vooov, Voovv, Vovov, Vovvv, Vvvvv = V
 
     newT1 = jnp.zeros(T1.shape)
