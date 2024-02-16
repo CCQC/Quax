@@ -87,10 +87,6 @@ def restricted_mp2_f12(geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_cha
 
     E_s = cabs_singles(f, ndocc, nri)
 
-    print(E_mp2)
-    print(dE_mp2f12)
-    print(E_s)
-
     return E_mp2 + dE_mp2f12 + E_s
 
 # CABS Singles
