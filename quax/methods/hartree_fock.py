@@ -30,9 +30,9 @@ def restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_pa
     # For slightly shifting eigenspectrum of transformed Fock for degenerate eigenvalues 
     # (JAX cannot differentiate degenerate eigenvalue eigh) 
     def form_shift():
-        fudge = jnp.asarray(jnp.linspace(0, 1, nbf)) * 1e-8 
+        fudge = jnp.asarray(jnp.linspace(0, 1, nbf)) * 1.e-8
         return jnp.diag(fudge)
-    
+
     shift = jax.lax.cond(spectral_shift, lambda: form_shift(), lambda: jnp.zeros_like(S))
 
     # Shifting eigenspectrum requires lower convergence.
@@ -50,12 +50,12 @@ def restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_pa
         Cocc = C[:, :ndocc]
         D = Cocc @ Cocc.T
         return E_scf, D, C, eps
-    
+
     def DIIS(F, D, S):
         diis_e = jnp.einsum('ij,jk,kl->il', F, D, S) - jnp.einsum('ij,jk,kl->il', S, D, F)
         diis_e = A @ diis_e @ A
         return jnp.mean(diis_e ** 2) ** 0.5
-    
+
     def scf_procedure(carry):
         iter, de_, drms_, eps_, C_, D_old, D_, e_old = carry
 
