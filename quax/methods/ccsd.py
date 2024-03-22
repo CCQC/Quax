@@ -31,22 +31,20 @@ def rccsd(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path, options
     d = 1.0 / (fock_Od.reshape(-1, 1) - fock_Vd)
 
     # Initial Amplitudes
-    T1 = jnp.zeros((ndocc - ncore, nvir))
-    T2 = D * V[2]
 
     maxit = options['maxit']
-    iteration = 0
-    E_ccsd = 1.0
-    E_old = 0.0
-    while abs(E_ccsd - E_old)  > 1e-9:
-        E_old = E_ccsd * 1
+    def ccsd_procedure(arr):
+        iter, de_, T1_,T2_, e_old = arr
 
-        T1, T2 = rccsd_iter(T1, T2, V, d, D)
-        E_ccsd = rccsd_energy(T1, T2, V[2])
+        T1_,T2_ = rccsd_iter(T1_,T2_, V, d, D)
+        e_ccsd = rccsd_energy(T1_,T2_, V[2])
 
-        iteration += 1
-        if iteration == maxit:
-            break
+        de_ = jax.lax.cond(iter + 1 == maxit, lambda: 1.e-12, lambda: e_ccsd - e_old)
+
+        return (iter + 1, de_, T1_, T2_, e_ccsd)
+
+    iteration, _, T1, T2, E_ccsd = jax.lax.while_loop(lambda arr: abs(arr[1])  > 1e-10, ccsd_procedure,
+                                   (0, 1.0, jnp.zeros((ndocc - ncore, nvir)), D * V[2], 0.0)) # (iter, dE, T1, T2, E_ccsd)
 
     print(iteration, " CCSD iterations performed")
     if return_aux_data:

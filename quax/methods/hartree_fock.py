@@ -13,7 +13,6 @@ def restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_pa
     damping = options['damping']
     damp_factor = options['damp_factor']
     spectral_shift = options['spectral_shift']
-    convergence = 1e-10
     ndocc = nelectrons // 2
 
     # If we are doing MP2 or CCSD after, might as well use jit-compiled JK-build, since HF will not be memory bottleneck
@@ -30,19 +29,19 @@ def restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_pa
 
     # For slightly shifting eigenspectrum of transformed Fock for degenerate eigenvalues 
     # (JAX cannot differentiate degenerate eigenvalue eigh) 
-    if spectral_shift:
-        # Shifting eigenspectrum requires lower convergence.
-        convergence = 1e-8 
-        fudge = jnp.asarray(jnp.linspace(0, 1, nbf)) * convergence
-        shift = jnp.diag(fudge)
-    else:
-        shift = jnp.zeros_like(S)
+    def form_shift():
+        fudge = jnp.asarray(jnp.linspace(0, 1, nbf)) * 1e-8 
+        return jnp.diag(fudge)
+    
+    shift = jax.lax.cond(spectral_shift, lambda: form_shift(), lambda: jnp.zeros_like(S))
+
+    # Shifting eigenspectrum requires lower convergence.
+    convergence = jax.lax.cond(spectral_shift, lambda: 1.0e-9, lambda: 1.0e-10)
 
     H = T + V
     Enuc = nuclear_repulsion(geom.reshape(-1,3), nuclear_charges)
-    D = jnp.zeros_like(H)
     
-    def rhf_iter(F,D):
+    def rhf_iter(F, D):
         E_scf = jnp.einsum('pq,pq->', F + H, D) + Enuc
         Fp = A.T @ F @ A
         Fp = Fp + shift 
@@ -51,36 +50,41 @@ def restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_pa
         Cocc = C[:, :ndocc]
         D = Cocc @ Cocc.T
         return E_scf, D, C, eps
+    
+    def DIIS(F, D, S):
+        diis_e = jnp.einsum('ij,jk,kl->il', F, D, S) - jnp.einsum('ij,jk,kl->il', S, D, F)
+        diis_e = A @ diis_e @ A
+        return jnp.mean(diis_e ** 2) ** 0.5
+    
+    def scf_procedure(carry):
+        iter, de_, drms_, eps_, C_, D_old, D_, e_old = carry
 
-    iteration = 0
-    E_scf = 1.0
-    E_old = 0.0
-    Dold = jnp.zeros_like(D)
-    dRMS = 1.0
-
-    # Converge according to energy and DIIS residual to ensure eigenvalues and eigenvectors are maximally converged.
-    # This is crucial for numerical stability for higher order derivatives of correlated methods.
-    while ((abs(E_scf - E_old) > convergence) or (dRMS > convergence)):
-        E_old = E_scf * 1
-        if damping:
-            if iteration < 10:
-                D = Dold * damp_factor + D * damp_factor
-                Dold = D * 1.0
+        D_ = jax.lax.cond(damping and (iter < 10), lambda: D_old * damp_factor + D_ * damp_factor, lambda: D_)
+        D_old = jnp.copy(D_)
         # Build JK matrix: 2 * J - K
-        JK = 2 * jk_build(G, D)
-        JK -= jk_build(G.transpose((0,2,1,3)), D)
+        JK = 2 * jk_build(G, D_)
+        JK -= jk_build(G.transpose((0,2,1,3)), D_)
         # Build Fock
         F = H + JK
-        # Update convergence error
-        if iteration > 1:
-            diis_e = jnp.einsum('ij,jk,kl->il', F, D, S) - jnp.einsum('ij,jk,kl->il', S, D, F)
-            diis_e = A @ diis_e @ A
-            dRMS = jnp.mean(diis_e ** 2) ** 0.5
         # Compute energy, transform Fock and diagonalize, get new density
-        E_scf, D, C, eps = rhf_iter(F, D)
-        iteration += 1
-        if iteration == maxit:
-            break
+        e_scf, D_, C_, eps_ = rhf_iter(F, D_)
+
+        de_, drms_ = jax.lax.cond(iter + 1 == maxit, lambda: (1.e-15, 1.e-15), lambda: (e_old - e_scf, DIIS(F, D_, S)))
+
+        return (iter + 1, de_, drms_, eps_, C_, D_old, D_, e_scf)
+
+    # Create Guess Density
+    D = jnp.copy(H)
+    JK = 2 * jk_build(G, D)
+    JK -= jk_build(G.transpose((0,2,1,3)), D)
+    F = H + JK
+    E_init, D_init, C_init, eps_init = rhf_iter(F, D)
+
+    # Perform SCF Procedure
+    iteration, dE, dRMS, eps, C, _, D, E_scf = jax.lax.while_loop(lambda arr: (abs(arr[1]) > convergence) | (arr[2] > convergence),
+                                                           scf_procedure, (0, 1.0, 1.0, eps_init, C_init, D, D_init, E_init))
+                                                           # (iter, dE, dRMS, eps, C, D_old, D, E_scf)
+
     print(iteration, " RHF iterations performed")
 
     # If many orbitals are degenerate, warn that higher order derivatives may be unstable 
