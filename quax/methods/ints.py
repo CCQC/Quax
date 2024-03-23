@@ -14,7 +14,7 @@ from ..integrals import libint_interface
      
 
 def compute_integrals(geom, basis_set, xyz_path, deriv_order, options):
-    # Load integral algo, decides to compute integrals in memory or use disk 
+    # Load integral algo, decides to compute integrals in memory or use disk
     algo = options['integral_algo']
     basis_name = basis_set.name()
     libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name, options['ints_tolerance'])
@@ -55,6 +55,18 @@ def compute_integrals(geom, basis_set, xyz_path, deriv_order, options):
 
     libint_interface.finalize()
     return S, T, V, G
+
+def compute_dipole_ints(geom, basis_set, xyz_path, deriv_order, options):
+    # Load integral algo, decides to compute integrals in memory or use disk
+    algo = options['integral_algo']
+    basis_name = basis_set.name()
+    libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name, options['ints_tolerance'])
+
+    oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'dipole')
+
+    Mu_X, Mu_Y, Mu_Z = oei_obj.dipole(geom)
+
+    return (Mu_X, Mu_Y, Mu_Z)
 
 def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options, cabs):
     # Load integral algo, decides to compute integrals in memory or use disk

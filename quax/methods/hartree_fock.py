@@ -30,7 +30,7 @@ def restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_pa
     # For slightly shifting eigenspectrum of transformed Fock for degenerate eigenvalues 
     # (JAX cannot differentiate degenerate eigenvalue eigh) 
     def form_shift():
-        fudge = jnp.asarray(jnp.linspace(0, 1, nbf)) * 1.e-8
+        fudge = jnp.asarray(jnp.linspace(0, 1, nbf)) * 1.e-9
         return jnp.diag(fudge)
 
     shift = jax.lax.cond(spectral_shift, lambda: form_shift(), lambda: jnp.zeros_like(S))
@@ -81,10 +81,9 @@ def restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_pa
     E_init, D_init, C_init, eps_init = rhf_iter(F, D)
 
     # Perform SCF Procedure
-    iteration, dE, dRMS, eps, C, _, D, E_scf = jax.lax.while_loop(lambda arr: (abs(arr[1]) > convergence) | (arr[2] > convergence),
-                                                           scf_procedure, (0, 1.0, 1.0, eps_init, C_init, D, D_init, E_init))
-                                                           # (iter, dE, dRMS, eps, C, D_old, D, E_scf)
-
+    iteration, _, _, eps, C, _, D, E_scf = jax.lax.while_loop(lambda arr: (abs(arr[1]) > convergence) | (arr[2] > convergence),
+                                                              scf_procedure, (0, 1.0, 1.0, eps_init, C_init, D, D_init, E_init))
+                                                              # (iter, dE, dRMS, eps, C, D_old, D, E_scf)
     print(iteration, " RHF iterations performed")
 
     # If many orbitals are degenerate, warn that higher order derivatives may be unstable 
@@ -92,6 +91,7 @@ def restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_pa
     ndegen_orbs =  tmp.shape[0] - jnp.unique(tmp).shape[0] 
     if (ndegen_orbs / nbf) > 0.20:
         print("Hartree-Fock warning: More than 20% of orbitals have degeneracies. Higher order derivatives may be unstable due to eigendecomposition AD rule")
+
     if not return_aux_data:
         return E_scf
     else:

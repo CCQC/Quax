@@ -77,25 +77,6 @@ libint2::BasisSet make_ao_cabs(std::string obs_name, libint2::BasisSet cabs) {
     return cabs;
 }
 
-// Returns number of basis functions
-int nbf(std::string basis, std::string xyzfilename) {
-    libint2::initialize();
-    atoms = get_atoms(xyzfilename);
-
-    // Move harddrive load of basis and xyz to happen only once
-    libint2::BasisSet bs = libint2::BasisSet(basis, atoms);
-    bs.set_pure(false); // use cartesian gaussians
-    if (basis.find("-cabs", 10) != std::string::npos) {
-        bs = make_ao_cabs(basis, bs);
-    }
-
-    int nbf = static_cast<int>(bs.nbf());
-
-    libint2::finalize();
-
-    return nbf;
-}
-
 // Must call initialize before computing ints 
 void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
                 std::string basis3, std::string basis4, double ints_tol) {
@@ -483,6 +464,83 @@ py::array compute_1e_int(std::string type) {
         }
     }
     return py::array(result.size(), result.data()); 
+}
+
+// Compute one-electron dipole integrals
+std::vector<py::array> compute_dipole_ints() {
+    // Shell pairs after screening
+    const auto bs1_equiv_bs2 = (bs1 == bs2);
+    auto shellpairs = build_shellpairs(bs1, bs2);
+
+    // Integral engine
+    std::vector<libint2::Engine> engines(nthreads);
+
+    // COM generator
+    std::array<double,3> COM = {0.000, 0.000, 0.000};
+
+    // Will compute overlap + electric dipole moments
+    engines[0] = libint2::Engine(libint2::Operator::emultipole1, max_nprim, max_l);
+    engines[0].set_params(COM); // with COM as the multipole origin
+    engines[0].set_precision(max_engine_precision);
+    engines[0].prescale_by(-2);
+    for (size_t i = 1; i != nthreads; ++i) {
+        engines[i] = engines[0];
+    }
+
+    size_t length = nbf1 * nbf2;
+    std::vector<double> Mu_X(length); // Mu_X Vector
+    std::vector<double> Mu_Y(length); // Mu_Y Vector
+    std::vector<double> Mu_Z(length); // Mu_Z Vector
+
+#pragma omp parallel for num_threads(nthreads)
+    for (const auto &pair : shellpairs) {
+        int p1 = pair.first;
+        int p2 = pair.second;
+
+        const auto &s1 = bs1[p1];
+        const auto &s2 = bs2[p2];
+        auto n1 = bs1[p1].size(); // number of basis functions in first shell
+        auto n2 = bs2[p2].size(); // number of basis functions in first shell
+        auto bf1 = shell2bf_1[p1];  // first basis function in first shell
+        auto bf2 = shell2bf_2[p2];  // first basis function in second shell
+
+        int thread_id = 0;
+#ifdef _OPENMP
+        thread_id = omp_get_thread_num();
+#endif
+        engines[thread_id].compute(s1, s2); // Compute shell set
+        const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
+        auto mu_x_shellset = buf_vec[1];
+        auto mu_y_shellset = buf_vec[2];
+        auto mu_z_shellset = buf_vec[3];
+
+        if (mu_x_shellset == nullptr && mu_y_shellset == nullptr && mu_z_shellset == nullptr)
+            continue;  // nullptr returned if the entire shell-set was screened out
+
+        // Loop over shell block, keeping a total count idx for the size of shell set
+        if (bs1_equiv_bs2 && p1 != p2) {
+            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                    Mu_X[(bf1 + f1) * nbf2 + bf2 + f2] = mu_x_shellset[idx];
+                    Mu_X[(bf2 + f2) * nbf1 + bf1 + f1] = mu_x_shellset[idx];
+                    Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2] = mu_y_shellset[idx];
+                    Mu_Y[(bf2 + f2) * nbf1 + bf1 + f1] = mu_y_shellset[idx];
+                    Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2] = mu_z_shellset[idx];
+                    Mu_Z[(bf2 + f2) * nbf1 + bf1 + f1] = mu_z_shellset[idx];
+                }
+            }
+        } else {
+            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                    Mu_X[(bf1 + f1) * nbf2 + bf2 + f2] = mu_x_shellset[idx];
+                    Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2] = mu_y_shellset[idx];
+                    Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2] = mu_z_shellset[idx];
+                }
+            }
+        }
+    }
+    return {py::array(Mu_X.size(), Mu_X.data()), py::array(Mu_Y.size(), Mu_Y.data()),
+            py::array(Mu_Z.size(), Mu_Z.data())};
 }
 
 // Computes two-electron integrals
@@ -2270,6 +2328,7 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("initialize", &initialize, "Initializes libint, builds geom and basis, assigns globals");
     m.def("finalize", &finalize, "Kills libint");
     m.def("compute_1e_int", &compute_1e_int, "Computes one-electron integrals with libint");
+    m.def("compute_dipole_ints", &compute_dipole_ints, "Computes electric (Cartesian) dipole integrals");
     m.def("compute_2e_int", &compute_2e_int, "Computes two-electron integrals with libint");
     m.def("compute_1e_deriv", &compute_1e_deriv, "Computes one-electron integral nuclear derivatives with libint");
     m.def("compute_2e_deriv", &compute_2e_deriv, "Computes two-electron integral nuclear derivatives with libint");

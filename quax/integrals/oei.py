@@ -47,6 +47,7 @@ class OEI(object):
         self.kinetic_deriv_p = jax.core.Primitive("kinetic_deriv")
         self.potential_p = jax.core.Primitive("potential")
         self.potential_deriv_p = jax.core.Primitive("potential_deriv")
+        self.dipole_p = jax.core.Primitive("dipole")
 
         # Register primitive evaluation rules
         self.overlap_p.def_impl(self.overlap_impl)
@@ -55,6 +56,7 @@ class OEI(object):
         self.kinetic_deriv_p.def_impl(self.kinetic_deriv_impl)
         self.potential_p.def_impl(self.potential_impl)
         self.potential_deriv_p.def_impl(self.potential_deriv_impl)
+        self.dipole_p.def_impl(self.dipole_impl)
 
         # Register the JVP rules with JAX
         jax.interpreters.ad.primitive_jvps[self.overlap_p] = self.overlap_jvp
@@ -88,6 +90,9 @@ class OEI(object):
     def potential_deriv(self, geom, deriv_vec):
         return self.potential_deriv_p.bind(geom, deriv_vec)
 
+    def dipole(self, geom):
+        return self.dipole_p.bind(geom)
+
     # Create primitive evaluation rules
     def overlap_impl(self, geom):
         S = libint_interface.compute_1e_int("overlap")
@@ -103,6 +108,13 @@ class OEI(object):
         V = libint_interface.compute_1e_int("potential")
         V = V.reshape(self.nbf1, self.nbf2)
         return jnp.asarray(V)
+
+    def dipole_impl(self, geom):
+        Mu_X, Mu_Y, Mu_Z = libint_interface.compute_dipole_ints()
+        Mu_X = Mu_X.reshape(self.nbf1, self.nbf2)
+        Mu_Y = Mu_Y.reshape(self.nbf1, self.nbf2)
+        Mu_Z = Mu_Z.reshape(self.nbf1, self.nbf2)
+        return jnp.asarray(Mu_X), jnp.asarray(Mu_Y), jnp.asarray(Mu_Z)
 
     def overlap_deriv_impl(self, geom, deriv_vec):
         deriv_vec = np.asarray(deriv_vec, int)
