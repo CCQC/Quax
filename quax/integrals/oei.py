@@ -48,6 +48,7 @@ class OEI(object):
         self.potential_p = jax.core.Primitive("potential")
         self.potential_deriv_p = jax.core.Primitive("potential_deriv")
         self.dipole_p = jax.core.Primitive("dipole")
+        self.dipole_deriv_p = jax.core.Primitive("dipole_deriv")
 
         # Register primitive evaluation rules
         self.overlap_p.def_impl(self.overlap_impl)
@@ -57,6 +58,7 @@ class OEI(object):
         self.potential_p.def_impl(self.potential_impl)
         self.potential_deriv_p.def_impl(self.potential_deriv_impl)
         self.dipole_p.def_impl(self.dipole_impl)
+        self.dipole_deriv_p.def_impl(self.dipole_deriv_impl)
 
         # Register the JVP rules with JAX
         jax.interpreters.ad.primitive_jvps[self.overlap_p] = self.overlap_jvp
@@ -65,11 +67,14 @@ class OEI(object):
         jax.interpreters.ad.primitive_jvps[self.kinetic_deriv_p] = self.kinetic_deriv_jvp
         jax.interpreters.ad.primitive_jvps[self.potential_p] = self.potential_jvp
         jax.interpreters.ad.primitive_jvps[self.potential_deriv_p] = self.potential_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.dipole_p] = self.dipole_jvp
+        jax.interpreters.ad.primitive_jvps[self.dipole_deriv_p] = self.dipole_deriv_jvp
 
         # Register the batching rules with JAX
         jax.interpreters.batching.primitive_batchers[self.overlap_deriv_p] = self.overlap_deriv_batch
         jax.interpreters.batching.primitive_batchers[self.kinetic_deriv_p] = self.kinetic_deriv_batch
         jax.interpreters.batching.primitive_batchers[self.potential_deriv_p] = self.potential_deriv_batch
+        jax.interpreters.batching.primitive_batchers[self.dipole_deriv_p] = self.dipole_deriv_batch
 
     # Create functions to call primitives
     def overlap(self, geom):
@@ -93,6 +98,9 @@ class OEI(object):
     def dipole(self, geom):
         return self.dipole_p.bind(geom)
 
+    def dipole_deriv(self, geom, deriv_vec):
+        return self.dipole_deriv_p.bind(geom, deriv_vec)
+
     # Create primitive evaluation rules
     def overlap_impl(self, geom):
         S = libint_interface.compute_1e_int("overlap")
@@ -114,7 +122,7 @@ class OEI(object):
         Mu_X = Mu_X.reshape(self.nbf1, self.nbf2)
         Mu_Y = Mu_Y.reshape(self.nbf1, self.nbf2)
         Mu_Z = Mu_Z.reshape(self.nbf1, self.nbf2)
-        return jnp.asarray(Mu_X), jnp.asarray(Mu_Y), jnp.asarray(Mu_Z)
+        return jnp.stack([Mu_X, Mu_Y, Mu_Z])
 
     def overlap_deriv_impl(self, geom, deriv_vec):
         deriv_vec = np.asarray(deriv_vec, int)
@@ -212,6 +220,52 @@ class OEI(object):
                     raise Exception("Something went wrong reading integral derivative file")
             return jnp.asarray(V)
 
+    def dipole_deriv_impl(self, geom, deriv_vec):
+        deriv_vec = np.asarray(deriv_vec, int)
+        deriv_order = np.sum(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
+
+        if self.mode == 'dipole':
+            Mu_X, Mu_Y, Mu_Z = libint_interface.compute_dipole_derivs(deriv_vec)
+            Mu_X = Mu_X.reshape(self.nbf1, self.nbf2)
+            Mu_Y = Mu_Y.reshape(self.nbf1, self.nbf2)
+            Mu_Z = Mu_Z.reshape(self.nbf1, self.nbf2)
+            return jnp.stack([Mu_X, Mu_Y, Mu_Z])
+        elif self.mode == 'disk':
+            if os.path.exists("dipole_derivs.h5"):
+                file_name = "dipole_derivs.h5"
+                dataset1_name = "mu_x_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset2_name = "mu_y_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset3_name = "mu_z_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+            elif os.path.exists("dipole_partials.h5"):
+                file_name = "dipole_partials.h5"
+                dataset1_name = "mu_x_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset2_name = "mu_y_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset3_name = "mu_z_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+            else:
+                raise Exception("Something went wrong reading integral derivative file")
+            with h5py.File(file_name, 'r') as f:
+                mu_x_set = f[dataset1_name]
+                mu_y_set = f[dataset2_name]
+                mu_z_set = f[dataset3_name]
+                if len(mu_x_set.shape) == 3:
+                    Mu_X = mu_x_set[:,:,idx]
+                    Mu_Y = mu_y_set[:,:,idx]
+                    Mu_Z = mu_z_set[:,:,idx]
+                elif len(mu_x_set.shape) == 2:
+                    Mu_X = mu_x_set[:,:]
+                    Mu_Y = mu_y_set[:,:]
+                    Mu_Z = mu_z_set[:,:]
+                else:
+                    raise Exception("Something went wrong reading integral derivative file")
+            return jnp.stack([Mu_X, Mu_Y, Mu_Z])
+
     def overlap_jvp(self, primals, tangents):
         geom, = primals
         primals_out = self.overlap(geom)
@@ -246,6 +300,18 @@ class OEI(object):
         geom, deriv_vec = primals
         primals_out = self.potential_deriv(geom, deriv_vec)
         tangents_out = self.potential_deriv(geom, deriv_vec + tangents[0])
+        return primals_out, tangents_out
+
+    def dipole_jvp(self, primals, tangents):
+        geom, = primals
+        primals_out = self.dipole(geom)
+        tangents_out = self.dipole_deriv(geom, tangents[0])
+        return primals_out, tangents_out
+
+    def dipole_deriv_jvp(self, primals, tangents):
+        geom, deriv_vec = primals
+        primals_out = self.dipole_deriv(geom, deriv_vec)
+        tangents_out = self.dipole_deriv(geom, deriv_vec + tangents[0])
         return primals_out, tangents_out
 
     # Define Batching rules, this is only needed since jax.jacfwd will call vmap on the JVP's
@@ -283,6 +349,19 @@ class OEI(object):
         for i in deriv_batch:
             tmp = self.potential_deriv(geom_batch, i)
             results.append(jnp.expand_dims(tmp, axis=0))
+        results = jnp.concatenate(results, axis=0)
+        return results, 0
+
+    def dipole_deriv_batch(self, batched_args, batch_dims):
+        geom_batch, deriv_batch = batched_args
+        geom_dim, deriv_dim = batch_dims
+        results = []
+        for i in deriv_batch:
+            tmp1, tmp2, tmp3 = self.dipole_deriv(geom_batch, i)
+            mu_x = jnp.expand_dims(tmp1, axis=0)
+            mu_y = jnp.expand_dims(tmp2, axis=0)
+            mu_z = jnp.expand_dims(tmp3, axis=0)
+            results.append(jnp.stack([mu_x, mu_y, mu_z], axis=1))
         results = jnp.concatenate(results, axis=0)
         return results, 0
 

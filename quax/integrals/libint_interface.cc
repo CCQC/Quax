@@ -851,6 +851,143 @@ py::array compute_1e_deriv(std::string type, std::vector<int> deriv_vec) {
     return py::array(result.size(), result.data()); 
 }
 
+// Computes nuclear derivatives of dipole integrals
+std::vector<py::array> compute_dipole_derivs(std::vector<int> deriv_vec) {
+    assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+    // Get order of differentiation
+    int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
+
+    // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
+    std::vector<int> desired_atom_indices;
+    std::vector<int> desired_coordinates;
+    process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
+
+    // Create mappings from 1d buffer index (flattened upper triangle shell derivative index)
+    // to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
+
+    // Shell pairs after screening
+    const auto bs1_equiv_bs2 = (bs1 == bs2);
+    auto shellpairs = build_shellpairs(bs1, bs2);
+
+    // Integral engine
+    std::vector<libint2::Engine> engines(nthreads);
+
+    // COM generator
+    std::array<double,3> COM = {0.000, 0.000, 0.000};
+
+    // Will compute overlap + electric dipole moments
+    engines[0] = libint2::Engine(libint2::Operator::emultipole1, max_nprim, max_l, deriv_order);
+    engines[0].set_params(COM); // with COM as the multipole origin
+    engines[0].set_precision(max_engine_precision);
+    engines[0].prescale_by(-1);
+    for (size_t i = 1; i != nthreads; ++i) {
+        engines[i] = engines[0];
+    }
+
+    size_t length = nbf1 * nbf2;
+    std::vector<double> Mu_X(length); // Mu_X Vector
+    std::vector<double> Mu_Y(length); // Mu_Y Vector
+    std::vector<double> Mu_Z(length); // Mu_Z Vector
+
+#pragma omp parallel for num_threads(nthreads)
+    for (const auto &pair : shellpairs) {
+        int p1 = pair.first;
+        int p2 = pair.second;
+
+        const auto &s1 = bs1[p1];
+        const auto &s2 = bs2[p2];
+        auto n1 = bs1[p1].size(); // number of basis functions in first shell
+        auto n2 = bs2[p2].size(); // number of basis functions in first shell
+        auto bf1 = shell2bf_1[p1];  // first basis function in first shell
+        auto bf2 = shell2bf_2[p2];  // first basis function in second shell
+        auto atom1 = shell2atom_1[p1]; // Atom index of shell 1
+        auto atom2 = shell2atom_2[p2]; // Atom index of shell 2
+
+        // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
+        std::vector<long> shell_atom_index_list{atom1, atom2};
+
+        int thread_id = 0;
+#ifdef _OPENMP
+        thread_id = omp_get_thread_num();
+#endif
+        engines[thread_id].compute(s1, s2); // Compute shell set
+        const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
+
+        // For every desired atom derivative, check shell and nuclear indices for a match,
+        // add it to subvector for that derivative
+        // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+        std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+        for (int j = 0; j < desired_atom_indices.size(); j++){
+            int desired_atom_idx = desired_atom_indices[j];
+            // Shell indices
+            for (int i = 0; i < 2; i++){
+                int atom_idx = shell_atom_index_list[i];
+                if (atom_idx == desired_atom_idx) {
+                    int tmp = 3 * i + desired_coordinates[j];
+                    indices[j].push_back(tmp);
+                    continue; // Avoid adding same atom and coord twice
+                }
+            }
+        }
+
+        // Now indices is a vector of vectors, where each subvector is your choices
+        // for the first derivative operator, second, third, etc
+        // and the total number of subvectors is the order of differentiation
+        // Now we want all combinations where we pick exactly one index from each subvector.
+        // This is achievable through a cartesian product
+        std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+        std::vector<int> buffer_indices;
+
+        // Collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+        for (auto vec : index_combos)  {
+            std::sort(vec.begin(), vec.end());
+            int buf_idx = 0;
+            auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+            if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+            buffer_indices.push_back(buf_idx * 4);
+        }
+
+        // Loop over every buffer index and accumulate for every shell set.
+        if (bs1_equiv_bs2 && p1 != p2) {
+            for(auto i = 0; i < buffer_indices.size(); ++i) {
+                auto mu_x_shellset = buf_vec[buffer_indices[i] + 1];
+                auto mu_y_shellset = buf_vec[buffer_indices[i] + 2];
+                auto mu_z_shellset = buf_vec[buffer_indices[i] + 3];
+                if (mu_x_shellset == nullptr && mu_y_shellset == nullptr && mu_z_shellset == nullptr)
+                    continue;  // nullptr returned if the entire shell-set was screened out
+                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                    for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                        Mu_X[(bf1 + f1) * nbf2 + bf2 + f2] += mu_x_shellset[idx];
+                        Mu_X[(bf2 + f2) * nbf1 + bf1 + f1] += mu_x_shellset[idx];
+                        Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2] += mu_y_shellset[idx];
+                        Mu_Y[(bf2 + f2) * nbf1 + bf1 + f1] += mu_y_shellset[idx];
+                        Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2] += mu_z_shellset[idx];
+                        Mu_Z[(bf2 + f2) * nbf1 + bf1 + f1] += mu_z_shellset[idx];
+                    }
+                }
+            }
+        } else {
+            for(auto i = 0; i < buffer_indices.size(); ++i) {
+                auto mu_x_shellset = buf_vec[buffer_indices[i] + 1];
+                auto mu_y_shellset = buf_vec[buffer_indices[i] + 2];
+                auto mu_z_shellset = buf_vec[buffer_indices[i] + 3];
+                if (mu_x_shellset == nullptr && mu_y_shellset == nullptr && mu_z_shellset == nullptr)
+                    continue;  // nullptr returned if the entire shell-set was screened out
+                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                    for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                        Mu_X[(bf1 + f1) * nbf2 + bf2 + f2] += mu_x_shellset[idx];
+                        Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2] += mu_y_shellset[idx];
+                        Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2] += mu_z_shellset[idx];
+                    }
+                }
+            }
+        }
+    }
+    return {py::array(Mu_X.size(), Mu_X.data()), py::array(Mu_Y.size(), Mu_Y.data()),
+            py::array(Mu_Z.size(), Mu_Z.data())};
+}
+
 // Computes nuclear derivatives of two-electron integrals
 py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv_vec) {
     assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
@@ -2326,11 +2463,13 @@ py::array eri_deriv_core(int deriv_order) {
 PYBIND11_MODULE(libint_interface, m) {
     m.doc() = "pybind11 libint interface to molecular integrals"; // optional module docstring
     m.def("initialize", &initialize, "Initializes libint, builds geom and basis, assigns globals");
+    m.def("generate_multi_index_lookup", &generate_multi_index_lookup, "Flattened upper triangular map");
     m.def("finalize", &finalize, "Kills libint");
     m.def("compute_1e_int", &compute_1e_int, "Computes one-electron integrals with libint");
-    m.def("compute_dipole_ints", &compute_dipole_ints, "Computes electric (Cartesian) dipole integrals");
+    m.def("compute_dipole_ints", &compute_dipole_ints, "Computes electric (Cartesian) dipole integrals with libint");
     m.def("compute_2e_int", &compute_2e_int, "Computes two-electron integrals with libint");
     m.def("compute_1e_deriv", &compute_1e_deriv, "Computes one-electron integral nuclear derivatives with libint");
+    m.def("compute_dipole_derivs", &compute_dipole_derivs, "Computes electric (Cartesian) dipole nuclear integrals with libint");
     m.def("compute_2e_deriv", &compute_2e_deriv, "Computes two-electron integral nuclear derivatives with libint");
     m.def("compute_1e_deriv_disk", &compute_1e_deriv_disk, "Computes one-electron nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
     m.def("compute_2e_deriv_disk", &compute_2e_deriv_disk, "Computes coulomb integral nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
