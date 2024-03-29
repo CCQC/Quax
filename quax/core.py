@@ -40,7 +40,8 @@ def check_options(options):
                        'integral_algo': 'libint_core',
                        'ints_tolerance': 1.0e-14,
                        'freeze_core': False,
-                       'beta': 1.0
+                       'beta': 1.0,
+                       'dipole': False
                       }
 
     for key in options.keys():
@@ -54,7 +55,7 @@ def check_options(options):
             print("{} keyword option not recognized.".format(key))
     return keyword_options
 
-def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=None):
+def compute(molecule, basis_name, method, electric_field=None, options=None, deriv_order=0, partial=None):
     """
     General function for computing energies, derivatives, and partial derivatives.
     """
@@ -84,16 +85,22 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
 
     basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
     nbf = basis_set.nbf()
+    print("Basis name: ", basis_set.name())
     print("Number of basis functions: ", nbf)
 
     if 'f12' in method:
         cabs_set = build_RIBS(molecule, basis_set, basis_name + '-cabs')
+
+    if options['dipole'] and type(electric_field) == type(None):
+        raise Exception("Electric field must be given for dipole computation.")
 
     # Energy and full derivative tensor evaluations
     if not partial:
         # Create energy evaluation function
         if method == 'scf' or method == 'hf' or method == 'rhf':
             args = (geom, basis_set, nelectrons, nuclear_charges, xyz_path)
+            if options['dipole']:
+                args = (electric_field,) + args
             def electronic_energy(*args, options=options, deriv_order=deriv_order):
                 return restricted_hartree_fock(*args, options=options, deriv_order=deriv_order)
         elif method =='mp2':
@@ -134,6 +141,11 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
         else:
             print("Error: Order {} derivatives are not exposed to the API.".format(deriv_order))
             deriv = 0
+
+        if options['dipole']:
+            dip_nuc = jnp.einsum('q,qx', nuclear_charges, geom.reshape(-1,3))
+            deriv += dip_nuc
+
         return np.asarray(deriv)
 
     # Partial derivatives
@@ -209,7 +221,7 @@ def compute(molecule, basis_name, method, options=None, deriv_order=0, partial=N
             partial_deriv = 0
         return jnp.round(partial_deriv, 10)
 
-def energy(molecule, basis_name, method, options=None):
+def energy(molecule, basis_name, method, electric_field=None, options=None):
     """
     Call an energy method on a molecule and basis set.
 
@@ -251,10 +263,10 @@ def energy(molecule, basis_name, method, options=None):
     -------
     The electronic energy in a.u. (Hartrees)
     """
-    E = compute(molecule, basis_name, method, options)
+    E = compute(molecule, basis_name, method, electric_field, options)
     return E
 
-def derivative(molecule, basis_name, method, deriv_order, options=None):
+def derivative(molecule, basis_name, method, electric_field=None, deriv_order=1, options=None):
     """
     Compute the full Cartesian derivative tensor for a particular energy method, molecule, and basis set. 
 
@@ -300,7 +312,7 @@ def derivative(molecule, basis_name, method, deriv_order, options=None):
     deriv : float
         The requested derivative tensor, elements have units of Hartree/bohr^(n)
     """
-    deriv = compute(molecule, basis_name, method, options, deriv_order)
+    deriv = compute(molecule, basis_name, method, electric_field, options, deriv_order)
     return deriv
 
 def partial_derivative(molecule, basis_name, method, deriv_order, partial, options=None):

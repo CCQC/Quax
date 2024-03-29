@@ -3,10 +3,17 @@ jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import psi4
 
-from .ints import compute_integrals
+from .ints import compute_integrals, compute_dipole_ints
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 
-def restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_path, options, deriv_order=0, return_aux_data=False):
+def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False):
+    if options['dipole']:
+        electric_field, geom, basis_set, nelectrons, nuclear_charges, xyz_path = args
+        deriv_order = 0
+        print("Deriv_Order for Integrals: ", deriv_order)
+    else:
+        geom, basis_set, nelectrons, nuclear_charges, xyz_path = args
+
     print("Running Hartree-Fock Computation...")
     # Load keyword options
     maxit = options['maxit']
@@ -40,6 +47,11 @@ def restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_pa
 
     H = T + V
     Enuc = nuclear_repulsion(geom.reshape(-1,3), nuclear_charges)
+
+    if options['dipole']:
+        Mu_XYZ = compute_dipole_ints(geom, basis_set, xyz_path, 0, options)
+        val = jnp.einsum('x,xij->ij', electric_field, Mu_XYZ)
+        H += val
     
     def rhf_iter(F, D):
         E_scf = jnp.einsum('pq,pq->', F + H, D) + Enuc

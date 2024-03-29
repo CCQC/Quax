@@ -482,7 +482,7 @@ std::vector<py::array> compute_dipole_ints() {
     engines[0] = libint2::Engine(libint2::Operator::emultipole1, max_nprim, max_l);
     engines[0].set_params(COM); // with COM as the multipole origin
     engines[0].set_precision(max_engine_precision);
-    engines[0].prescale_by(-2);
+    engines[0].prescale_by(-1);
     for (size_t i = 1; i != nthreads; ++i) {
         engines[i] = engines[0];
     }
