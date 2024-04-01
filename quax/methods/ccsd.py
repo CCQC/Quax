@@ -6,10 +6,19 @@ import psi4
 from .energy_utils import tei_transformation
 from .hartree_fock import restricted_hartree_fock
 
-def rccsd(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path, options, deriv_order=0, return_aux_data=False):
+def rccsd(*args, options, deriv_order=0, return_aux_data=False):
+    if options['dipole']:
+        electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        deriv_order = 0
+        scf_args = electric_field, geom, basis_set, nelectrons, nuclear_charges, xyz_path
+    else:
+        geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        scf_args = (geom, basis_set, nelectrons, nuclear_charges, xyz_path)
+
+    # Load keywords
     ndocc = nelectrons // 2
     ncore = nfrzn // 2
-    E_scf, C, eps, V = restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_path, options, deriv_order=deriv_order, return_aux_data=True)
+    E_scf, C, eps, V = restricted_hartree_fock(*scf_args, options=options, deriv_order=deriv_order, return_aux_data=True)
 
     print("Running CCSD Computation...")
     nbf = V.shape[0]

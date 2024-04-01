@@ -10,7 +10,6 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
     if options['dipole']:
         electric_field, geom, basis_set, nelectrons, nuclear_charges, xyz_path = args
         deriv_order = 0
-        print("Deriv_Order for Integrals: ", deriv_order)
     else:
         geom, basis_set, nelectrons, nuclear_charges, xyz_path = args
 

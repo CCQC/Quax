@@ -105,18 +105,26 @@ def compute(molecule, basis_name, method, electric_field=None, options=None, der
                 return restricted_hartree_fock(*args, options=options, deriv_order=deriv_order)
         elif method =='mp2':
             args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+            if options['dipole']:
+                args = (electric_field,) + args
             def electronic_energy(*args, options=options, deriv_order=deriv_order):
                 return restricted_mp2(*args, options=options, deriv_order=deriv_order)
         elif method =='mp2-f12':
             args = (geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+            if options['dipole']:
+                args = (electric_field,) + args
             def electronic_energy(*args, options=options, deriv_order=deriv_order):
                 return restricted_mp2_f12(*args, options=options, deriv_order=deriv_order)
         elif method =='ccsd':
             args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+            if options['dipole']:
+                args = (electric_field,) + args
             def electronic_energy(*args, options=options, deriv_order=deriv_order):
                 return rccsd(*args, options=options, deriv_order=deriv_order)
         elif method =='ccsd(t)':
             args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+            if options['dipole']:
+                args = (electric_field,) + args
             def electronic_energy(*args, options=options, deriv_order=deriv_order):
                 return rccsd_t(*args, options=options, deriv_order=deriv_order)
         else:
@@ -143,7 +151,9 @@ def compute(molecule, basis_name, method, electric_field=None, options=None, der
             deriv = 0
 
         if options['dipole']:
+            print("Electric Dipole: ", deriv.reshape(-1, 3))
             dip_nuc = jnp.einsum('q,qx', nuclear_charges, geom.reshape(-1,3))
+            print("Nuclear Dipole: ", dip_nuc.reshape(-1, 3))
             deriv += dip_nuc
 
         return np.asarray(deriv)

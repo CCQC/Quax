@@ -7,10 +7,21 @@ import psi4
 from .energy_utils import partial_tei_transformation, cartesian_product
 from .hartree_fock import restricted_hartree_fock
 
-def restricted_mp2(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path, options, deriv_order=0, return_aux_data=False):
+def restricted_mp2(*args, options, deriv_order=0, return_aux_data=False):
+    if options['dipole']:
+        electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        deriv_order = 0
+        print("Deriv_Order for Integrals: ", deriv_order)
+        scf_args = electric_field, geom, basis_set, nelectrons, nuclear_charges, xyz_path
+    else:
+        geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        scf_args = (geom, basis_set, nelectrons, nuclear_charges, xyz_path)
+
+    E_scf, C, eps, G = restricted_hartree_fock(*scf_args, options=options, deriv_order=deriv_order, return_aux_data=True)
+
+    # Load keyword options
     ndocc = nelectrons // 2
     ncore = nfrzn // 2
-    E_scf, C, eps, G = restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_path, options, deriv_order=deriv_order, return_aux_data=True)
 
     print("Running MP2 Computation...")
     nvirt = G.shape[0] - ndocc

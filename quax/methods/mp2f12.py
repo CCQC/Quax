@@ -11,8 +11,16 @@ from .ints import compute_f12_oeints, compute_f12_teints
 from .energy_utils import partial_tei_transformation, cartesian_product
 from .mp2 import restricted_mp2
 
-def restricted_mp2_f12(geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path, options, deriv_order=0):
-    E_mp2, C_obs, eps = restricted_mp2(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path, options, deriv_order, return_aux_data=True)
+def restricted_mp2_f12(*args, options, deriv_order=0):
+    if options['dipole']:
+        electric_field, geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        deriv_order = 0
+        mp2_args = electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path
+    else:
+        geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        mp2_args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+
+    E_mp2, C_obs, eps = restricted_mp2(*mp2_args, options=options, deriv_order=deriv_order, return_aux_data=True)
     ndocc = nelectrons // 2
     ncore = nfrzn // 2
     eps_occ, eps_vir = eps[:ndocc], eps[ndocc:]
