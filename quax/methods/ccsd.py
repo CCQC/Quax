@@ -7,9 +7,8 @@ from .energy_utils import tei_transformation
 from .hartree_fock import restricted_hartree_fock
 
 def rccsd(*args, options, deriv_order=0, return_aux_data=False):
-    if options['dipole']:
+    if options['electric_field']:
         electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
-        deriv_order = 0
         scf_args = electric_field, geom, basis_set, nelectrons, nuclear_charges, xyz_path
     else:
         geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args

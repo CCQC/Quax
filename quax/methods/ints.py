@@ -66,7 +66,7 @@ def compute_dipole_ints(geom, basis_set, xyz_path, deriv_order, options):
 
     Mu_ = oei_obj.dipole(geom)
 
-    return Mu_[0], Mu_[1], Mu_[2]
+    return Mu_
 
 def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options, cabs):
     # Load integral algo, decides to compute integrals in memory or use disk

@@ -94,9 +94,8 @@ def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
     return pT
 
 def rccsd_t(*args, options, deriv_order=0):
-    if options['dipole']:
+    if options['electric_field']:
         electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
-        deriv_order = 0
         ccsd_args = electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path
     else:
         geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args

@@ -41,7 +41,7 @@ def check_options(options):
                        'ints_tolerance': 1.0e-14,
                        'freeze_core': False,
                        'beta': 1.0,
-                       'dipole': False
+                       'electric_field': False
                       }
 
     for key in options.keys():
@@ -73,7 +73,6 @@ def compute(molecule, basis_name, method, electric_field=None, options=None, der
     geom2d = np.asarray(molecule.geometry())
     geom_list = geom2d.reshape(-1).tolist()
     geom = jnp.asarray(geom2d.flatten())
-    dim = geom.reshape(-1).shape[0]
     xyz_file_name = "geom.xyz"
     molecule.save_xyz_file(xyz_file_name, True)
     xyz_path = os.path.abspath(os.getcwd()) + "/" + xyz_file_name
@@ -91,7 +90,7 @@ def compute(molecule, basis_name, method, electric_field=None, options=None, der
     if 'f12' in method:
         cabs_set = build_RIBS(molecule, basis_set, basis_name + '-cabs')
 
-    if options['dipole'] and type(electric_field) == type(None):
+    if options['electric_field'] and type(electric_field) == type(None):
         raise Exception("Electric field must be given for dipole computation.")
 
     # Energy and full derivative tensor evaluations
@@ -99,31 +98,31 @@ def compute(molecule, basis_name, method, electric_field=None, options=None, der
         # Create energy evaluation function
         if method == 'scf' or method == 'hf' or method == 'rhf':
             args = (geom, basis_set, nelectrons, nuclear_charges, xyz_path)
-            if options['dipole']:
+            if options['electric_field']:
                 args = (electric_field,) + args
             def electronic_energy(*args, options=options, deriv_order=deriv_order):
                 return restricted_hartree_fock(*args, options=options, deriv_order=deriv_order)
         elif method =='mp2':
             args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
-            if options['dipole']:
+            if options['electric_field']:
                 args = (electric_field,) + args
             def electronic_energy(*args, options=options, deriv_order=deriv_order):
                 return restricted_mp2(*args, options=options, deriv_order=deriv_order)
         elif method =='mp2-f12':
             args = (geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
-            if options['dipole']:
+            if options['electric_field']:
                 args = (electric_field,) + args
             def electronic_energy(*args, options=options, deriv_order=deriv_order):
                 return restricted_mp2_f12(*args, options=options, deriv_order=deriv_order)
         elif method =='ccsd':
             args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
-            if options['dipole']:
+            if options['electric_field']:
                 args = (electric_field,) + args
             def electronic_energy(*args, options=options, deriv_order=deriv_order):
                 return rccsd(*args, options=options, deriv_order=deriv_order)
         elif method =='ccsd(t)':
             args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
-            if options['dipole']:
+            if options['electric_field']:
                 args = (electric_field,) + args
             def electronic_energy(*args, options=options, deriv_order=deriv_order):
                 return rccsd_t(*args, options=options, deriv_order=deriv_order)
@@ -139,18 +138,18 @@ def compute(molecule, basis_name, method, electric_field=None, options=None, der
             deriv = jnp.round(grad, 10)
         elif deriv_order == 2:
             hess = jacfwd(jacfwd(electronic_energy, 0))(*args)
-            deriv = jnp.round(hess.reshape(dim,dim), 10)
+            deriv = jnp.round(hess, 10)
         elif deriv_order == 3:
             cubic = jacfwd(jacfwd(jacfwd(electronic_energy, 0)))(*args)
-            deriv = jnp.round(cubic.reshape(dim,dim,dim), 10)
+            deriv = jnp.round(cubic, 10)
         elif deriv_order == 4:
             quartic = jacfwd(jacfwd(jacfwd(jacfwd(electronic_energy, 0))))(*args)
-            deriv = jnp.round(quartic.reshape(dim,dim,dim,dim), 10)
+            deriv = jnp.round(quartic, 10)
         else:
             print("Error: Order {} derivatives are not exposed to the API.".format(deriv_order))
             deriv = 0
 
-        if options['dipole']:
+        if options['electric_field'] and deriv_order == 1:
             print("Electric Dipole: ", deriv.reshape(-1, 3))
             dip_nuc = jnp.einsum('q,qx', nuclear_charges, geom.reshape(-1,3))
             print("Nuclear Dipole: ", dip_nuc.reshape(-1, 3))
@@ -177,55 +176,75 @@ def compute(molecule, basis_name, method, electric_field=None, options=None, der
         # JAX will then collect the internal coordinate partial derivative instead. 
         if method == 'scf' or method == 'hf' or method == 'rhf':
             def partial_wrapper(*args):
-                geom = jnp.asarray(args)
-                E_scf = restricted_hartree_fock(geom, basis_set, nelectrons, nuclear_charges, xyz_path,\
-                                                options=options, deriv_order=deriv_order, return_aux_data=False)
+                if options['electric_field']:
+                    method_args = args + (basis_set, nelectrons, nuclear_charges, xyz_path)
+                else:
+                    geom = jnp.asarray(args)
+                    method_args = (geom, basis_set, nelectrons, nuclear_charges, xyz_path)
+                E_scf = restricted_hartree_fock(*method_args, options=options, deriv_order=deriv_order, return_aux_data=False)
                 return E_scf
         elif method =='mp2':
             def partial_wrapper(*args):
-                geom = jnp.asarray(args)
-                E_mp2 = restricted_mp2(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path,\
-                                       options=options, deriv_order=deriv_order)
+                if options['electric_field']:
+                    method_args = args + (basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+                else:
+                    geom = jnp.asarray(args)
+                    method_args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+                E_mp2 = restricted_mp2(*method_args, options=options, deriv_order=deriv_order)
                 return E_mp2
         elif method =='mp2-f12':
             def partial_wrapper(*args):
-                geom = jnp.asarray(args)
-                E_mp2f12 = restricted_mp2_f12(geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges,\
-                                               xyz_path, options=options, deriv_order=deriv_order)
+                if options['electric_field']:
+                    method_args = args + (basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+                else:
+                    geom = jnp.asarray(args)
+                    method_args = (geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+                E_mp2f12 = restricted_mp2_f12(*method_args, options=options, deriv_order=deriv_order)
                 return E_mp2f12
         elif method =='ccsd':
             def partial_wrapper(*args):
-                geom = jnp.asarray(args)
-                E_ccsd = rccsd(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path,\
-                               options=options, deriv_order=deriv_order)
+                if options['electric_field']:
+                    method_args = args + (basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+                else:
+                    geom = jnp.asarray(args)
+                    method_args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+                E_ccsd = rccsd(*method_args, options=options, deriv_order=deriv_order)
                 return E_ccsd
         elif method =='ccsd(t)':
             def partial_wrapper(*args):
-                geom = jnp.asarray(args)
-                E_ccsd_t = rccsd_t(geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path,\
-                                   options=options, deriv_order=deriv_order)
+                if options['electric_field']:
+                    method_args = args + (basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+                else:
+                    geom = jnp.asarray(args)
+                    method_args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+                E_ccsd_t = rccsd_t(*method_args, options=options, deriv_order=deriv_order)
                 return E_ccsd_t
         else:
             raise Exception("Error: Method {} not supported.".format(method))
+        
+        if options['electric_field']:
+            params = (electric_field, geom)
+        else:
+            params = geom_list
 
         if deriv_order == 1:
             i = partial[0]
-            partial_deriv = jacfwd(partial_wrapper, i)(*geom_list)
+            partial_deriv = jacfwd(partial_wrapper, i)(*params)
         elif deriv_order == 2:
             i,j = partial[0], partial[1]
-            partial_deriv = jacfwd(jacfwd(partial_wrapper, i), j)(*geom_list)
+            partial_deriv = jacfwd(jacfwd(partial_wrapper, i), j)(*params)
         elif deriv_order == 3:
             i,j,k = partial[0], partial[1], partial[2]
-            partial_deriv = jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k)(*geom_list)
+            partial_deriv = jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k)(*params)
         elif deriv_order == 4:
             i,j,k,l = partial[0], partial[1], partial[2], partial[3]
-            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k), l)(*geom_list)
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k), l)(*params)
         elif deriv_order == 5:
             i,j,k,l,m = partial[0], partial[1], partial[2], partial[3], partial[4]
-            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k), l), m)(*geom_list)
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k), l), m)(*params)
         elif deriv_order == 6:
             i,j,k,l,m,n = partial[0], partial[1], partial[2], partial[3], partial[4], partial[5]
-            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k), l), m), n)(*geom_list)
+            partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k), l), m), n)(*params)
         else:
             print("Error: Order {} partial derivatives are not exposed to the API.".format(deriv_order))
             partial_deriv = 0
@@ -325,7 +344,7 @@ def derivative(molecule, basis_name, method, electric_field=None, deriv_order=1,
     deriv = compute(molecule, basis_name, method, electric_field, options, deriv_order)
     return deriv
 
-def partial_derivative(molecule, basis_name, method, deriv_order, partial, options=None):
+def partial_derivative(molecule, basis_name, method, electric_field=None, deriv_order=0, partial=None, options=None):
     """
     Computes one particular nth-order partial derivative of the energy of an electronic structure method
     w.r.t. a set of cartesian coordinates. If you have N cartesian coordinates in your molecule, the nuclear derivative tensor
@@ -388,6 +407,6 @@ def partial_derivative(molecule, basis_name, method, deriv_order, partial, optio
     partial_deriv : float
         The requested partial derivative of the energy in units of Hartree/bohr^(n)
     """
-    partial_deriv = compute(molecule, basis_name, method, options, deriv_order, partial)
+    partial_deriv = compute(molecule, basis_name, method, electric_field, options, deriv_order, partial)
     return partial_deriv
 
