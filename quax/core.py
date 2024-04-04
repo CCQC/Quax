@@ -6,7 +6,6 @@ import jax.numpy as jnp
 import psi4
 import numpy as np
 import os
-import h5py
 
 from .methods.basis_utils import build_RIBS
 from .methods.hartree_fock import restricted_hartree_fock
@@ -14,7 +13,7 @@ from .methods.mp2 import restricted_mp2
 from .methods.mp2f12 import restricted_mp2_f12
 from .methods.ccsd import rccsd
 from .methods.ccsd_t import rccsd_t
-from .utils import get_required_deriv_vecs, n_frozen_core
+from .utils import n_frozen_core
 
 psi4.core.be_quiet()
 
@@ -148,27 +147,13 @@ def compute(molecule, basis_name, method, electric_field=None, options=None, der
         else:
             print("Error: Order {} derivatives are not exposed to the API.".format(deriv_order))
             deriv = 0
-
-        if options['electric_field'] and deriv_order == 1:
-            print("Electric Dipole: ", deriv.reshape(-1, 3))
-            dip_nuc = jnp.einsum('q,qx', nuclear_charges, geom.reshape(-1,3))
-            print("Nuclear Dipole: ", dip_nuc.reshape(-1, 3))
-            deriv += dip_nuc
-
         return np.asarray(deriv)
 
     # Partial derivatives
     else:
-        if len(partial) != deriv_order:
-            raise Exception("The length of the index coordinates given by 'partial' argument should be the same as the order of differentiation")
+        nderivs = len(partial)
 
-        # Estimate memory footprint of two electron integrals partial derivatives
-        natoms = molecule.natom()
-        nderivs = get_required_deriv_vecs(natoms, deriv_order, partial).shape[0]
-        ngigabytes = nbf**4 * 64 * 8 * nderivs / 1e9
-        print("Estimated memory footprint from two-electron integral partial derivatives: {} GB".format(ngigabytes))
-
-        # For partial derivatives, need to unpack each geometric coordinate into separate arguments
+        # For partial derivatives of geometry, need to unpack each geometric coordinate into separate arguments
         # to differentiate wrt specific coordinates using JAX AD utilities. 
 
         #TODO support internal coordinate wrapper function.
@@ -227,22 +212,22 @@ def compute(molecule, basis_name, method, electric_field=None, options=None, der
         else:
             params = geom_list
 
-        if deriv_order == 1:
+        if nderivs == 1:
             i = partial[0]
             partial_deriv = jacfwd(partial_wrapper, i)(*params)
-        elif deriv_order == 2:
+        elif nderivs == 2:
             i,j = partial[0], partial[1]
             partial_deriv = jacfwd(jacfwd(partial_wrapper, i), j)(*params)
-        elif deriv_order == 3:
+        elif nderivs == 3:
             i,j,k = partial[0], partial[1], partial[2]
             partial_deriv = jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k)(*params)
-        elif deriv_order == 4:
+        elif nderivs == 4:
             i,j,k,l = partial[0], partial[1], partial[2], partial[3]
             partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k), l)(*params)
-        elif deriv_order == 5:
+        elif nderivs == 5:
             i,j,k,l,m = partial[0], partial[1], partial[2], partial[3], partial[4]
             partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k), l), m)(*params)
-        elif deriv_order == 6:
+        elif nderivs == 6:
             i,j,k,l,m,n = partial[0], partial[1], partial[2], partial[3], partial[4], partial[5]
             partial_deriv = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(partial_wrapper, i), j), k), l), m), n)(*params)
         else:

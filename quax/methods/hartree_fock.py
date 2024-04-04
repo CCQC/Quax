@@ -48,8 +48,7 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
 
     if options['electric_field']:
         Mu_XYZ = compute_dipole_ints(geom, basis_set, xyz_path, deriv_order, options)
-        val = jnp.einsum('x,xij->ij', electric_field, Mu_XYZ)
-        H += val
+        H += jnp.einsum('x,xij->ij', electric_field, Mu_XYZ)
     
     def rhf_iter(F, D):
         E_scf = jnp.einsum('pq,pq->', F + H, D) + Enuc
@@ -95,6 +94,9 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
                                                               scf_procedure, (0, 1.0, 1.0, eps_init, C_init, D, D_init, E_init))
                                                               # (iter, dE, dRMS, eps, C, D_old, D, E_scf)
     print(iteration, " RHF iterations performed")
+
+    if options['electric_field']:
+        E_scf += jnp.einsum('x,q,qx', electric_field, nuclear_charges, geom.reshape(-1,3))
 
     # If many orbitals are degenerate, warn that higher order derivatives may be unstable 
     tmp = jnp.round(eps, 6)
