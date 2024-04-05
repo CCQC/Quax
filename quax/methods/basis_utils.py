@@ -16,7 +16,7 @@ def build_RIBS(molecule, basis_set, cabs_name):
     # Libint uses the suffix 'cabs' but Psi4 uses 'optri'
     basis_name = basis_set.name()
     try:
-        psi4_name = cabs_name.lower().replace('cabs', 'optri')
+        psi4_name = cabs_name.upper().replace('CABS', 'OPTRI')
     except:
         raise Exception("Must use a cc-pVXZ-F12 or aug-cc-pVXZ basis set for F12 methods.")
 
@@ -29,6 +29,9 @@ def build_RIBS(molecule, basis_set, cabs_name):
     ao_union = psi4.driver.qcdb.libmintsbasisset.BasisSet.pyconstruct_combined(molecule.save_string_xyz(), keys, targets, roles, others)
     ao_union['name'] = cabs_name
     ribs_set = psi4.core.BasisSet.construct_from_pydict(molecule, ao_union, 0)
+
+    print("Basis name: ", cabs_name.upper())
+    print("Number of basis functions: ", ribs_set.nbf())
 
     return ribs_set
 

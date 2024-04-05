@@ -2,7 +2,6 @@ import jax
 from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from jax.lax import fori_loop
-import psi4
 
 from .energy_utils import partial_tei_transformation, cartesian_product
 from .hartree_fock import restricted_hartree_fock
@@ -49,7 +48,7 @@ def restricted_mp2(*args, options, deriv_order=0, return_aux_data=False):
 
     if return_aux_data:
         #print("MP2 Energy:                ", E_scf + dE_mp2)
-        return E_scf + dE_mp2, C, eps
+        return E_scf + dE_mp2, C, eps, G
     else:
         return E_scf + dE_mp2
 
