@@ -1,7 +1,6 @@
 import jax 
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
-import psi4
 
 from .ints import compute_integrals, compute_dipole_ints
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization

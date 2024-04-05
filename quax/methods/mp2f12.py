@@ -1,10 +1,7 @@
 import jax 
 from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as jnp
-from jax.lax import fori_loop
-import psi4
-import sys
-jnp.set_printoptions(threshold=sys.maxsize, linewidth=100)
+from jax.lax import fori_loop, cond
 
 from .basis_utils import build_CABS
 from .ints import compute_f12_oeints, compute_f12_teints
@@ -53,7 +50,7 @@ def restricted_mp2_f12(*args, options, deriv_order=0):
 
     def loop_energy(idx, f12_corr):
         i, j = indices[idx]
-        kd = jax.lax.cond(i == j, lambda: 1.0, lambda: 2.0)
+        kd = cond(i == j, lambda: 1.0, lambda: 2.0)
 
         D_ij = D[i, j, :, :]
 
@@ -62,7 +59,7 @@ def restricted_mp2_f12(*args, options, deriv_order=0):
 
         V_s = 0.25 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd * (V_ij[i, j] + V_ij[j, i])
 
-        V_t = 0.25 * jax.lax.cond(i != j, lambda: (t_(i, j, i, j) - t_(i, j, j, i))
+        V_t = 0.25 * cond(i != j, lambda: (t_(i, j, i, j) - t_(i, j, j, i))
                                                * kd * (V_ij[i, j] - V_ij[j, i]), lambda: 0.0)
 
         CD_ij = jnp.einsum('mnab,ab->mnab', C, D_ij, optimize='optimal')
@@ -72,7 +69,7 @@ def restricted_mp2_f12(*args, options, deriv_order=0):
                      * (B_ij[i, j, i, j] + B_ij[j, i, i, j]) \
                      * (t_(i, j, i, j) + t_(i, j, j, i)) * kd
 
-        B_t = 0.125 * jax.lax.cond(i != j, lambda: (t_(i, j, i, j) - t_(i, j, j, i)) * kd
+        B_t = 0.125 * cond(i != j, lambda: (t_(i, j, i, j) - t_(i, j, j, i)) * kd
                                                  * (B_ij[i, j, i, j] - B_ij[j, i, i, j])
                                                  * (t_(i, j, i, j) - t_(i, j, j, i)) * kd,
                                                  lambda: 0.0)

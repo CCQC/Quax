@@ -29,12 +29,6 @@ def restricted_mp2(*args, options, deriv_order=0, return_aux_data=False):
     eps_occ, eps_vir = eps[ncore:ndocc], eps[ndocc:]
     e_denom = jnp.reciprocal(eps_occ.reshape(-1, 1, 1, 1) - eps_vir.reshape(-1, 1, 1) + eps_occ.reshape(-1, 1) - eps_vir)
 
-    # Tensor contraction algo 
-    #mp2_correlation = jnp.einsum('iajb,iajb,iajb->', G, G, e_denom) +\
-    #                  jnp.einsum('iajb,iajb,iajb->', G - jnp.transpose(G, (0,3,2,1)), G, e_denom)
-    #mp2_total_energy = mp2_correlation + E_scf
-    #return E_scf + mp2_correlation
-
     # Loop algo (lower memory, but tei transform is the memory bottleneck)
     # Create all combinations of four loop variables to make XLA compilation easier
     indices = cartesian_product(jnp.arange(ndocc-ncore), jnp.arange(ndocc-ncore), jnp.arange(nvirt), jnp.arange(nvirt))

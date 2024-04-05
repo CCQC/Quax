@@ -1,7 +1,6 @@
 import jax 
 from jax.config import config; config.update("jax_enable_x64", True)
 import jax.numpy as jnp
-import psi4
 
 from .energy_utils import tei_transformation
 from .hartree_fock import restricted_hartree_fock
