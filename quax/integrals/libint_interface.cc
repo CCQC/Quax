@@ -1466,6 +1466,236 @@ void compute_1e_deriv_disk(std::string type, int max_deriv_order) {
     std::cout << " done" << std::endl;
 } // compute_1e_deriv_disk 
 
+// Write dipole derivatives up to `max_deriv_order` to disk
+// HDF5 File Name: dipole_derivs.h5 
+//      HDF5 Dataset names within the file:
+//      dipole_nbf1_nbf2_deriv1 
+//          shape (nbf,nbf,n_unique_1st_derivs)
+//      dipole_nbf1_nbf2_deriv2 
+//          shape (nbf,nbf,n_unique_2nd_derivs)
+//      dipole_nbf1_nbf2_deriv3 
+//          shape (nbf,nbf,n_unique_3rd_derivs)
+//      ...
+// The number of unique derivatives is essentially equal to the size of the
+// generalized upper triangle of the derivative tensor.
+void compute_dipole_deriv_disk(int max_deriv_order) {
+    std::cout << "Writing dipole integral derivative tensors up to order " << max_deriv_order << " to disk...";
+    long total_deriv_slices = 0;
+    for (int i = 1; i <= max_deriv_order; i++){
+        total_deriv_slices += how_many_derivs(natom, i);
+    }
+
+    // Shell pairs after screening
+    auto shellpairs = build_shellpairs(bs1, bs2);
+
+    // Create H5 File and prepare to fill with 0.0's
+    const H5std_string file_name("dipole_derivs.h5");
+    H5File* file = new H5File(file_name,H5F_ACC_TRUNC);
+    double fillvalue = 0.0;
+    DSetCreatPropList plist;
+    plist.setFillValue(PredType::NATIVE_DOUBLE, &fillvalue);
+
+    for (int deriv_order = 1; deriv_order <= max_deriv_order; deriv_order++){
+        // how many unique cartesian nuclear derivatives (e.g., so we only save one of d^2/dx1dx2 and d^2/dx2dx1, etc)
+        unsigned int nderivs_triu = how_many_derivs(natom, deriv_order);
+
+        // Create mappings from 1d buffer index (flattened upper triangle shell derivative index) to multidimensional shell derivative index
+        // Overlap and kinetic have different mappings than potential since potential has more elements in the buffer 
+        const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
+        
+        // Create mapping from 1d cartesian coodinate index (flattened upper triangle cartesian derivative index) to multidimensional index
+        const std::vector<std::vector<int>> cart_multidim_lookup = generate_multi_index_lookup(ncart, deriv_order);
+
+        // Define engines and buffers
+        std::vector<libint2::Engine> engines(nthreads);
+
+        // COM generator
+        std::array<double,3> COM = {0.000, 0.000, 0.000};
+
+        // Will compute overlap + electric dipole moments
+        engines[0] = libint2::Engine(libint2::Operator::emultipole1, max_nprim, max_l, deriv_order);
+        engines[0].set_params(COM); // with COM as the multipole origin
+        engines[0].set_precision(max_engine_precision);
+        engines[0].prescale_by(-1);
+        for (size_t i = 1; i != nthreads; ++i) {
+            engines[i] = engines[0];
+        }
+
+        // Define HDF5 dataset names
+        const H5std_string Mu_X_dset_name("mu_x_" + std::to_string(nbf1) + "_" + std::to_string(nbf2) 
+                                                  + "_deriv" + std::to_string(deriv_order));
+        const H5std_string Mu_Y_dset_name("mu_y_" + std::to_string(nbf1) + "_" + std::to_string(nbf2) 
+                                                  + "_deriv" + std::to_string(deriv_order));
+        const H5std_string Mu_Z_dset_name("mu_z_" + std::to_string(nbf1) + "_" + std::to_string(nbf2) 
+                                                  + "_deriv" + std::to_string(deriv_order));
+
+        // Define rank and dimensions of data that will be written to the file
+        hsize_t file_dims[] = {nbf1, nbf2, nderivs_triu};
+        DataSpace fspace(3, file_dims);
+        // Create dataset for each integral type and write 0.0's into the file 
+        DataSet* Mu_X_dataset = new DataSet(file->createDataSet(Mu_X_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        DataSet* Mu_Y_dataset = new DataSet(file->createDataSet(Mu_Y_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        DataSet* Mu_Z_dataset = new DataSet(file->createDataSet(Mu_Z_dset_name, PredType::NATIVE_DOUBLE, fspace, plist));
+        hsize_t stride[3] = {1, 1, 1}; // stride and block can be used to 
+        hsize_t block[3] = {1, 1, 1};  // add values to multiple places, useful if symmetry ever used.
+        hsize_t zerostart[3] = {0, 0, 0};
+
+        /* Initialize lock */
+        omp_init_lock(&lock);
+
+#pragma omp parallel for num_threads(nthreads)
+        for (const auto &pair : shellpairs) {
+            int p1 = pair.first;
+            int p2 = pair.second;
+
+            const auto &s1 = bs1[p1];
+            const auto &s2 = bs2[p2];
+            auto n1 = bs1[p1].size(); // number of basis functions in first shell
+            auto n2 = bs2[p2].size(); // number of basis functions in first shell
+            auto bf1 = shell2bf_1[p1];  // first basis function in first shell
+            auto bf2 = shell2bf_2[p2];  // first basis function in second shell
+            auto atom1 = shell2atom_1[p1]; // Atom index of shell 1
+            auto atom2 = shell2atom_2[p2]; // Atom index of shell 2
+            std::vector<long> shell_atom_index_list{atom1, atom2};
+
+            int thread_id = 0;
+#ifdef _OPENMP
+            thread_id = omp_get_thread_num();
+#endif
+            engines[thread_id].compute(s1, s2); // Compute shell set
+            const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
+
+            // Define shell set slabs
+            double Mu_X_shellset_slab_12 [n1][n2][nderivs_triu] = {};
+            double Mu_Y_shellset_slab_12 [n1][n2][nderivs_triu] = {};
+            double Mu_Z_shellset_slab_12 [n1][n2][nderivs_triu] = {};
+            double Mu_X_shellset_slab_21 [n2][n1][nderivs_triu] = {};
+            double Mu_Y_shellset_slab_21 [n2][n1][nderivs_triu] = {};
+            double Mu_Z_shellset_slab_21 [n2][n1][nderivs_triu] = {};
+
+            // Loop over every possible unique nuclear cartesian derivative index (flattened upper triangle)
+            // For 1st derivatives of 2 atom system, this is 6. 2nd derivatives of 2 atom system: 21, etc
+            for(int nuc_idx = 0; nuc_idx < nderivs_triu; ++nuc_idx) {
+                // Look up multidimensional cartesian derivative index
+                auto multi_cart_idx = cart_multidim_lookup[nuc_idx];
+                // For overlap/kinetic and potential sepearately, create a vector of vectors called `indices`, where each subvector
+                // is your possible choices for the first derivative operator, second, third, etc and the total number of subvectors is order of differentiation
+                // What follows fills these indices
+                std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+
+                // Loop over each cartesian coordinate index which we are differentiating wrt for this nuclear cartesian derivative index
+                // and check to see if it is present in the shell duet, and where it is present in the potential operator
+                for (int j = 0; j < multi_cart_idx.size(); j++){
+                    int desired_atom_idx = multi_cart_idx[j] / 3;
+                    int desired_coord = multi_cart_idx[j] % 3;
+                    // Loop over shell indices
+                    for (int i = 0; i < 2; i++){
+                        int atom_idx = shell_atom_index_list[i];
+                        if (atom_idx == desired_atom_idx) {
+                            int tmp = 3 * i + desired_coord;
+                            indices[j].push_back(tmp);
+                        }
+                    }
+                }
+
+                // Now indices is a vector of vectors, where each subvector is your choices for the first derivative operator, second, third, etc
+                // and the total number of subvectors is the order of differentiation
+                // Now we want all combinations where we pick exactly one index from each subvector.
+                // This is achievable through a cartesian product
+                std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+                std::vector<int> buffer_indices;
+                // Overlap/Kinetic integrals: collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+                for (auto vec : index_combos)  {
+                    std::sort(vec.begin(), vec.end());
+                    int buf_idx = 0;
+                    auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+                    if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+                    buffer_indices.push_back(buf_idx * 4);
+                }
+
+                // Loop over shell block for each buffer index which contributes to this derivative
+                if (p1 != p2) {
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
+                        auto mu_x_shellset = buf_vec[buffer_indices[i] + 1];
+                        auto mu_y_shellset = buf_vec[buffer_indices[i] + 2];
+                        auto mu_z_shellset = buf_vec[buffer_indices[i] + 3];
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                                Mu_X_shellset_slab_12[f1][f2][nuc_idx] =
+                                    Mu_X_shellset_slab_21[f2][f1][nuc_idx] += mu_x_shellset[idx];
+                                Mu_Y_shellset_slab_12[f1][f2][nuc_idx] =
+                                    Mu_Y_shellset_slab_21[f2][f1][nuc_idx] += mu_y_shellset[idx];
+                                Mu_Z_shellset_slab_12[f1][f2][nuc_idx] =
+                                    Mu_Z_shellset_slab_21[f2][f1][nuc_idx] += mu_z_shellset[idx];
+                            }
+                        }
+                    }
+                } else { 
+                    for(auto i = 0; i < buffer_indices.size(); ++i) {
+                        auto mu_x_shellset = buf_vec[buffer_indices[i] + 1];
+                        auto mu_y_shellset = buf_vec[buffer_indices[i] + 2];
+                        auto mu_z_shellset = buf_vec[buffer_indices[i] + 3];
+                        for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                            for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                                Mu_X_shellset_slab_12[f1][f2][nuc_idx] += mu_x_shellset[idx];
+                                Mu_Y_shellset_slab_12[f1][f2][nuc_idx] += mu_y_shellset[idx];
+                                Mu_Z_shellset_slab_12[f1][f2][nuc_idx] += mu_z_shellset[idx];
+                            }
+                        }
+                    }
+                }
+            } // Unique nuclear cartesian derivative indices loop
+
+            /* Serialize HDF dataset writing using OpenMP lock */
+            omp_set_lock(&lock);
+
+            // Now write this shell set slab to HDF5 file
+            // Create file space hyperslab, defining where to write data to in file
+            hsize_t count[3] = {n1, n2, nderivs_triu};
+            hsize_t start[3] = {bf1, bf2, 0};
+            fspace.selectHyperslab(H5S_SELECT_SET, count, start, stride, block);
+            // Create dataspace defining for memory dataset to write to file
+            hsize_t mem_dims[] = {n1, n2, nderivs_triu};
+            DataSpace mspace(3, mem_dims);
+            mspace.selectHyperslab(H5S_SELECT_SET, count, zerostart, stride, block);
+            // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
+            Mu_X_dataset->write(Mu_X_shellset_slab_12, PredType::NATIVE_DOUBLE, mspace, fspace);
+            Mu_Y_dataset->write(Mu_Y_shellset_slab_12, PredType::NATIVE_DOUBLE, mspace, fspace);
+            Mu_Z_dataset->write(Mu_Z_shellset_slab_12, PredType::NATIVE_DOUBLE, mspace, fspace);
+
+            if (p1 != p2) {
+                // Now write this shell set slab to HDF5 file
+                // Create file space hyperslab, defining where to write data to in file
+                hsize_t count_T[3] = {n2, n1, nderivs_triu};
+                hsize_t start_T[3] = {bf2, bf1, 0};
+                fspace.selectHyperslab(H5S_SELECT_SET, count_T, start_T, stride, block);
+                // Create dataspace defining for memory dataset to write to file
+                hsize_t mem_dims_T[] = {n2, n1, nderivs_triu};
+                DataSpace mspace_T(3, mem_dims_T);
+                mspace_T.selectHyperslab(H5S_SELECT_SET, count_T, zerostart, stride, block);
+                // Write buffer data 'shellset_slab' with data type double from memory dataspace `mspace` to file dataspace `fspace`
+                Mu_X_dataset->write(Mu_X_shellset_slab_21, PredType::NATIVE_DOUBLE, mspace_T, fspace);
+                Mu_Y_dataset->write(Mu_Y_shellset_slab_21, PredType::NATIVE_DOUBLE, mspace_T, fspace);
+                Mu_Z_dataset->write(Mu_Z_shellset_slab_21, PredType::NATIVE_DOUBLE, mspace_T, fspace);
+            }
+
+            /* Release lock */
+            omp_unset_lock(&lock);
+
+        } // shell duet loops
+        // Delete datasets for this derivative order
+        delete Mu_X_dataset;
+        delete Mu_Y_dataset;
+        delete Mu_Z_dataset;
+    } // deriv order loop
+
+    /* Finished lock mechanism, destroy it */
+    omp_destroy_lock(&lock);
+    // close the file
+    delete file;
+    std::cout << " done" << std::endl;
+} // compute_dipole_deriv_disk 
+
 
 // Writes TEI derivatives up to `max_deriv_order` to disk.
 // HDF5 File Name: tei_derivs.h5 
@@ -2472,6 +2702,7 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("compute_dipole_derivs", &compute_dipole_derivs, "Computes electric (Cartesian) dipole nuclear integrals with libint");
     m.def("compute_2e_deriv", &compute_2e_deriv, "Computes two-electron integral nuclear derivatives with libint");
     m.def("compute_1e_deriv_disk", &compute_1e_deriv_disk, "Computes one-electron nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
+    m.def("compute_dipole_deriv_disk", &compute_dipole_deriv_disk, "Computes dipole nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
     m.def("compute_2e_deriv_disk", &compute_2e_deriv_disk, "Computes coulomb integral nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
     m.def("oei_deriv_disk", &oei_deriv_disk, "Computes overlap, kinetic, and potential integral derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
     m.def("oei_deriv_core", &oei_deriv_core, "Computes a single OEI integral derivative tensor, in memory.");

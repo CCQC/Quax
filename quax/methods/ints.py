@@ -62,10 +62,24 @@ def compute_dipole_ints(geom, basis_set, xyz_path, deriv_order, options):
     basis_name = basis_set.name()
     libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name, options['ints_tolerance'])
 
-    oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'dipole')
+    if algo == 'libint_disk':
+        # Check disk for currently existing integral derivatives
+        check_multipole = check_multipole_disk('dipole', basis_set, basis_set, deriv_order)
 
-    Mu_ = oei_obj.dipole(geom)
+        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'disk')
+        # If disk integral derivs are right, nothing to do
+        if check_multipole:
+            Mu_ = oei_obj.dipole(geom)
+        else:
+            libint_interface.compute_dipole_deriv_disk(deriv_order)
+            Mu_ = oei_obj.dipole(geom)
+    else:
+        # Precompute TEI derivatives
+        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'dipole')
+        # Compute integrals
+        Mu_ = oei_obj.dipole(geom)
 
+    libint_interface.finalize()
     return Mu_
 
 def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options, cabs):
@@ -239,6 +253,37 @@ def check_oei_disk(int_type, basis1, basis2, deriv_order, address=None):
         correct_nbf2 = oeifile[sample_dataset_name].shape[1] == nbf2
         oeifile.close()
         correct_int_derivs = correct_deriv_order and correct_nbf1 and correct_nbf2 """
+
+def check_multipole_disk(int_type, basis1, basis2, deriv_order, address=None):
+    # Check OEI's in compute_integrals
+    correct_int_derivs = False
+    correct_nbf1 = correct_nbf2 = correct_deriv_order = False
+
+    if ((os.path.exists("dipole_derivs.h5"))):
+        print("Found currently existing multipole integral derivatives in your working directory. Trying to use them.")
+        oeifile = h5py.File('dipole_derivs.h5', 'r')
+        nbf1 = basis1.nbf()
+        nbf2 = basis2.nbf()
+
+        if int_type == "dipole":
+            oei_name = ["mu_x_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),\
+                        "mu_y_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),\
+                        "mu_z_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order)]
+        else:
+            raise Exception("Only dipole integrals currently.")
+
+        for name in list(oeifile.keys()):
+            if name in oei_name:
+                correct_nbf1 = oeifile[name].shape[0] == nbf1
+                correct_nbf2 = oeifile[name].shape[1] == nbf2
+                correct_deriv_order = True
+        oeifile.close()
+
+        correct_int_derivs = correct_deriv_order and correct_nbf1 and correct_nbf2
+
+    if correct_int_derivs:
+        print("Integral derivatives appear to be correct. Avoiding recomputation.")
+    return correct_int_derivs
 
 def check_tei_disk(int_type, basis1, basis2, basis3, basis4, deriv_order, address=None):
     # Check TEI's in compute_integrals
