@@ -253,7 +253,7 @@ class OEI(object):
         idx = get_deriv_vec_idx(deriv_vec)
 
         if self.mode == 'dipole':
-            Mu_X, Mu_Y, Mu_Z = libint_interface.compute_quadrupole_derivs(deriv_vec)
+            Mu_X, Mu_Y, Mu_Z = libint_interface.compute_dipole_derivs(deriv_vec)
             Mu_X = Mu_X.reshape(self.nbf1, self.nbf2)
             Mu_Y = Mu_Y.reshape(self.nbf1, self.nbf2)
             Mu_Z = Mu_Z.reshape(self.nbf1, self.nbf2)
