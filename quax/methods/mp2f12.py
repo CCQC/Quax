@@ -9,9 +9,12 @@ from .energy_utils import partial_tei_transformation, cartesian_product
 from .mp2 import restricted_mp2
 
 def restricted_mp2_f12(*args, options, deriv_order=0):
-    if options['electric_field']:
-        electric_field, geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
-        mp2_args = electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path
+    if options['electric_field'] == 1:
+        efield, geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        mp2_args = efield, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path
+    elif options['electric_field'] == 2:
+        efield_grad, efield, geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        mp2_args = efield_grad, efield, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path
     else:
         geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
         mp2_args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)

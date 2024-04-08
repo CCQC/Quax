@@ -7,9 +7,12 @@ from .energy_utils import partial_tei_transformation, cartesian_product
 from .hartree_fock import restricted_hartree_fock
 
 def restricted_mp2(*args, options, deriv_order=0, return_aux_data=False):
-    if options['electric_field']:
-        electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
-        scf_args = electric_field, geom, basis_set, nelectrons, nuclear_charges, xyz_path
+    if options['electric_field'] == 1:
+        efield, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        scf_args = efield, geom, basis_set, nelectrons, nuclear_charges, xyz_path
+    elif options['electric_field'] == 2:
+        efield_grad, efield, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        scf_args = efield_grad, efield, geom, basis_set, nelectrons, nuclear_charges, xyz_path
     else:
         geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
         scf_args = (geom, basis_set, nelectrons, nuclear_charges, xyz_path)

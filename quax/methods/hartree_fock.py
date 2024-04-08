@@ -49,11 +49,11 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
 
     if options['electric_field'] == 1:
         Mu_XYZ = compute_dipole_ints(geom, basis_set, xyz_path, deriv_order, options)
-        H += jnp.einsum('x,xij->ij', efield, Mu_XYZ)
+        H += jnp.einsum('x,xij->ij', efield, Mu_XYZ, optimize = 'optimal')
     elif options['electric_field'] == 2:
         Mu_Th = compute_quadrupole_ints(geom, basis_set, xyz_path, deriv_order, options)
-        H += jnp.einsum('x,xij->ij', efield, Mu_Th[:3, :, :])
-        H += jnp.einsum('x,xij->ij', efield_grad[jnp.triu_indices(3)], Mu_Th[3:, :, :])
+        H += jnp.einsum('x,xij->ij', efield, Mu_Th[:3, :, :], optimize = 'optimal')
+        H += jnp.einsum('x,xij->ij', efield_grad[jnp.triu_indices(3)], Mu_Th[3:, :, :], optimize = 'optimal')
     
     def rhf_iter(F, D):
         E_scf = jnp.einsum('pq,pq->', F + H, D) + Enuc
@@ -65,7 +65,7 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
         D = Cocc @ Cocc.T
         return E_scf, D, C, eps
 
-    def DIIS(F, D, S):
+    def DIIS_Err(F, D, S):
         diis_e = jnp.einsum('ij,jk,kl->il', F, D, S) - jnp.einsum('ij,jk,kl->il', S, D, F)
         diis_e = A @ diis_e @ A
         return jnp.mean(diis_e ** 2) ** 0.5
@@ -83,7 +83,7 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
         # Compute energy, transform Fock and diagonalize, get new density
         e_scf, D_, C_, eps_ = rhf_iter(F, D_)
 
-        de_, drms_ = jax.lax.cond(iter + 1 == maxit, lambda: (1.e-15, 1.e-15), lambda: (e_old - e_scf, DIIS(F, D_, S)))
+        de_, drms_ = jax.lax.cond(iter + 1 == maxit, lambda: (1.e-15, 1.e-15), lambda: (e_old - e_scf, DIIS_Err(F, D_, S)))
 
         return (iter + 1, de_, drms_, eps_, C_, D_old, D_, e_scf)
 
@@ -101,9 +101,10 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
     print(iteration, " RHF iterations performed")
 
     if options['electric_field'] > 0:
-        E_scf += jnp.einsum('x,q,qx->', efield, nuclear_charges, geom.reshape(-1,3))
+        E_scf += jnp.einsum('x,q,qx->', efield, nuclear_charges, geom.reshape(-1,3), optimize = 'optimal')
     if options['electric_field'] > 1:
-        E_scf += jnp.einsum('ab,q,qa,qb->', jnp.triu(efield_grad), nuclear_charges, geom.reshape(-1,3), geom.reshape(-1,3))
+        E_scf += jnp.einsum('ab,q,qa,qb->', jnp.triu(efield_grad), nuclear_charges,
+                            geom.reshape(-1,3), geom.reshape(-1,3), optimize = 'optimal')
 
     # If many orbitals are degenerate, warn that higher order derivatives may be unstable 
     tmp = jnp.round(eps, 6)

@@ -94,18 +94,21 @@ def perturbative_triples(T1, T2, V, fock_Od, fock_Vd):
     return pT
 
 def rccsd_t(*args, options, deriv_order=0):
-    if options['electric_field']:
-        electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
-        ccsd_args = electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path
-    else:
-        geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
-        ccsd_args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+   if options['electric_field']:
+       efield, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+       ccsd_args = efield, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path
+   elif options['electric_field']:
+       efield_grad, efield, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+       ccsd_args = efield_grad, efield, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path
+   else:
+       geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+       ccsd_args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
 
-    E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(*ccsd_args, options=options, deriv_order=deriv_order, return_aux_data=True)
+   E_ccsd, T1, T2, V, fock_Od, fock_Vd = rccsd(*ccsd_args, options=options, deriv_order=deriv_order, return_aux_data=True)
 
-    print("Running (T) Correction...")
-    pT = perturbative_triples(T1, T2, V, fock_Od, fock_Vd)
-    #print("(T) energy correction:     ", pT)
-    #print("CCSD(T) total energy:      ", E_ccsd + pT)
-    return E_ccsd + pT
+   print("Running (T) Correction...")
+   pT = perturbative_triples(T1, T2, V, fock_Od, fock_Vd)
+   #print("(T) energy correction:     ", pT)
+   #print("CCSD(T) total energy:      ", E_ccsd + pT)
+   return E_ccsd + pT
 
