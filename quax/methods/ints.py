@@ -82,6 +82,32 @@ def compute_dipole_ints(geom, basis_set, xyz_path, deriv_order, options):
     libint_interface.finalize()
     return Mu_
 
+def compute_quadrupole_ints(geom, basis_set, xyz_path, deriv_order, options):
+    # Load integral algo, decides to compute integrals in memory or use disk
+    algo = options['integral_algo']
+    basis_name = basis_set.name()
+    libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name, options['ints_tolerance'])
+
+    if algo == 'libint_disk':
+        # Check disk for currently existing integral derivatives
+        check_multipole = check_multipole_disk('quadrupole', basis_set, basis_set, deriv_order)
+
+        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'disk')
+        # If disk integral derivs are right, nothing to do
+        if check_multipole:
+            Mu_Th = oei_obj.quadrupole(geom)
+        else:
+            libint_interface.compute_quadrupole_deriv_disk(deriv_order)
+            Mu_Th = oei_obj.quadrupole(geom)
+    else:
+        # Precompute TEI derivatives
+        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'dipole')
+        # Compute integrals
+        Mu_Th = oei_obj.quadrupole(geom)
+
+    libint_interface.finalize()
+    return Mu_Th
+
 def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options, cabs):
     # Load integral algo, decides to compute integrals in memory or use disk
     algo = options['integral_algo']
@@ -259,18 +285,28 @@ def check_multipole_disk(int_type, basis1, basis2, deriv_order, address=None):
     correct_int_derivs = False
     correct_nbf1 = correct_nbf2 = correct_deriv_order = False
 
-    if ((os.path.exists("dipole_derivs.h5"))):
+    if ((os.path.exists(int_type, "_derivs.h5"))):
         print("Found currently existing multipole integral derivatives in your working directory. Trying to use them.")
-        oeifile = h5py.File('dipole_derivs.h5', 'r')
+        oeifile = h5py.File(int_type + '_derivs.h5', 'r')
         nbf1 = basis1.nbf()
         nbf2 = basis2.nbf()
 
         if int_type == "dipole":
-            oei_name = ["mu_x_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),\
-                        "mu_y_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),\
+            oei_name = ["mu_x_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "mu_y_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
                         "mu_z_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order)]
+        elif int_type == "quadrupole":
+            oei_name = ["mu_x_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "mu_y_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "mu_z_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_xx_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_xy_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_xz_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_yy_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_yz_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_zz_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order)]
         else:
-            raise Exception("Only dipole integrals currently.")
+            raise Exception("Integral type not recognized.")
 
         for name in list(oeifile.keys()):
             if name in oei_name:

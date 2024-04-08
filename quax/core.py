@@ -40,7 +40,7 @@ def check_options(options):
                        'ints_tolerance': 1.0e-14,
                        'freeze_core': False,
                        'beta': 1.0,
-                       'electric_field': False
+                       'electric_field': 0
                       }
 
     for key in options.keys():
@@ -390,16 +390,24 @@ def geom_deriv(molecule, basis_name, method, deriv_order=1, partial=None, option
 
     return compute_standard(method, args, deriv_order=deriv_order, partial=partial, options=options)
 
-def efield_deriv(molecule, basis_name, method, electric_field=None, deriv_order=1, partial=None, options=None):
+def efield_deriv(molecule, basis_name, method, efield=None, efield_grad=None,
+                 deriv_order=1, partial=None, options=None):
     """
     """
-    if type(electric_field) == type(None):
+    if type(efield) == type(None) and type(efield_grad) == type(None):
+        raise Exception("Electric field and its gradient must be given for quadrupole computation.")
+    elif type(efield) == type(None):
         raise Exception("Electric field must be given for dipole computation.")
     
     try:
         options['electric_field']
     except:
-        options['electric_field'] = True
+        if isinstance(efield, np.ndarray) and isinstance(efield_grad, np.ndarray):
+            options['electric_field'] = 2
+        elif isinstance(efield, np.ndarray):
+            options['electric_field'] = 1
+        else:
+            raise Exception("Electric field and its gradient must be given as numpy arrays.")
     
     # Set keyword options
     if options:
@@ -428,36 +436,48 @@ def efield_deriv(molecule, basis_name, method, electric_field=None, deriv_order=
     print("Basis name: ", basis_set.name())
     print("Number of basis functions: ", nbf)
 
+    if options['electric_field'] == 2:
+        args = (efield_grad, efield)
+    else:
+        args = (efield,)
+
     if method == 'scf' or method == 'hf' or method == 'rhf':
-        args = (electric_field, geom, basis_set, nelectrons, nuclear_charges, xyz_path)
+        args += (geom, basis_set, nelectrons, nuclear_charges, xyz_path)
     elif method =='mp2':
-        args = (electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+        args += (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
     elif method =='mp2-f12':
         cabs_set = build_RIBS(molecule, basis_set, basis_name + '-cabs')
-        args = (electric_field, geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+        args += (geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
     elif method =='ccsd':
-        args = (electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+        args += (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
     elif method =='ccsd(t)':
-        args = (electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+        args += (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
     else:
         print("Desired electronic structure method not understood. Use 'scf' 'hf' 'mp2' 'ccsd' or 'ccsd(t)' ")
 
     return compute_standard(method, args, deriv_order=deriv_order, partial=partial, options=options)
 
-def mixed_deriv(molecule, basis_name, method, electric_field=None,
+def mixed_deriv(molecule, basis_name, method, efield=None, efield_grad=None,
                 deriv_order_F=1, deriv_order_R=1, partial_F=None, partial_R=None, options=None):
     """
     """
     if deriv_order_F == 0 or deriv_order_R == 0:
         raise Exception("Error: Order of differentiation cannot equal zero. Use energy or geometry_deriv or electric_field instead.")
 
-    if type(electric_field) == type(None):
+    if type(efield) == type(None) and type(efield_grad) == type(None):
+        raise Exception("Electric field and its gradient must be given for quadrupole computation.")
+    elif type(efield) == type(None):
         raise Exception("Electric field must be given for dipole computation.")
     
     try:
         options['electric_field']
     except:
-        options['electric_field'] = True
+        if isinstance(efield, np.ndarray) and isinstance(efield_grad, np.ndarray):
+            options['electric_field'] = 2
+        elif isinstance(efield, np.ndarray):
+            options['electric_field'] = 1
+        else:
+            raise Exception("Electric field and its gradient must be given as numpy arrays.")
     
     # Set keyword options
     if options:
@@ -486,17 +506,22 @@ def mixed_deriv(molecule, basis_name, method, electric_field=None,
     print("Basis name: ", basis_set.name())
     print("Number of basis functions: ", nbf)
 
+    if options['electric_field'] == 2:
+        args = (efield, efield_grad)
+    else:
+        args = (efield,)
+
     if method == 'scf' or method == 'hf' or method == 'rhf':
-        args = (electric_field, geom, basis_set, nelectrons, nuclear_charges, xyz_path)
+        args += (geom, basis_set, nelectrons, nuclear_charges, xyz_path)
     elif method =='mp2':
-        args = (electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+        args += (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
     elif method =='mp2-f12':
         cabs_set = build_RIBS(molecule, basis_set, basis_name + '-cabs')
-        args = (electric_field, geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+        args += (geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
     elif method =='ccsd':
-        args = (electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+        args += (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
     elif method =='ccsd(t)':
-        args = (electric_field, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
+        args += (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
     else:
         print("Desired electronic structure method not understood. Use 'scf' 'hf' 'mp2' 'ccsd' or 'ccsd(t)' ")
 

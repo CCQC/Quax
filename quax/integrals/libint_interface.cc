@@ -11,6 +11,8 @@
 #include <pybind11/stl.h>
 #include <libint2.hpp>
 
+#include "utils.h"
+
 // TODO support spherical harmonic gaussians, implement symmetry considerations, support 5th, 6th derivs
 
 namespace py = pybind11;
@@ -32,51 +34,6 @@ int nthreads = 1;
 double threshold;
 double max_engine_precision;
 
-// Creates atom objects from xyz file path
-std::vector<libint2::Atom> get_atoms(std::string xyzfilename) 
-{
-    std::ifstream input_file(xyzfilename);
-    std::vector<libint2::Atom> atoms = libint2::read_dotxyz(input_file);
-    return atoms;
-}
-
-// Creates a combined basis set
-libint2::BasisSet make_ao_cabs(std::string obs_name, libint2::BasisSet cabs) {
-    // Create OBS
-    obs_name.erase(obs_name.end() - 5, obs_name.end());
-    auto obs = libint2::BasisSet(obs_name, atoms);
-    obs.set_pure(false); // use cartesian gaussians
-
-    auto obs_idx = obs.atom2shell(atoms);
-    auto cabs_idx = cabs.atom2shell(atoms);
-
-    std::vector<std::vector<libint2::Shell>> el_bases(36); // Only consider atoms up to Kr
-    for (size_t i = 0; i < atoms.size(); i++) {
-        if (el_bases[atoms[i].atomic_number].empty()) {
-            std::vector<libint2::Shell> tmp;
-
-            for(long int& idx : obs_idx[i]) {
-                tmp.push_back(obs[idx]);
-            }
-            for(long int& idx : cabs_idx[i]) {
-                tmp.push_back(cabs[idx]);
-            }
-
-            stable_sort(tmp.begin(), tmp.end(), [](const auto& a, const auto& b) -> bool
-            {
-                return a.contr[0].l < b.contr[0].l;
-            });
-
-            el_bases[atoms[i].atomic_number] = tmp;
-        }
-    }
-
-    // Create CABS, union of orbital and auxiliary basis AOs
-    cabs = libint2::BasisSet(atoms, el_bases);
-    cabs.set_pure(false);
-    return cabs;
-}
-
 // Must call initialize before computing ints 
 void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
                 std::string basis3, std::string basis4, double ints_tol) {
@@ -91,25 +48,25 @@ void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
     bs1 = libint2::BasisSet(basis1, atoms);
     bs1.set_pure(false); // use cartesian gaussians
     if (basis1.find("-cabs", 10) != std::string::npos) {
-        bs1 = make_ao_cabs(basis1, bs1);
+        bs1 = make_ao_cabs(atoms, basis1, bs1);
     }
 
     bs2 = libint2::BasisSet(basis2, atoms);
     bs2.set_pure(false); // use cartesian gaussians
     if (basis2.find("-cabs", 10) != std::string::npos) {
-        bs2 = make_ao_cabs(basis2, bs2);
+        bs2 = make_ao_cabs(atoms, basis2, bs2);
     }
 
     bs3 = libint2::BasisSet(basis3, atoms);
     bs3.set_pure(false); // use cartesian gaussians
     if (basis3.find("-cabs", 10) != std::string::npos) {
-        bs3 = make_ao_cabs(basis3, bs3);
+        bs3 = make_ao_cabs(atoms, basis3, bs3);
     }
 
     bs4 = libint2::BasisSet(basis4, atoms);
     bs4.set_pure(false); // use cartesian gaussians
     if (basis4.find("-cabs", 10) != std::string::npos) {
-        bs4 = make_ao_cabs(basis4, bs4);
+        bs4 = make_ao_cabs(atoms, basis4, bs4);
     }
 
     nbf1 = bs1.nbf();
@@ -139,131 +96,6 @@ void initialize(std::string xyzfilename, std::string basis1, std::string basis2,
 
 void finalize() {
     libint2::finalize();
-}
-
-// Used to make contracted Gaussian-type geminal for F12 methods
-std::vector<std::pair<double, double>> make_cgtg(double exponent) {
-    // The fitting coefficients and the exponents from MPQC
-    std::vector<std::pair<double, double>> exp_coeff = {};
-    std::vector<double> coeffs = {-0.31442480597241274, -0.30369575353387201, -0.16806968430232927,
-                                  -0.098115812152857612, -0.060246640234342785, -0.037263541968504843};
-    std::vector<double> exps = {0.22085085450735284, 1.0040191632019282, 3.6212173098378728,
-                                12.162483236221904, 45.855332448029337, 254.23460688554644};
-
-    for (int i = 0; i < exps.size(); i++){
-        auto exp_scaled = (exponent * exponent) * exps[i];
-        exp_coeff.push_back(std::make_pair(exp_scaled, coeffs[i]));
-    }
-    
-    return exp_coeff;
-}
-
-// Returns square of cgtg
-std::vector<std::pair<double, double>> take_square(std::vector<std::pair<double, double>> input) {
-    auto n = input.size();
-    std::vector<std::pair<double, double>> output;
-    for (int i = 0; i < n; ++i) {
-        auto e_i = input[i].first;
-        auto c_i = input[i].second;
-        for (int j = i; j < n; ++j) {
-            auto e_j = input[j].first;
-            auto c_j = input[j].second;
-            double scale = i == j ? 1.0 : 2.0;
-            output.emplace_back(std::make_pair(e_i + e_j, scale * c_i * c_j));
-        }
-    }
-    return output;
-}
-
-// Cartesian product of arbitrary number of vectors, given a vector of vectors
-// Used to find all possible combinations of indices which correspond to desired nuclear derivatives
-// For example, if molecule has two atoms, A and B, and we want nuclear derivative d^2/dAz dBz,
-// represented by deriv_vec = [0,0,1,0,0,1], and we are looping over 4 shells in ERI's,
-// and the four shells are atoms (0,0,1,1), then possible indices 
-// of the 0-11 shell cartesian component indices are {2,5} for d/dAz and {8,11} for d/dBz.
-// So the vector passed to cartesian_product is { {{2,5},{8,11}}, and all combinations of elements
-// from first and second subvectors are produced, and the total nuclear derivative of the shell
-// is obtained by summing all of these pieces together.
-// These resulting indices are converted to flattened Libint buffer indices using the generate_*_lookup functions,
-// explained below.
-std::vector<std::vector<int>> cartesian_product (const std::vector<std::vector<int>>& v) {
-    std::vector<std::vector<int>> s = {{}};
-    for (const auto& u : v) {
-        std::vector<std::vector<int>> r;
-        for (const auto& x : s) {
-            for (const auto y : u) {
-                r.push_back(x);
-                r.back().push_back(y);
-            }
-        }
-        s = std::move(r);
-    }
-    return s;
-}
-
-// Converts a derivative vector (3*Natom array of integers defining which coordinates to 
-// differentiate wrt and how many times) to a set of atom indices and coordinate indices 0,1,2->x,y,z
-void process_deriv_vec(std::vector<int> deriv_vec, 
-                       std::vector<int> *desired_atoms, 
-                       std::vector<int> *desired_coordinates) 
-{
-    for (int i = 0; i < deriv_vec.size(); i++) {
-        if (deriv_vec[i] > 0) {
-            for (int j = 0; j < deriv_vec[i]; j++) {
-                desired_atoms->push_back(i / 3);
-                desired_coordinates->push_back(i % 3);
-            }
-        }
-    }
-}
-
-// Returns total size of the libint integral derivative buffer, which is how many unique nth order derivatives
-// wrt k objects which have 3 differentiable coordinates each
-// k: how many centers
-// n: order of differentiation
-// l: how many atoms (needed for potential integrals only!)
-int how_many_derivs(int k, int n, int l = 0) {
-    int val = 1;
-    int factorial = 1;
-    for (int i=0; i < n; i++) {
-        val *= (3 * (k + l) + i);
-        factorial *= i + 1;
-    }
-    val /= factorial;
-    return val;
-}
-
-void cwr_recursion(std::vector<int> inp,
-                   std::vector<int> &out,
-                   std::vector<std::vector<int>> &result,
-                   int k, int i, int n)
-{
-    // base case: if combination size is k, add to result 
-    if (out.size() == k){
-        result.push_back(out);
-        return;
-    }
-    for (int j = i; j < n; j++){
-        out.push_back(inp[j]);
-        cwr_recursion(inp, out, result, k, j, n);
-        // backtrack - remove current element from solution
-        out.pop_back();
-    }
-}
-
-std::vector<std::vector<int>> generate_multi_index_lookup(int nparams, int deriv_order) {
-    using namespace std;
-    // Generate vector of indices 0 through nparams-1
-    vector<int> inp;
-    for (int i = 0; i < nparams; i++) {
-        inp.push_back(i);
-    }
-    // Generate all possible combinations with repitition. 
-    // These are upper triangle indices, and the length of them is the total number of derivatives
-    vector<int> out;
-    vector<vector<int>> combos;
-    cwr_recursion(inp, out, combos, deriv_order, 0, nparams);
-    return combos;
 }
 
 // Computes non-negligible shell pair list for one-electron integrals
@@ -541,6 +373,116 @@ std::vector<py::array> compute_dipole_ints() {
     }
     return {py::array(Mu_X.size(), Mu_X.data()), py::array(Mu_Y.size(), Mu_Y.data()),
             py::array(Mu_Z.size(), Mu_Z.data())};
+}
+
+// Compute one-electron dipole and quadrupole integrals
+std::vector<py::array> compute_quadrupole_ints() {
+    // Shell pairs after screening
+    const auto bs1_equiv_bs2 = (bs1 == bs2);
+    auto shellpairs = build_shellpairs(bs1, bs2);
+
+    // Integral engine
+    std::vector<libint2::Engine> engines(nthreads);
+
+    // COM generator
+    std::array<double,3> COM = {0.000, 0.000, 0.000};
+
+    // Will compute overlap + electric dipole moments
+    engines[0] = libint2::Engine(libint2::Operator::emultipole2, max_nprim, max_l);
+    engines[0].set_params(COM); // with COM as the multipole origin
+    engines[0].set_precision(max_engine_precision);
+    engines[0].prescale_by(-1);
+    for (size_t i = 1; i != nthreads; ++i) {
+        engines[i] = engines[0];
+    }
+
+    size_t length = nbf1 * nbf2;
+    std::vector<double> Mu_X(length);  // Mu_X Vector
+    std::vector<double> Mu_Y(length);  // Mu_Y Vector
+    std::vector<double> Mu_Z(length);  // Mu_Z Vector
+    std::vector<double> Th_XX(length); // Th_XX Vector
+    std::vector<double> Th_XY(length); // Th_XY Vector
+    std::vector<double> Th_XZ(length); // Th_XZ Vector
+    std::vector<double> Th_YY(length); // Th_YY Vector
+    std::vector<double> Th_YZ(length); // Th_YZ Vector
+    std::vector<double> Th_ZZ(length); // Th_ZZ Vector
+
+#pragma omp parallel for num_threads(nthreads)
+    for (const auto &pair : shellpairs) {
+        int p1 = pair.first;
+        int p2 = pair.second;
+
+        const auto &s1 = bs1[p1];
+        const auto &s2 = bs2[p2];
+        auto n1 = bs1[p1].size(); // number of basis functions in first shell
+        auto n2 = bs2[p2].size(); // number of basis functions in first shell
+        auto bf1 = shell2bf_1[p1];  // first basis function in first shell
+        auto bf2 = shell2bf_2[p2];  // first basis function in second shell
+
+        int thread_id = 0;
+#ifdef _OPENMP
+        thread_id = omp_get_thread_num();
+#endif
+        engines[thread_id].compute(s1, s2); // Compute shell set
+        const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
+        auto mu_x_shellset  = buf_vec[1];
+        auto mu_y_shellset  = buf_vec[2];
+        auto mu_z_shellset  = buf_vec[3];
+        auto th_xx_shellset = buf_vec[4];
+        auto th_xy_shellset = buf_vec[5];
+        auto th_xz_shellset = buf_vec[6];
+        auto th_yy_shellset = buf_vec[7];
+        auto th_yz_shellset = buf_vec[8];
+        auto th_zz_shellset = buf_vec[9];
+
+        if (mu_x_shellset == nullptr && mu_y_shellset == nullptr && mu_z_shellset == nullptr)
+            continue;  // nullptr returned if the entire shell-set was screened out
+
+        // Loop over shell block, keeping a total count idx for the size of shell set
+        if (bs1_equiv_bs2 && p1 != p2) {
+            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                    Mu_X[(bf1 + f1) * nbf2 + bf2 + f2]  =
+                         Mu_X[(bf2 + f2) * nbf1 + bf1 + f1]  = mu_x_shellset[idx];
+                    Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2]  =
+                         Mu_Y[(bf2 + f2) * nbf1 + bf1 + f1]  = mu_y_shellset[idx];
+                    Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2]  =
+                         Mu_Z[(bf2 + f2) * nbf1 + bf1 + f1]  = mu_z_shellset[idx];
+                    Th_XX[(bf1 + f1) * nbf2 + bf2 + f2] =
+                         Th_XX[(bf2 + f2) * nbf1 + bf1 + f1] = th_xx_shellset[idx];
+                    Th_XY[(bf1 + f1) * nbf2 + bf2 + f2] =
+                         Th_XY[(bf2 + f2) * nbf1 + bf1 + f1] = th_xy_shellset[idx];
+                    Th_XZ[(bf1 + f1) * nbf2 + bf2 + f2] =
+                         Th_XZ[(bf2 + f2) * nbf1 + bf1 + f1] = th_xz_shellset[idx];
+                    Th_YY[(bf1 + f1) * nbf2 + bf2 + f2] =
+                         Th_YY[(bf2 + f2) * nbf1 + bf1 + f1] = th_yy_shellset[idx];
+                    Th_YZ[(bf1 + f1) * nbf2 + bf2 + f2] =
+                         Th_YZ[(bf2 + f2) * nbf1 + bf1 + f1] = th_yz_shellset[idx];
+                    Th_ZZ[(bf1 + f1) * nbf2 + bf2 + f2] =
+                         Th_ZZ[(bf2 + f2) * nbf1 + bf1 + f1] = th_zz_shellset[idx];
+                }
+            }
+        } else {
+            for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                    Mu_X[(bf1 + f1) * nbf2 + bf2 + f2]  = mu_x_shellset[idx];
+                    Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2]  = mu_y_shellset[idx];
+                    Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2]  = mu_z_shellset[idx];
+                    Th_XX[(bf1 + f1) * nbf2 + bf2 + f2] = th_xx_shellset[idx];
+                    Th_XY[(bf1 + f1) * nbf2 + bf2 + f2] = th_xy_shellset[idx];
+                    Th_XZ[(bf1 + f1) * nbf2 + bf2 + f2] = th_xz_shellset[idx];
+                    Th_YY[(bf1 + f1) * nbf2 + bf2 + f2] = th_yy_shellset[idx];
+                    Th_YZ[(bf1 + f1) * nbf2 + bf2 + f2] = th_yz_shellset[idx];
+                    Th_ZZ[(bf1 + f1) * nbf2 + bf2 + f2] = th_zz_shellset[idx];
+                }
+            }
+        }
+    }
+    return {py::array(Mu_X.size(), Mu_X.data()), py::array(Mu_Y.size(), Mu_Y.data()),
+            py::array(Mu_Z.size(), Mu_Z.data()), py::array(Th_XX.size(), Th_XX.data()),
+            py::array(Th_XY.size(), Th_XY.data()), py::array(Th_XZ.size(), Th_XZ.data()),
+            py::array(Th_YY.size(), Th_YY.data()), py::array(Th_YZ.size(), Th_YZ.data()),
+            py::array(Th_ZZ.size(), Th_ZZ.data())};
 }
 
 // Computes two-electron integrals
@@ -958,12 +900,9 @@ std::vector<py::array> compute_dipole_derivs(std::vector<int> deriv_vec) {
                     continue;  // nullptr returned if the entire shell-set was screened out
                 for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                     for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                        Mu_X[(bf1 + f1) * nbf2 + bf2 + f2] += mu_x_shellset[idx];
-                        Mu_X[(bf2 + f2) * nbf1 + bf1 + f1] += mu_x_shellset[idx];
-                        Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2] += mu_y_shellset[idx];
-                        Mu_Y[(bf2 + f2) * nbf1 + bf1 + f1] += mu_y_shellset[idx];
-                        Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2] += mu_z_shellset[idx];
-                        Mu_Z[(bf2 + f2) * nbf1 + bf1 + f1] += mu_z_shellset[idx];
+                        Mu_X[(bf1 + f1) * nbf2 + bf2 + f2] = Mu_X[(bf2 + f2) * nbf1 + bf1 + f1] += mu_x_shellset[idx];
+                        Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2] = Mu_Y[(bf2 + f2) * nbf1 + bf1 + f1] += mu_y_shellset[idx];
+                        Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2] = Mu_Z[(bf2 + f2) * nbf1 + bf1 + f1] += mu_z_shellset[idx];
                     }
                 }
             }
@@ -986,6 +925,186 @@ std::vector<py::array> compute_dipole_derivs(std::vector<int> deriv_vec) {
     }
     return {py::array(Mu_X.size(), Mu_X.data()), py::array(Mu_Y.size(), Mu_Y.data()),
             py::array(Mu_Z.size(), Mu_Z.data())};
+}
+
+// Computes nuclear derivatives of dipole and quadrupole integrals
+std::vector<py::array> compute_quadrupole_derivs(std::vector<int> deriv_vec) {
+    assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
+    // Get order of differentiation
+    int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
+
+    // Convert deriv_vec to set of atom indices and their cartesian components which we are differentiating wrt
+    std::vector<int> desired_atom_indices;
+    std::vector<int> desired_coordinates;
+    process_deriv_vec(deriv_vec, &desired_atom_indices, &desired_coordinates);
+
+    // Create mappings from 1d buffer index (flattened upper triangle shell derivative index)
+    // to multidimensional shell derivative index
+    const std::vector<std::vector<int>> buffer_multidim_lookup = generate_multi_index_lookup(6, deriv_order);
+
+    // Shell pairs after screening
+    const auto bs1_equiv_bs2 = (bs1 == bs2);
+    auto shellpairs = build_shellpairs(bs1, bs2);
+
+    // Integral engine
+    std::vector<libint2::Engine> engines(nthreads);
+
+    // COM generator
+    std::array<double,3> COM = {0.000, 0.000, 0.000};
+
+    // Will compute overlap + electric dipole moments
+    engines[0] = libint2::Engine(libint2::Operator::emultipole2, max_nprim, max_l, deriv_order);
+    engines[0].set_params(COM); // with COM as the multipole origin
+    engines[0].set_precision(max_engine_precision);
+    engines[0].prescale_by(-1);
+    for (size_t i = 1; i != nthreads; ++i) {
+        engines[i] = engines[0];
+    }
+
+    size_t length = nbf1 * nbf2;
+    std::vector<double> Mu_X(length); // Mu_X Vector
+    std::vector<double> Mu_Y(length); // Mu_Y Vector
+    std::vector<double> Mu_Z(length); // Mu_Z Vector
+    std::vector<double> Th_XX(length); // Th_XX Vector
+    std::vector<double> Th_XY(length); // Th_XY Vector
+    std::vector<double> Th_XZ(length); // Th_XZ Vector
+    std::vector<double> Th_YY(length); // Th_YY Vector
+    std::vector<double> Th_YZ(length); // Th_YZ Vector
+    std::vector<double> Th_ZZ(length); // Th_ZZ Vector
+
+#pragma omp parallel for num_threads(nthreads)
+    for (const auto &pair : shellpairs) {
+        int p1 = pair.first;
+        int p2 = pair.second;
+
+        const auto &s1 = bs1[p1];
+        const auto &s2 = bs2[p2];
+        auto n1 = bs1[p1].size(); // number of basis functions in first shell
+        auto n2 = bs2[p2].size(); // number of basis functions in first shell
+        auto bf1 = shell2bf_1[p1];  // first basis function in first shell
+        auto bf2 = shell2bf_2[p2];  // first basis function in second shell
+        auto atom1 = shell2atom_1[p1]; // Atom index of shell 1
+        auto atom2 = shell2atom_2[p2]; // Atom index of shell 2
+
+        // Create list of atom indices corresponding to each shell. Libint uses longs, so we will too.
+        std::vector<long> shell_atom_index_list{atom1, atom2};
+
+        int thread_id = 0;
+#ifdef _OPENMP
+        thread_id = omp_get_thread_num();
+#endif
+        engines[thread_id].compute(s1, s2); // Compute shell set
+        const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
+
+        // For every desired atom derivative, check shell and nuclear indices for a match,
+        // add it to subvector for that derivative
+        // Add in the coordinate index 0,1,2 (x,y,z) in desired coordinates and offset the index appropriately.
+        std::vector<std::vector<int>> indices(deriv_order, std::vector<int> (0,0));
+        for (int j = 0; j < desired_atom_indices.size(); j++){
+            int desired_atom_idx = desired_atom_indices[j];
+            // Shell indices
+            for (int i = 0; i < 2; i++){
+                int atom_idx = shell_atom_index_list[i];
+                if (atom_idx == desired_atom_idx) {
+                    int tmp = 3 * i + desired_coordinates[j];
+                    indices[j].push_back(tmp);
+                    continue; // Avoid adding same atom and coord twice
+                }
+            }
+        }
+
+        // Now indices is a vector of vectors, where each subvector is your choices
+        // for the first derivative operator, second, third, etc
+        // and the total number of subvectors is the order of differentiation
+        // Now we want all combinations where we pick exactly one index from each subvector.
+        // This is achievable through a cartesian product
+        std::vector<std::vector<int>> index_combos = cartesian_product(indices);
+        std::vector<int> buffer_indices;
+
+        // Collect needed buffer indices which we need to sum for this nuclear cartesian derivative
+        for (auto vec : index_combos)  {
+            std::sort(vec.begin(), vec.end());
+            int buf_idx = 0;
+            auto it = lower_bound(buffer_multidim_lookup.begin(), buffer_multidim_lookup.end(), vec);
+            if (it != buffer_multidim_lookup.end()) buf_idx = it - buffer_multidim_lookup.begin();
+            buffer_indices.push_back(buf_idx * 10);
+        }
+
+        // Loop over every buffer index and accumulate for every shell set.
+        if (bs1_equiv_bs2 && p1 != p2) {
+            for(auto i = 0; i < buffer_indices.size(); ++i) {
+                auto mu_x_shellset  = buf_vec[buffer_indices[i] + 1];
+                auto mu_y_shellset  = buf_vec[buffer_indices[i] + 2];
+                auto mu_z_shellset  = buf_vec[buffer_indices[i] + 3];
+                auto th_xx_shellset = buf_vec[buffer_indices[i] + 4];
+                auto th_xy_shellset = buf_vec[buffer_indices[i] + 5];
+                auto th_xz_shellset = buf_vec[buffer_indices[i] + 6];
+                auto th_yy_shellset = buf_vec[buffer_indices[i] + 7];
+                auto th_yz_shellset = buf_vec[buffer_indices[i] + 8];
+                auto th_zz_shellset = buf_vec[buffer_indices[i] + 9];
+                if (mu_x_shellset == nullptr && mu_y_shellset == nullptr && mu_z_shellset == nullptr &&
+                    th_xx_shellset == nullptr && th_xy_shellset == nullptr && th_xz_shellset == nullptr &&
+                    th_yy_shellset == nullptr && th_yz_shellset == nullptr && th_zz_shellset == nullptr)
+                    continue;  // nullptr returned if the entire shell-set was screened out
+                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                    for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                        Mu_X[(bf1 + f1) * nbf2 + bf2 + f2]  =
+                             Mu_X[(bf2 + f2) * nbf1 + bf1 + f1]  += mu_x_shellset[idx];
+                        Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2]  =
+                             Mu_Y[(bf2 + f2) * nbf1 + bf1 + f1]  += mu_y_shellset[idx];
+                        Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2]  =
+                             Mu_Z[(bf2 + f2) * nbf1 + bf1 + f1]  += mu_z_shellset[idx];
+                        Th_XX[(bf1 + f1) * nbf2 + bf2 + f2] =
+                             Th_XX[(bf2 + f2) * nbf1 + bf1 + f1] += th_xx_shellset[idx];
+                        Th_XY[(bf1 + f1) * nbf2 + bf2 + f2] =
+                             Th_XY[(bf2 + f2) * nbf1 + bf1 + f1] += th_xy_shellset[idx];
+                        Th_XZ[(bf1 + f1) * nbf2 + bf2 + f2] =
+                             Th_XZ[(bf2 + f2) * nbf1 + bf1 + f1] += th_xz_shellset[idx];
+                        Th_YY[(bf1 + f1) * nbf2 + bf2 + f2] =
+                             Th_YY[(bf2 + f2) * nbf1 + bf1 + f1] += th_yy_shellset[idx];
+                        Th_YZ[(bf1 + f1) * nbf2 + bf2 + f2] =
+                             Th_YZ[(bf2 + f2) * nbf1 + bf1 + f1] += th_yz_shellset[idx];
+                        Th_ZZ[(bf1 + f1) * nbf2 + bf2 + f2] =
+                             Th_ZZ[(bf2 + f2) * nbf1 + bf1 + f1] += th_zz_shellset[idx];
+                    }
+                }
+            }
+        } else {
+            for(auto i = 0; i < buffer_indices.size(); ++i) {
+                auto mu_x_shellset  = buf_vec[buffer_indices[i] + 1];
+                auto mu_y_shellset  = buf_vec[buffer_indices[i] + 2];
+                auto mu_z_shellset  = buf_vec[buffer_indices[i] + 3];
+                auto th_xx_shellset = buf_vec[buffer_indices[i] + 4];
+                auto th_xy_shellset = buf_vec[buffer_indices[i] + 5];
+                auto th_xz_shellset = buf_vec[buffer_indices[i] + 6];
+                auto th_yy_shellset = buf_vec[buffer_indices[i] + 7];
+                auto th_yz_shellset = buf_vec[buffer_indices[i] + 8];
+                auto th_zz_shellset = buf_vec[buffer_indices[i] + 9];
+                if (mu_x_shellset == nullptr && mu_y_shellset == nullptr && mu_z_shellset == nullptr &&
+                    th_xx_shellset == nullptr && th_xy_shellset == nullptr && th_xz_shellset == nullptr &&
+                    th_yy_shellset == nullptr && th_yz_shellset == nullptr && th_zz_shellset == nullptr)
+                    continue;  // nullptr returned if the entire shell-set was screened out
+                for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
+                    for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
+                        Mu_X[(bf1 + f1) * nbf2 + bf2 + f2]  += mu_x_shellset[idx];
+                        Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2]  += mu_y_shellset[idx];
+                        Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2]  += mu_z_shellset[idx];
+                        Th_XX[(bf1 + f1) * nbf2 + bf2 + f2] += th_xx_shellset[idx];
+                        Th_XY[(bf1 + f1) * nbf2 + bf2 + f2] += th_xy_shellset[idx];
+                        Th_XZ[(bf1 + f1) * nbf2 + bf2 + f2] += th_xz_shellset[idx];
+                        Th_YY[(bf1 + f1) * nbf2 + bf2 + f2] += th_yy_shellset[idx];
+                        Th_YZ[(bf1 + f1) * nbf2 + bf2 + f2] += th_yz_shellset[idx];
+                        Th_ZZ[(bf1 + f1) * nbf2 + bf2 + f2] += th_zz_shellset[idx];
+                    }
+                }
+            }
+        }
+    }
+    return {py::array(Mu_X.size(), Mu_X.data()), py::array(Mu_Y.size(), Mu_Y.data()),
+            py::array(Mu_Z.size(), Mu_Z.data()), py::array(Th_XX.size(), Th_XX.data()),
+            py::array(Th_XY.size(), Th_XY.data()), py::array(Th_XZ.size(), Th_XZ.data()),
+            py::array(Th_YY.size(), Th_YY.data()), py::array(Th_YZ.size(), Th_YZ.data()),
+            py::array(Th_ZZ.size(), Th_ZZ.data())};
 }
 
 // Computes nuclear derivatives of two-electron integrals
@@ -2697,9 +2816,11 @@ PYBIND11_MODULE(libint_interface, m) {
     m.def("finalize", &finalize, "Kills libint");
     m.def("compute_1e_int", &compute_1e_int, "Computes one-electron integrals with libint");
     m.def("compute_dipole_ints", &compute_dipole_ints, "Computes electric (Cartesian) dipole integrals with libint");
+    m.def("compute_quadrupole_ints", &compute_quadrupole_ints, "Computes electric (Cartesian) dipole and quadrupole integrals with libint");
     m.def("compute_2e_int", &compute_2e_int, "Computes two-electron integrals with libint");
     m.def("compute_1e_deriv", &compute_1e_deriv, "Computes one-electron integral nuclear derivatives with libint");
     m.def("compute_dipole_derivs", &compute_dipole_derivs, "Computes electric (Cartesian) dipole nuclear integrals with libint");
+    m.def("compute_quadrupole_derivs", &compute_quadrupole_derivs, "Computes electric (Cartesian) dipole and quadrupole nuclear integrals with libint");
     m.def("compute_2e_deriv", &compute_2e_deriv, "Computes two-electron integral nuclear derivatives with libint");
     m.def("compute_1e_deriv_disk", &compute_1e_deriv_disk, "Computes one-electron nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");
     m.def("compute_dipole_deriv_disk", &compute_dipole_deriv_disk, "Computes dipole nuclear derivative tensors from 1st order up to nth order and writes them to disk with HDF5");

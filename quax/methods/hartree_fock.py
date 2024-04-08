@@ -2,12 +2,14 @@ import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 
-from .ints import compute_integrals, compute_dipole_ints
+from .ints import compute_integrals, compute_dipole_ints, compute_quadrupole_ints
 from .energy_utils import nuclear_repulsion, cholesky_orthogonalization
 
 def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False):
-    if options['electric_field']:
-        electric_field, geom, basis_set, nelectrons, nuclear_charges, xyz_path = args
+    if options['electric_field'] == 1:
+        efield, geom, basis_set, nelectrons, nuclear_charges, xyz_path = args
+    elif options['electric_field'] == 2:
+        efield_grad, efield, geom, basis_set, nelectrons, nuclear_charges, xyz_path = args
     else:
         geom, basis_set, nelectrons, nuclear_charges, xyz_path = args
 
@@ -45,9 +47,13 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
     H = T + V
     Enuc = nuclear_repulsion(geom.reshape(-1,3), nuclear_charges)
 
-    if options['electric_field']:
+    if options['electric_field'] == 1:
         Mu_XYZ = compute_dipole_ints(geom, basis_set, xyz_path, deriv_order, options)
-        H += jnp.einsum('x,xij->ij', electric_field, Mu_XYZ)
+        H += jnp.einsum('x,xij->ij', efield, Mu_XYZ)
+    elif options['electric_field'] == 2:
+        Mu_Th = compute_quadrupole_ints(geom, basis_set, xyz_path, deriv_order, options)
+        H += jnp.einsum('x,xij->ij', efield, Mu_Th[:3, :, :])
+        H += jnp.einsum('x,xij->ij', efield_grad[jnp.triu_indices(3)], Mu_Th[3:, :, :])
     
     def rhf_iter(F, D):
         E_scf = jnp.einsum('pq,pq->', F + H, D) + Enuc
@@ -94,8 +100,10 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
                                                               # (iter, dE, dRMS, eps, C, D_old, D, E_scf)
     print(iteration, " RHF iterations performed")
 
-    if options['electric_field']:
-        E_scf += jnp.einsum('x,q,qx', electric_field, nuclear_charges, geom.reshape(-1,3))
+    if options['electric_field'] > 0:
+        E_scf += jnp.einsum('x,q,qx->', efield, nuclear_charges, geom.reshape(-1,3))
+    if options['electric_field'] > 1:
+        E_scf += jnp.einsum('ab,q,qa,qb->', jnp.triu(efield_grad), nuclear_charges, geom.reshape(-1,3), geom.reshape(-1,3))
 
     # If many orbitals are degenerate, warn that higher order derivatives may be unstable 
     tmp = jnp.round(eps, 6)
