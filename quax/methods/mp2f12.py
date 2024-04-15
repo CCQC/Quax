@@ -4,19 +4,22 @@ import jax.numpy as jnp
 from jax.lax import fori_loop, cond
 
 from .basis_utils import build_CABS
-from .ints import compute_f12_oeints, compute_f12_teints
+from .ints import compute_f12_oeints, compute_f12_teints, compute_dipole_ints, compute_quadrupole_ints
 from .energy_utils import partial_tei_transformation, cartesian_product
 from .mp2 import restricted_mp2
 
 def restricted_mp2_f12(*args, options, deriv_order=0):
     if options['electric_field'] == 1:
         efield, geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        fields = (efield,)
         mp2_args = efield, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path
     elif options['electric_field'] == 2:
         efield_grad, efield, geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        fields = (efield_grad, efield)
         mp2_args = efield_grad, efield, geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path
     else:
         geom, basis_set, cabs_set, nelectrons, nfrzn, nuclear_charges, xyz_path = args
+        fields = None
         mp2_args = (geom, basis_set, nelectrons, nfrzn, nuclear_charges, xyz_path)
 
     E_mp2, C_obs, eps, G = restricted_mp2(*mp2_args, options=options, deriv_order=deriv_order, return_aux_data=True)
@@ -32,7 +35,7 @@ def restricted_mp2_f12(*args, options, deriv_order=0):
     spaces = (ndocc, nobs, C_cabs.shape[0]) # ndocc, nobs, nri
 
     # Fock
-    f, fk, k = form_Fock(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, options)
+    f, fk, k = form_Fock(geom, basis_set, cabs_set, C_mats, spaces, fields, xyz_path, deriv_order, options)
 
     # V Intermediate
     V = form_V(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, options)\
@@ -119,7 +122,7 @@ def t_(p, q, r, s):
     )
 
 # One-Electron Integrals
-def one_body_mo_computer(geom, bs1, bs2, C1, C2, xyz_path, deriv_order, options):
+def one_body_mo_computer(geom, bs1, bs2, C1, C2, fields, xyz_path, deriv_order, options):
     """
     General one-body MO computer
     that computes the AOs and 
@@ -127,23 +130,32 @@ def one_body_mo_computer(geom, bs1, bs2, C1, C2, xyz_path, deriv_order, options)
     """
     T, V = compute_f12_oeints(geom, bs1, bs2, xyz_path, deriv_order, options, False)
     AO = T + V
+
+    if options['electric_field'] == 1:
+        Mu_XYZ = compute_dipole_ints(geom, bs1, bs2, xyz_path, deriv_order, options)
+        AO += jnp.einsum('x,xij->ij', fields[0], Mu_XYZ, optimize = 'optimal')
+    elif options['electric_field'] == 2:
+        Mu_Th = compute_quadrupole_ints(geom, bs1, bs2, xyz_path, deriv_order, options)
+        AO += jnp.einsum('x,xij->ij', fields[0], Mu_Th[:3, :, :], optimize = 'optimal')
+        AO += jnp.einsum('x,xij->ij', fields[1][jnp.triu_indices(3)], Mu_Th[3:, :, :], optimize = 'optimal')
+
     MO = C1.T @ AO @ C2
     return MO
 
-def form_h(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, options):
+def form_h(geom, basis_set, cabs_set, C_mats, spaces, fields, xyz_path, deriv_order, options):
     _, nobs, nri = spaces
     _, C_obs, C_cabs = C_mats
 
     tv = jnp.zeros((nri, nri))
 
-    mo1 = one_body_mo_computer(geom, basis_set, basis_set, C_obs, C_obs, xyz_path, deriv_order, options)
+    mo1 = one_body_mo_computer(geom, basis_set, basis_set, C_obs, C_obs, fields, xyz_path, deriv_order, options)
     tv = tv.at[:nobs, :nobs].set(mo1) # <O|O>
 
-    mo2 = one_body_mo_computer(geom, basis_set, cabs_set, C_obs, C_cabs, xyz_path, deriv_order, options)
+    mo2 = one_body_mo_computer(geom, basis_set, cabs_set, C_obs, C_cabs, fields, xyz_path, deriv_order, options)
     tv = tv.at[:nobs, nobs:nri].set(mo2) # <O|C>
     tv = tv.at[nobs:nri, :nobs].set(mo2.T) # <C|O>
 
-    mo3 = one_body_mo_computer(geom, cabs_set, cabs_set, C_cabs, C_cabs, xyz_path, deriv_order, options)
+    mo3 = one_body_mo_computer(geom, cabs_set, cabs_set, C_cabs, C_cabs, fields, xyz_path, deriv_order, options)
     tv = tv.at[nobs:nri, nobs:nri].set(mo3) # <C|C>
 
     return tv
@@ -257,9 +269,9 @@ def form_F2(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, op
     return f12_squared
 
 # Fock
-def form_Fock(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, options):
+def form_Fock(geom, basis_set, cabs_set, C_mats, spaces, fields, xyz_path, deriv_order, options):
 
-    fk = form_h(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, options)
+    fk = form_h(geom, basis_set, cabs_set, C_mats, spaces, fields, xyz_path, deriv_order, options)
     J = form_J(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, options)
     K = form_K(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, options)
     

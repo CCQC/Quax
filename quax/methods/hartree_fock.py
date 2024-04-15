@@ -48,10 +48,10 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
     Enuc = nuclear_repulsion(geom.reshape(-1,3), nuclear_charges)
 
     if options['electric_field'] == 1:
-        Mu_XYZ = compute_dipole_ints(geom, basis_set, xyz_path, deriv_order, options)
+        Mu_XYZ = compute_dipole_ints(geom, basis_set, basis_set, xyz_path, deriv_order, options)
         H += jnp.einsum('x,xij->ij', efield, Mu_XYZ, optimize = 'optimal')
     elif options['electric_field'] == 2:
-        Mu_Th = compute_quadrupole_ints(geom, basis_set, xyz_path, deriv_order, options)
+        Mu_Th = compute_quadrupole_ints(geom, basis_set, basis_set, xyz_path, deriv_order, options)
         H += jnp.einsum('x,xij->ij', efield, Mu_Th[:3, :, :], optimize = 'optimal')
         H += jnp.einsum('x,xij->ij', efield_grad[jnp.triu_indices(3)], Mu_Th[3:, :, :], optimize = 'optimal')
     

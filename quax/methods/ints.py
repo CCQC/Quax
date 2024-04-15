@@ -56,17 +56,18 @@ def compute_integrals(geom, basis_set, xyz_path, deriv_order, options):
     libint_interface.finalize()
     return S, T, V, G
 
-def compute_dipole_ints(geom, basis_set, xyz_path, deriv_order, options):
+def compute_dipole_ints(geom, basis1, basis2, xyz_path, deriv_order, options):
     # Load integral algo, decides to compute integrals in memory or use disk
     algo = options['integral_algo']
-    basis_name = basis_set.name()
-    libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name, options['ints_tolerance'])
+    basis1_name = basis1.name()
+    basis2_name = basis2.name()
+    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis1_name, basis2_name, options['ints_tolerance'])
 
     if algo == 'libint_disk':
         # Check disk for currently existing integral derivatives
-        check_multipole = check_multipole_disk('dipole', basis_set, basis_set, deriv_order)
+        check_multipole = check_multipole_disk('dipole', basis1, basis2, deriv_order)
 
-        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'disk')
+        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'disk')
         # If disk integral derivs are right, nothing to do
         if check_multipole:
             Mu_ = oei_obj.dipole(geom)
@@ -75,24 +76,25 @@ def compute_dipole_ints(geom, basis_set, xyz_path, deriv_order, options):
             Mu_ = oei_obj.dipole(geom)
     else:
         # Precompute TEI derivatives
-        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'dipole')
+        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'dipole')
         # Compute integrals
         Mu_ = oei_obj.dipole(geom)
 
     libint_interface.finalize()
     return Mu_
 
-def compute_quadrupole_ints(geom, basis_set, xyz_path, deriv_order, options):
+def compute_quadrupole_ints(geom, basis1, basis2, xyz_path, deriv_order, options):
     # Load integral algo, decides to compute integrals in memory or use disk
     algo = options['integral_algo']
-    basis_name = basis_set.name()
-    libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name, options['ints_tolerance'])
+    basis1_name = basis1.name()
+    basis2_name = basis2.name()
+    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis1_name, basis2_name, options['ints_tolerance'])
 
     if algo == 'libint_disk':
         # Check disk for currently existing integral derivatives
-        check_multipole = check_multipole_disk('quadrupole', basis_set, basis_set, deriv_order)
+        check_multipole = check_multipole_disk('quadrupole', basis1, basis2, deriv_order)
 
-        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'disk')
+        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'disk')
         # If disk integral derivs are right, nothing to do
         if check_multipole:
             Mu_Th = oei_obj.quadrupole(geom)
@@ -101,7 +103,7 @@ def compute_quadrupole_ints(geom, basis_set, xyz_path, deriv_order, options):
             Mu_Th = oei_obj.quadrupole(geom)
     else:
         # Precompute TEI derivatives
-        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'dipole')
+        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'dipole')
         # Compute integrals
         Mu_Th = oei_obj.quadrupole(geom)
 
@@ -285,7 +287,7 @@ def check_multipole_disk(int_type, basis1, basis2, deriv_order, address=None):
     correct_int_derivs = False
     correct_nbf1 = correct_nbf2 = correct_deriv_order = False
 
-    if ((os.path.exists(int_type, "_derivs.h5"))):
+    if ((os.path.exists(int_type + "_derivs.h5"))):
         print("Found currently existing multipole integral derivatives in your working directory. Trying to use them.")
         oeifile = h5py.File(int_type + '_derivs.h5', 'r')
         nbf1 = basis1.nbf()
