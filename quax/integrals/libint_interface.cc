@@ -568,7 +568,6 @@ py::array compute_2e_int(std::string type, double beta) {
             if (ints_shellset == nullptr)
                 continue;  // nullptr returned if the entire shell-set was screened out
 
-            auto full = false;
             if (bs1_equiv_bs2 && p1 != p2 && bs3_equiv_bs4 && p3 != p4) {
                 // Loop over shell block, keeping a total count idx for the size of shell set
                 for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
@@ -584,14 +583,14 @@ py::array compute_2e_int(std::string type, double beta) {
                                 size_t offset_4 = bf4 + f4;
                                 size_t offset_4_T = (bf4 + f4) * nbf3;
                                 result[offset_1 + offset_2 + offset_3 + offset_4] = 
-                                    result[offset_1_T + offset_2_T + offset_3_T + offset_4_T] = ints_shellset[idx];
+                                    result[offset_1_T + offset_2_T + offset_3_T + offset_4_T] =
+                                        result[offset_1_T + offset_2_T + offset_3 + offset_4] =
+                                            result[offset_1 + offset_2 + offset_3_T + offset_4_T] = ints_shellset[idx];
                             }
                         }
                     }
                 }
-                full = true;
-            } 
-            if (bs1_equiv_bs2 && p1 != p2) {
+            } else if (bs1_equiv_bs2 && p1 != p2) {
                 // Loop over shell block, keeping a total count idx for the size of shell set
                 for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                     size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
@@ -609,9 +608,7 @@ py::array compute_2e_int(std::string type, double beta) {
                         }
                     }
                 }
-                full = true;
-            } 
-            if (bs3_equiv_bs4 && p3 != p4) {
+            } else if (bs3_equiv_bs4 && p3 != p4) {
                 // Loop over shell block, keeping a total count idx for the size of shell set
                 for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                     size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
@@ -629,9 +626,7 @@ py::array compute_2e_int(std::string type, double beta) {
                         }
                     }
                 }
-                full = true;
-            } 
-            if (full == false) {
+            } else {
                 // Loop over shell block, keeping a total count idx for the size of shell set
                 for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                     size_t offset_1 = (bf1 + f1) * nbf2 * nbf3 * nbf4;
@@ -1254,7 +1249,6 @@ py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv
             engines[thread_id].compute(s1, s2, s3, s4); // Compute shell set
             const auto& buf_vec = engines[thread_id].results(); // will point to computed shell sets
             
-            auto full = false;
             if (bs1_equiv_bs2 && p1 != p2 && bs3_equiv_bs4 && p3 != p4) {
                 for(auto i = 0; i < buffer_indices.size(); ++i) {
                     auto ints_shellset = buf_vec[buffer_indices[i]];
@@ -1272,15 +1266,15 @@ py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv
                                     size_t offset_4 = bf4 + f4;
                                     size_t offset_4_T = (bf4 + f4) * nbf3;
                                     result[offset_1 + offset_2 + offset_3 + offset_4] = 
-                                        result[offset_1_T + offset_2_T + offset_3_T + offset_4_T] += ints_shellset[idx];
+                                      result[offset_1_T + offset_2_T + offset_3_T + offset_4_T] =
+                                        result[offset_1_T + offset_2_T + offset_3 + offset_4] =
+                                          result[offset_1 + offset_2 + offset_3_T + offset_4_T] += ints_shellset[idx];
                                 }
                             }
                         }
                     }
                 }
-                full = true;
-            }
-            if (bs1_equiv_bs2 && p1 != p2) {
+            } else if (bs1_equiv_bs2 && p1 != p2) {
                 for(auto i = 0; i < buffer_indices.size(); ++i) {
                     auto ints_shellset = buf_vec[buffer_indices[i]];
                     if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
@@ -1301,9 +1295,7 @@ py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv
                         }
                     }
                 }
-                full = true;
-            }
-            if (bs3_equiv_bs4 && p3 != p4) {
+            } else if (bs3_equiv_bs4 && p3 != p4) {
                 for(auto i = 0; i < buffer_indices.size(); ++i) {
                     auto ints_shellset = buf_vec[buffer_indices[i]];
                     if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
@@ -1325,9 +1317,7 @@ py::array compute_2e_deriv(std::string type, double beta, std::vector<int> deriv
                         }
                     }
                 }
-                full = true;
-            }
-            if (full == false) {
+            } else {
                 for(auto i = 0; i < buffer_indices.size(); ++i) {
                     auto ints_shellset = buf_vec[buffer_indices[i]];
                     if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
@@ -1995,7 +1985,6 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
                         buffer_indices.push_back(buf_idx);
                     }
 
-                    auto full = false;
                     // Loop over shell block, keeping a total count idx for the size of shell set
                     if (bs1_equiv_bs2 && p1 != p2 && bs3_equiv_bs4 && p3 != p4) {
                         for(auto i = 0; i < buffer_indices.size(); ++i) {
@@ -2006,15 +1995,15 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
                                     for(auto f3 = 0; f3 != n3; ++f3) {
                                         for(auto f4 = 0; f4 != n4; ++f4, ++idx) {
                                             ints_shellset_slab_1234[f1][f2][f3][f4][nuc_idx] =
-                                                ints_shellset_slab_2143[f2][f1][f4][f3][nuc_idx] += ints_shellset[idx];
+                                              ints_shellset_slab_2143[f2][f1][f4][f3][nuc_idx] =
+                                                ints_shellset_slab_2134[f2][f1][f3][f4][nuc_idx] =
+                                                  ints_shellset_slab_1243[f1][f2][f4][f3][nuc_idx] += ints_shellset[idx];
                                         }
                                     }
                                 }
                             }
                         }
-                        full = true;
-                    }
-                    if (bs1_equiv_bs2 && p1 != p2) {
+                    } else if (bs1_equiv_bs2 && p1 != p2) {
                         for(auto i = 0; i < buffer_indices.size(); ++i) {
                             auto ints_shellset = buf_vec[buffer_indices[i]];
                             if (ints_shellset == nullptr) continue;
@@ -2029,9 +2018,7 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
                                 }
                             }
                         }
-                        full = true;
-                    }
-                    if (bs3_equiv_bs4 && p3 != p4) {
+                    } else if (bs3_equiv_bs4 && p3 != p4) {
                         for(auto i = 0; i < buffer_indices.size(); ++i) {
                             auto ints_shellset = buf_vec[buffer_indices[i]];
                             if (ints_shellset == nullptr) continue;
@@ -2046,9 +2033,7 @@ void compute_2e_deriv_disk(std::string type, double beta, int max_deriv_order) {
                                 }
                             }
                         }
-                        full = true;
-                    }
-                    if (full == false) {
+                    } else {
                         for(auto i = 0; i < buffer_indices.size(); ++i) {
                             auto ints_shellset = buf_vec[buffer_indices[i]];
                             if (ints_shellset == nullptr) continue;
@@ -2709,7 +2694,6 @@ py::array eri_deriv_core(int deriv_order) {
                     buffer_indices.push_back(buf_idx);
                 }
 
-                auto full = false;
                 if (p1 != p2 && p3 != p4) {
                     for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
@@ -2727,15 +2711,15 @@ py::array eri_deriv_core(int deriv_order) {
                                         size_t offset_4 = bf4 + f4;
                                         size_t offset_4_T = (bf4 + f4) * nbf3;
                                         result[offset_1 + offset_2 + offset_3 + offset_4 + offset_nuc_idx] = 
-                                            result[offset_1_T + offset_2_T + offset_3_T + offset_4_T  + offset_nuc_idx] += ints_shellset[idx];
+                                            result[offset_1_T + offset_2_T + offset_3_T + offset_4_T  + offset_nuc_idx] =
+                                            result[offset_1_T + offset_2_T + offset_3 + offset_4  + offset_nuc_idx] =
+                                            result[offset_1 + offset_2 + offset_3_T + offset_4_T  + offset_nuc_idx] += ints_shellset[idx];
                                     }
                                 }
                             }
                         }
                     }
-                    full = true;
-                }
-                if (p1 != p2) {
+                } else if (p1 != p2) {
                     for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
                         if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
@@ -2756,9 +2740,7 @@ py::array eri_deriv_core(int deriv_order) {
                             }
                         }
                     }
-                    full = true;
-                }
-                if (p3 != p4) {
+                } else if (p3 != p4) {
                     for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
                         if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
@@ -2780,9 +2762,7 @@ py::array eri_deriv_core(int deriv_order) {
                             }
                         }
                     }
-                    full = true;
-                }
-                if (full == false) {
+                } else {
                     for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto ints_shellset = buf_vec[buffer_indices[i]];
                         if (ints_shellset == nullptr) continue;  // nullptr returned if shell-set screened out
