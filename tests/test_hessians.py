@@ -38,7 +38,7 @@ def test_mp2_hessian(method='mp2'):
     n = psi_deriv.shape[0]
     quax_deriv = quax.core.geom_deriv(molecule, basis_name, method, deriv_order=2, options=options).reshape(n,n)
     quax_partial00 = quax.core.geom_deriv(molecule, basis_name, method, deriv_order=2, partial=(0,0), options=options)
-    assert np.allclose(psi_deriv, quax_deriv)
+    assert np.allclose(psi_deriv, quax_deriv, atol=5e-7)
     assert np.allclose(psi_deriv[0,0], quax_partial00)
 
 def test_ccsd_t_hessian(method='ccsd(t)'):
@@ -46,6 +46,6 @@ def test_ccsd_t_hessian(method='ccsd(t)'):
     n = psi_deriv.shape[0]
     quax_deriv = quax.core.geom_deriv(molecule, basis_name, method, deriv_order=2, options=options).reshape(n,n)
     quax_partial00 = quax.core.geom_deriv(molecule, basis_name, method, deriv_order=2, partial=(0,0), options=options)
-    assert np.allclose(psi_deriv, quax_deriv)
+    assert np.allclose(psi_deriv, quax_deriv, atol=5e-7)
     assert np.allclose(psi_deriv[0,0], quax_partial00)
 

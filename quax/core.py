@@ -1,7 +1,6 @@
 import jax 
 from jax import jacfwd
-from jax.config import config
-config.update("jax_enable_x64", True)
+jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import psi4
 import numpy as np
@@ -35,6 +34,7 @@ def check_options(options):
     keyword_options = {'maxit': 100,
                        'damping': False,
                        'damp_factor': 0.5,
+                       'guess_core': False,
                        'spectral_shift': True,
                        'integral_algo': 'libint_core',
                        'ints_tolerance': 1.0e-14,
@@ -304,6 +304,7 @@ def energy(molecule, basis_name, method, options=None):
     # Set keyword options
     if options:
         options = check_options(options)
+        options['integral_algo'] = 'libint_core'
     else:
         options = check_options({'integral_algo': 'libint_core'})
     print("Using integral method: {}".format(options['integral_algo']))

@@ -72,7 +72,12 @@ def compute_dipole_ints(geom, basis1, basis2, xyz_path, deriv_order, options):
         if check_multipole:
             Mu_ = oei_obj.dipole(geom)
         else:
-            libint_interface.compute_dipole_deriv_disk(deriv_order)
+            with open(xyz_path, 'r') as f:
+                tmp = f.read()
+            com = psi4.core.Molecule.from_string(tmp, 'xyz+').center_of_mass()
+            com = list([com[0], com[1], com[2]])
+
+            libint_interface.compute_dipole_deriv_disk(com, deriv_order)
             Mu_ = oei_obj.dipole(geom)
     else:
         # Precompute TEI derivatives

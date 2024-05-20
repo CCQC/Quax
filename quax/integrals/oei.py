@@ -14,8 +14,8 @@ class OEI(object):
     def __init__(self, basis1, basis2, xyz_path, max_deriv_order, mode):
         with open(xyz_path, 'r') as f:
             tmp = f.read()
-        molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-        natoms = molecule.natom()
+        mol = psi4.core.Molecule.from_string(tmp, 'xyz+')
+        natoms = mol.natom()
 
         nbf1 = basis1.nbf()
         nbf2 = basis2.nbf()
@@ -39,6 +39,9 @@ class OEI(object):
         self.mode = mode
         self.nbf1 = nbf1
         self.nbf2 = nbf2
+
+        com = mol.center_of_mass()
+        self.com = list([com[0], com[1], com[2]])
 
         # Create new JAX primitives for overlap, kinetic, potential evaluation and their derivatives
         self.overlap_p = jax.core.Primitive("overlap")
@@ -131,7 +134,7 @@ class OEI(object):
         return jnp.asarray(V)
 
     def dipole_impl(self, geom):
-        Mu_X, Mu_Y, Mu_Z = libint_interface.compute_dipole_ints()
+        Mu_X, Mu_Y, Mu_Z = libint_interface.compute_dipole_ints(self.com)
         Mu_X = Mu_X.reshape(self.nbf1, self.nbf2)
         Mu_Y = Mu_Y.reshape(self.nbf1, self.nbf2)
         Mu_Z = Mu_Z.reshape(self.nbf1, self.nbf2)
@@ -139,7 +142,7 @@ class OEI(object):
     
     def quadrupole_impl(self, geom):
         Mu_X, Mu_Y, Mu_Z, Th_XX, Th_XY,\
-            Th_XZ, Th_YY, Th_YZ, Th_ZZ = libint_interface.compute_quadrupole_ints()
+            Th_XZ, Th_YY, Th_YZ, Th_ZZ = libint_interface.compute_quadrupole_ints(self.com)
         Mu_X = Mu_X.reshape(self.nbf1, self.nbf2)
         Mu_Y = Mu_Y.reshape(self.nbf1, self.nbf2)
         Mu_Z = Mu_Z.reshape(self.nbf1, self.nbf2)
@@ -253,7 +256,7 @@ class OEI(object):
         idx = get_deriv_vec_idx(deriv_vec)
 
         if self.mode == 'dipole':
-            Mu_X, Mu_Y, Mu_Z = libint_interface.compute_dipole_derivs(deriv_vec)
+            Mu_X, Mu_Y, Mu_Z = libint_interface.compute_dipole_derivs(self.com, deriv_vec)
             Mu_X = Mu_X.reshape(self.nbf1, self.nbf2)
             Mu_Y = Mu_Y.reshape(self.nbf1, self.nbf2)
             Mu_Z = Mu_Z.reshape(self.nbf1, self.nbf2)

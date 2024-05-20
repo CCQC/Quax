@@ -58,7 +58,7 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
     def rhf_iter(F, D):
         E_scf = jnp.einsum('pq,pq->', F + H, D) + Enuc
         Fp = A.T @ F @ A
-        Fp = Fp + shift 
+        Fp += shift
         eps, C2 = jnp.linalg.eigh(Fp)
         C = A @ C2
         Cocc = C[:, :ndocc]
@@ -88,7 +88,7 @@ def restricted_hartree_fock(*args, options, deriv_order=0, return_aux_data=False
         return (iter + 1, de_, drms_, eps_, C_, D_old, D_, e_scf)
 
     # Create Guess Density
-    D = jnp.copy(H)
+    D = jax.lax.cond(options['guess_core'], lambda: jnp.copy(H), lambda: jnp.zeros_like(H))
     JK = 2 * jk_build(G, D)
     JK -= jk_build(G.transpose((0,2,1,3)), D)
     F = H + JK

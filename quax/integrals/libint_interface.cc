@@ -299,7 +299,7 @@ py::array compute_1e_int(std::string type) {
 }
 
 // Compute one-electron dipole integrals
-std::vector<py::array> compute_dipole_ints() {
+std::vector<py::array> compute_dipole_ints(std::array<double,3> COM) {
     // Shell pairs after screening
     const auto bs1_equiv_bs2 = (bs1 == bs2);
     auto shellpairs = build_shellpairs(bs1, bs2);
@@ -308,7 +308,7 @@ std::vector<py::array> compute_dipole_ints() {
     std::vector<libint2::Engine> engines(nthreads);
 
     // COM generator
-    std::array<double,3> COM = {0.000, 0.000, 0.000};
+    // std::array<double,3> COM = {0.000, 0.000, 0.000};
 
     // Will compute overlap + electric dipole moments
     engines[0] = libint2::Engine(libint2::Operator::emultipole1, max_nprim, max_l);
@@ -353,12 +353,12 @@ std::vector<py::array> compute_dipole_ints() {
         if (bs1_equiv_bs2 && p1 != p2) {
             for(auto f1 = 0, idx = 0; f1 != n1; ++f1) {
                 for(auto f2 = 0; f2 != n2; ++f2, ++idx) {
-                    Mu_X[(bf1 + f1) * nbf2 + bf2 + f2] = mu_x_shellset[idx];
-                    Mu_X[(bf2 + f2) * nbf1 + bf1 + f1] = mu_x_shellset[idx];
-                    Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2] = mu_y_shellset[idx];
-                    Mu_Y[(bf2 + f2) * nbf1 + bf1 + f1] = mu_y_shellset[idx];
-                    Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2] = mu_z_shellset[idx];
-                    Mu_Z[(bf2 + f2) * nbf1 + bf1 + f1] = mu_z_shellset[idx];
+                    Mu_X[(bf1 + f1) * nbf2 + bf2 + f2] =
+                        Mu_X[(bf2 + f2) * nbf1 + bf1 + f1] = mu_x_shellset[idx];
+                    Mu_Y[(bf1 + f1) * nbf2 + bf2 + f2] =
+                        Mu_Y[(bf2 + f2) * nbf1 + bf1 + f1] = mu_y_shellset[idx];
+                    Mu_Z[(bf1 + f1) * nbf2 + bf2 + f2] =
+                        Mu_Z[(bf2 + f2) * nbf1 + bf1 + f1] = mu_z_shellset[idx];
                 }
             }
         } else {
@@ -376,16 +376,13 @@ std::vector<py::array> compute_dipole_ints() {
 }
 
 // Compute one-electron dipole and quadrupole integrals
-std::vector<py::array> compute_quadrupole_ints() {
+std::vector<py::array> compute_quadrupole_ints(std::array<double,3> COM) {
     // Shell pairs after screening
     const auto bs1_equiv_bs2 = (bs1 == bs2);
     auto shellpairs = build_shellpairs(bs1, bs2);
 
     // Integral engine
     std::vector<libint2::Engine> engines(nthreads);
-
-    // COM generator
-    std::array<double,3> COM = {0.000, 0.000, 0.000};
 
     // Will compute overlap + electric dipole moments
     engines[0] = libint2::Engine(libint2::Operator::emultipole2, max_nprim, max_l);
@@ -789,7 +786,7 @@ py::array compute_1e_deriv(std::string type, std::vector<int> deriv_vec) {
 }
 
 // Computes nuclear derivatives of dipole integrals
-std::vector<py::array> compute_dipole_derivs(std::vector<int> deriv_vec) {
+std::vector<py::array> compute_dipole_derivs(std::array<double,3> COM, std::vector<int> deriv_vec) {
     assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
@@ -809,9 +806,6 @@ std::vector<py::array> compute_dipole_derivs(std::vector<int> deriv_vec) {
 
     // Integral engine
     std::vector<libint2::Engine> engines(nthreads);
-
-    // COM generator
-    std::array<double,3> COM = {0.000, 0.000, 0.000};
 
     // Will compute overlap + electric dipole moments
     engines[0] = libint2::Engine(libint2::Operator::emultipole1, max_nprim, max_l, deriv_order);
@@ -923,7 +917,7 @@ std::vector<py::array> compute_dipole_derivs(std::vector<int> deriv_vec) {
 }
 
 // Computes nuclear derivatives of dipole and quadrupole integrals
-std::vector<py::array> compute_quadrupole_derivs(std::vector<int> deriv_vec) {
+std::vector<py::array> compute_quadrupole_derivs(std::array<double,3> COM, std::vector<int> deriv_vec) {
     assert(ncart == deriv_vec.size() && "Derivative vector incorrect size for this molecule.");
     // Get order of differentiation
     int deriv_order = accumulate(deriv_vec.begin(), deriv_vec.end(), 0);
@@ -943,9 +937,6 @@ std::vector<py::array> compute_quadrupole_derivs(std::vector<int> deriv_vec) {
 
     // Integral engine
     std::vector<libint2::Engine> engines(nthreads);
-
-    // COM generator
-    std::array<double,3> COM = {0.000, 0.000, 0.000};
 
     // Will compute overlap + electric dipole moments
     engines[0] = libint2::Engine(libint2::Operator::emultipole2, max_nprim, max_l, deriv_order);
@@ -1587,14 +1578,18 @@ void compute_1e_deriv_disk(std::string type, int max_deriv_order) {
 //      ...
 // The number of unique derivatives is essentially equal to the size of the
 // generalized upper triangle of the derivative tensor.
-void compute_dipole_deriv_disk(int max_deriv_order) {
+void compute_dipole_deriv_disk(std::array<double,3> COM, int max_deriv_order) {
     std::cout << "Writing dipole integral derivative tensors up to order " << max_deriv_order << " to disk...";
     long total_deriv_slices = 0;
     for (int i = 1; i <= max_deriv_order; i++){
         total_deriv_slices += how_many_derivs(natom, i);
     }
 
+    double check = (nbf1 * nbf2 * total_deriv_slices * 8) * (1e-9);
+    assert(check < 10 && "Total disk space required for ERI's exceeds 10 GB. Increase threshold and recompile to proceed.");
+
     // Shell pairs after screening
+    const auto bs1_equiv_bs2 = (bs1 == bs2);
     auto shellpairs = build_shellpairs(bs1, bs2);
 
     // Create H5 File and prepare to fill with 0.0's
@@ -1617,9 +1612,6 @@ void compute_dipole_deriv_disk(int max_deriv_order) {
 
         // Define engines and buffers
         std::vector<libint2::Engine> engines(nthreads);
-
-        // COM generator
-        std::array<double,3> COM = {0.000, 0.000, 0.000};
 
         // Will compute overlap + electric dipole moments
         engines[0] = libint2::Engine(libint2::Operator::emultipole1, max_nprim, max_l, deriv_order);
@@ -1723,7 +1715,7 @@ void compute_dipole_deriv_disk(int max_deriv_order) {
                 }
 
                 // Loop over shell block for each buffer index which contributes to this derivative
-                if (p1 != p2) {
+                if (bs1_equiv_bs2 && p1 != p2) {
                     for(auto i = 0; i < buffer_indices.size(); ++i) {
                         auto mu_x_shellset = buf_vec[buffer_indices[i] + 1];
                         auto mu_y_shellset = buf_vec[buffer_indices[i] + 2];
@@ -1772,7 +1764,7 @@ void compute_dipole_deriv_disk(int max_deriv_order) {
             Mu_Y_dataset->write(Mu_Y_shellset_slab_12, PredType::NATIVE_DOUBLE, mspace, fspace);
             Mu_Z_dataset->write(Mu_Z_shellset_slab_12, PredType::NATIVE_DOUBLE, mspace, fspace);
 
-            if (p1 != p2) {
+            if (bs1_equiv_bs2 && p1 != p2) {
                 // Now write this shell set slab to HDF5 file
                 // Create file space hyperslab, defining where to write data to in file
                 hsize_t count_T[3] = {n2, n1, nderivs_triu};

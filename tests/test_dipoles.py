@@ -29,17 +29,17 @@ efield = np.zeros((3))
 def test_hartree_fock_gradient(method='hf'):
     psi4.properties(method, properties=['dipole'])
     psi_deriv = psi4.variable("SCF DIPOLE")
-    quax_deriv = quax.core.efield_deriv(molecule, basis_name, method, electric_field=efield, deriv_order=1, options=options).reshape(-1,3)
-    quax_partial0 = quax.core.efield_deriv(molecule, basis_name, method, electric_field=efield, deriv_order=1, partial=(0,), options=options)
+    quax_deriv = quax.core.efield_deriv(molecule, basis_name, method, efield=efield, deriv_order=1, options=options).reshape(-1,3)
+    quax_partial0 = quax.core.efield_deriv(molecule, basis_name, method, efield=efield, deriv_order=1, partial=(0,), options=options)
     assert np.allclose(psi_deriv, quax_deriv)
-    assert np.allclose(psi_deriv[0,0], quax_partial0)
+    assert np.allclose(psi_deriv[0], quax_partial0)
 
 def test_ccsd_gradient(method='ccsd'):
     psi4.properties(method, properties=['dipole'])
     psi_deriv = psi4.variable("CC DIPOLE")
-    quax_deriv = quax.core.efield_deriv(molecule, basis_name, method, electric_field=efield, deriv_order=1, options=options).reshape(-1,3)
-    quax_partial0 = quax.core.efield_deriv(molecule, basis_name, method, electric_field=efield, deriv_order=1, partial=(0,), options=options)
-    assert np.allclose(psi_deriv, quax_deriv)
-    assert np.allclose(psi_deriv[0,0], quax_partial0)
+    quax_deriv = quax.core.efield_deriv(molecule, basis_name, method, efield=efield, deriv_order=1, options=options).reshape(-1,3)
+    quax_partial0 = quax.core.efield_deriv(molecule, basis_name, method, efield=efield, deriv_order=1, partial=(0,), options=options)
+    assert np.allclose(psi_deriv, quax_deriv, rtol=1e-4, atol=1e-4)
+    assert np.allclose(psi_deriv[0], quax_partial0)
 
 

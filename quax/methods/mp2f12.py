@@ -1,5 +1,5 @@
 import jax 
-from jax.config import config; config.update("jax_enable_x64", True)
+jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from jax.lax import fori_loop, cond
 
@@ -60,7 +60,7 @@ def restricted_mp2_f12(*args, options, deriv_order=0):
 
         D_ij = D[i, j, :, :]
 
-        GD_ij = jnp.einsum('ab,ab->ab', G[i - 1, j - 1, :, :], D_ij, optimize='optimal')
+        GD_ij = jnp.einsum('ab,ab->ab', G[i - ncore, j - ncore, :, :], D_ij, optimize='optimal')
         V_ij = V[i, j, :, :] - jnp.einsum('klab,ab->kl', C, GD_ij, optimize='optimal')
 
         V_s = 0.25 * (t_(i, j, i, j) + t_(i, j, j, i)) * kd * (V_ij[i, j] + V_ij[j, i])
@@ -82,15 +82,20 @@ def restricted_mp2_f12(*args, options, deriv_order=0):
 
         f12_corr += kd * (2.0 * V_s + B_s)         # Singlet Pair Energy
         f12_corr += 3.0 * kd * (2.0 * V_t + B_t)   # Triplet Pair Energy
-
         return f12_corr
 
-    start = ndocc if ncore > 0 else 0
-    dE_mp2f12 = fori_loop(start, indices.shape[0], loop_energy, 0.0)
+    def frzn_core(idx, accu):
+        accu += ndocc - idx
+        return accu
+
+    start = fori_loop(0, ncore, frzn_core, 0)
+    dE_f12 = fori_loop(start, indices.shape[0], loop_energy, 0.0)
 
     E_s = cabs_singles(f, spaces)
 
-    return E_mp2 + dE_mp2f12 + E_s
+    jax.debug.print("  Total MP2-F12/3C(FIX) Energy:         {}", E_mp2 + dE_f12 + E_s)
+
+    return E_mp2 + dE_f12 + E_s
 
 # CABS Singles
 def cabs_singles(f, spaces):
@@ -150,13 +155,16 @@ def form_h(geom, basis_set, cabs_set, C_mats, spaces, fields, xyz_path, deriv_or
 
     mo1 = one_body_mo_computer(geom, basis_set, basis_set, C_obs, C_obs, fields, xyz_path, deriv_order, options)
     tv = tv.at[:nobs, :nobs].set(mo1) # <O|O>
+    del mo1
 
     mo2 = one_body_mo_computer(geom, basis_set, cabs_set, C_obs, C_cabs, fields, xyz_path, deriv_order, options)
     tv = tv.at[:nobs, nobs:nri].set(mo2) # <O|C>
     tv = tv.at[nobs:nri, :nobs].set(mo2.T) # <C|O>
+    del mo2
 
     mo3 = one_body_mo_computer(geom, cabs_set, cabs_set, C_cabs, C_cabs, fields, xyz_path, deriv_order, options)
     tv = tv.at[nobs:nri, nobs:nri].set(mo3) # <C|C>
+    del mo3
 
     return tv
 
@@ -182,15 +190,18 @@ def form_J(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, opt
     mo1 = two_body_mo_computer(geom, "eri", basis_set, basis_set, basis_set, basis_set,\
                                C_obs, C_occ, C_obs, C_occ, xyz_path, deriv_order, options)
     eri = eri.at[:nobs, :, :nobs, :].set(mo1) # <Oo|Oo>
+    del mo1
 
     mo2 = two_body_mo_computer(geom, "eri", cabs_set, basis_set, basis_set, basis_set,\
                               C_cabs, C_occ, C_obs, C_occ, xyz_path, deriv_order, options)
     eri = eri.at[nobs:nri, :, :nobs, :].set(mo2) # <Co|Oo>
     eri = eri.at[:nobs, :, nobs:nri, :].set(jnp.transpose(mo2, (2,3,0,1))) # <Oo|Co>
+    del mo2
 
     mo3 = two_body_mo_computer(geom, "eri", cabs_set, basis_set, cabs_set, basis_set,\
                               C_cabs, C_occ, C_cabs, C_occ, xyz_path, deriv_order, options)
     eri = eri.at[nobs:nri, :, nobs:nri, :].set(mo3) # <Co|Co>
+    del mo3
 
     return eri
 
@@ -203,15 +214,18 @@ def form_K(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, opt
     mo1 = two_body_mo_computer(geom, "eri", basis_set, basis_set, basis_set, basis_set,\
                               C_obs, C_occ, C_occ, C_obs, xyz_path, deriv_order, options)
     eri = eri.at[:nobs, :, :, :nobs].set(mo1) # <Oo|oO>
+    del mo1
 
     mo2 = two_body_mo_computer(geom, "eri", cabs_set, basis_set, basis_set, basis_set,\
                               C_cabs, C_occ, C_occ, C_obs, xyz_path, deriv_order, options)
     eri = eri.at[nobs:nri, :, :, :nobs].set(mo2) # <Co|oO>
     eri = eri.at[:nobs, :, :, nobs:nri].set(jnp.transpose(mo2, (3,2,1,0))) # <Oo|oC>
+    del mo2
 
     mo3 = two_body_mo_computer(geom, "eri", cabs_set, basis_set, basis_set, cabs_set,\
                               C_cabs, C_occ, C_occ, C_cabs, xyz_path, deriv_order, options)
     eri = eri.at[nobs:nri, :, :, nobs:nri].set(mo3) # <Co|oC>
+    del mo3
 
     return eri
 
@@ -224,10 +238,12 @@ def form_ooO1(geom, int_type, basis_set, cabs_set, C_mats, spaces, xyz_path, der
     mo1 = two_body_mo_computer(geom, int_type, basis_set, basis_set, basis_set, basis_set,\
                               C_occ, C_occ, C_obs, C_obs, xyz_path, deriv_order, options)
     eri = eri.at[:, :, :, :nobs].set(mo1) # <oo|OO>
+    del mo1
 
     mo2 = two_body_mo_computer(geom, int_type, basis_set, basis_set, basis_set, cabs_set,\
                                C_occ, C_occ, C_obs, C_cabs, xyz_path, deriv_order, options)
     eri = eri.at[:, :, :, nobs:].set(mo2) # <oo|OC>
+    del mo2
 
     return eri
 
@@ -240,15 +256,18 @@ def form_F(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, opt
     mo1 = two_body_mo_computer(geom, "f12", basis_set, basis_set, basis_set, basis_set,\
                               C_occ, C_occ, C_obs, C_obs, xyz_path, deriv_order, options)
     f12 = f12.at[:, :, :nobs, :nobs].set(mo1) # <oo|OO>
+    del mo1
 
     mo2 = two_body_mo_computer(geom, "f12", basis_set, basis_set, basis_set, cabs_set,\
                               C_occ, C_occ, C_obs, C_cabs, xyz_path, deriv_order, options)
     f12 = f12.at[:, :, :nobs, nobs:].set(mo2) # <oo|OC>
     f12 = f12.at[:, :, nobs:, :nobs].set(jnp.transpose(mo2, (1,0,3,2))) # <oo|CO>
+    del mo2
 
     mo3 = two_body_mo_computer(geom, "f12", basis_set, basis_set, cabs_set, cabs_set,\
                               C_occ, C_occ, C_cabs, C_cabs, xyz_path, deriv_order, options)
     f12 = f12.at[:, :, nobs:, nobs:].set(mo3) # <oo|CC>
+    del mo3
 
     return f12
 
@@ -261,10 +280,12 @@ def form_F2(geom, basis_set, cabs_set, C_mats, spaces, xyz_path, deriv_order, op
     mo1 = two_body_mo_computer(geom, "f12_squared", basis_set, basis_set, basis_set, basis_set,\
                               C_occ, C_occ, C_occ, C_obs, xyz_path, deriv_order, options)
     f12_squared = f12_squared.at[:, :, :, :nobs].set(mo1) # <oo|oO>
+    del mo1
 
     mo2 = two_body_mo_computer(geom, "f12_squared", basis_set, basis_set, basis_set, cabs_set,\
                               C_occ, C_occ, C_occ, C_cabs, xyz_path, deriv_order, options)
     f12_squared = f12_squared.at[:, :, :, nobs:].set(mo2) # <oo|oC>
+    del mo2
 
     return f12_squared
 
