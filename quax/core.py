@@ -217,6 +217,7 @@ def compute_mixed(method, method_args, deriv_order_F=1, deriv_order_R=1, partial
         else:
             print("Error: Order {},{} mixed derivatives are not exposed to the API.".format(deriv_order_F, deriv_order_R))
             deriv = 0
+        deriv = jnp.round(deriv, 14)
         return np.asarray(deriv)
     
     # Partial derivatives

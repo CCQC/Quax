@@ -19,9 +19,7 @@ psi4.set_options({'basis': basis_name,
                   'mp2_type':'conv',
                   'e_convergence': 1e-10,
                   'd_convergence':1e-10,
-                  'puream': 0,
-                  'points':5,
-                  'fd_project':False})
+                  'puream': 0})
 
 def test_hartree_fock(method='hf'):
     psi_e = psi4.energy(method + '/' + basis_name)
