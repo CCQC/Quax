@@ -41,6 +41,4 @@ jobs:
     - name: Test with pytest
       run: |
         conda install pytest
-        echo "PYTHONPATH=${GITHUB_WORKSPACE}" >> $GITHUB_ENV
-        echo $GITHUB_WORKSPACE >> $GITHUB_PATH
-        pytest
+        python -m pytest
