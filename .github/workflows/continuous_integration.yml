@@ -19,7 +19,6 @@ jobs:
     - name: Add conda to system path
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
-        echo "${GITHUB_WORKSPACE}"
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       shell: bash -l {0}
@@ -29,6 +28,7 @@ jobs:
         conda install -c conda-forge jax
         conda install -c conda-forge jaxlib
         conda install -c conda-forge pybind11
+        conda install -c conda-forge eigen
         conda install -c conda-forge libint
         conda install -c conda-forge h5py
         pip install -e .
@@ -42,4 +42,5 @@ jobs:
       run: |
         conda install pytest
         echo "PYTHONPATH=${GITHUB_WORKSPACE}" >> $GITHUB_ENV
+        echo $GITHUB_WORKSPACE >> $GITHUB_PATH
         pytest
