@@ -3,7 +3,7 @@ import setuptools
 if __name__ == "__main__":
     setuptools.setup(
         name='quax',
-        version="0.2.0a1",
+        version="0.3.0",
         description='Arbitrary order derivatives of electronic structure computations.',
         author='Adam Abbott, Erica Mitchell',
         author_email='adabbott@uga.edu, emitchell@uga.edu',

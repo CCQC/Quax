@@ -6,10 +6,11 @@
 
 You have found Quax. The paper outlining this work was just [recently published](https://pubs.acs.org/doi/abs/10.1021/acs.jpclett.1c00607). 
 This library supports a simple and clean API for obtaining higher-order energy derivatives of electronic
-structure computations such as Hartree-Fock, second-order Møller-Plesset perturbation theory (MP2), and
-coupled cluster with singles, doubles, and perturbative triples excitations [CCSD(T)].
-Whereas most codes support only analytic gradient and occasionally Hessian computations,
-this code can compute analytic derivatives of arbitrary order. 
+structure computations such as Hartree-Fock, second-order Møller-Plesset perturbation theory (MP2),
+explicitly correlated MP2 (MP2-F12), and coupled cluster with singles, doubles, and perturbative triples 
+excitations [CCSD(T)].
+Whereas most codes support only analytic gradient and occasionally Hessian computations, this code can 
+compute analytic derivatives of arbitrary order for both geometric derivatives and electric field derivatives. 
 We use [JAX](https://github.com/google/jax) for automatically differentiating electronic structure computations.
 The code can be easily extended to support other methods, for example
 using the guidance offered by the [Psi4Numpy project](https://github.com/psi4/psi4numpy).
@@ -44,22 +45,22 @@ molecule = psi4.geometry("""
 
 energy = quax.core.energy(molecule, 'sto-3g', 'hf')
 print(energy)
-gradient = quax.core.derivative(molecule, 'sto-3g', 'hf', deriv_order=1)
+gradient = quax.core.geom_deriv(molecule, 'sto-3g', 'hf', deriv_order=1)
 print(gradient)
-hessian = quax.core.derivative(molecule, 'sto-3g', 'hf', deriv_order=2)
+hessian = quax.core.geom_deriv(molecule, 'sto-3g', 'hf', deriv_order=2)
 print(hessian)
 
-dz1 = quax.core.partial_derivative(molecule, 'sto-3g', 'hf', deriv_order=1, partial=(2,))
+dz1 = quax.core.geom_deriv(molecule, 'sto-3g', 'hf', deriv_order=1, partial=(2,))
 print(dz1)
 
-dz1_dz2 = quax.core.partial_derivative(molecule, 'sto-3g', 'hf', deriv_order=2, partial=(2,5))
+dz1_dz2 = quax.core.geom_deriv(molecule, 'sto-3g', 'hf', deriv_order=2, partial=(2,5))
 print(dz1_dz2)
 
 print('Partial gradient matches gradient element: ', dz1 == gradient[2])
 print('Partial hessian matches hessian element: ', dz1_dz2 == hessian[2,5])
 ```
 
-Above, in the `quax.core.partial_derivative` function calls, the `partial` arguments describe the address of the element in the _n_th order derivative
+Above, in the `quax.core.geom_deriv` function calls, the `partial` arguments describe the address of the element in the _n_th order derivative
 tensor you want to compute. The dimensions of a derivative tensor correspond to the row-wise flattened Cartesian coordinates, with 0-based indexing.
 For _N_ Cartesian coordinates, gradient is a size _N_ vector, Hessian a _N_ by _N_ matrix, and cubic and quartic derivative tensors are rank-3 and rank-4 tensors with dimension size _N_.
 
@@ -77,7 +78,7 @@ molecule = psi4.geometry('''
                          units bohr
                          ''')
 
-quartic = quax.core.derivative(molecule, '6-31g', 'ccsd(t)', deriv_order=4)
+quartic = quax.core.geom_deriv(molecule, '6-31g', 'ccsd(t)', deriv_order=4)
 ```
 
 Perhaps that's too expensive/slow. You can instead compute quartic partial derivatives:
@@ -93,7 +94,7 @@ molecule = psi4.geometry('''
                          units bohr
                          ''')
 
-dz1_dz1_dz2_dz2 = quax.core.partial_derivative(molecule, '6-31g', 'ccsd(t)', deriv_order=4, partial=(2,2,5,5))
+dz1_dz1_dz2_dz2 = quax.core.geom_deriv(molecule, '6-31g', 'ccsd(t)', deriv_order=4, partial=(2,2,5,5))
 ```
 
 Similar computations can be split across multiple nodes in an embarassingly parallel fashion, and one can take full advantage of symmetry so that only the unique elements are computed.
@@ -132,7 +133,9 @@ python setup.py install
 ```
 
 ### Building the Libint Interface
-For the Libint interface, you nust install those dependencies as well.
+A [Docker image](https://hub.docker.com/r/ericacmitchell/libint_derivs) has been made for Libint with up to 2nd-order derivatives and maximum angular momentum of 5 for standard integrals, Cartesian-multipole integrals, and F12-type integrals.
+
+Otherwise, for the Libint interface, you nust install those dependencies as well.
 ```
 conda install libstdcxx-ng gcc_linux-64 gxx_linux-64 ninja boost eigen3 gmp bzip2 cmake pybind11
 ```
@@ -174,21 +177,18 @@ The --target check runs test suite, and finally the install command installs the
 tar -xvf libint_*.tgz
 cd libint-*/
 mkdir PREFIX
-cmake . -DCMAKE_INSTALL_PREFIX=/path/to/libint/PREFIX/ -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+cmake -GNinja . -DCMAKE_INSTALL_PREFIX=/path/to/libint/PREFIX/ -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 cmake --build . -- -j4
 cmake --build . --target check
 cmake --build . --target install
 ```
 
 Note that the following cmake command may not find various libraries for the dependencies of Libint.
-`cmake . -DCMAKE_INSTALL_PREFIX=/path/to/libint/PREFIX/ -DCMAKE_POSITION_INDEPENDENT_CODE=ON`
+`cmake -GNinja . -DCMAKE_INSTALL_PREFIX=/path/to/libint/PREFIX/ -DCMAKE_POSITION_INDEPENDENT_CODE=ON`
 To fix this, you may need to explicitly point to it
 `export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/libint/dependency/lib/`
 and then run the above cmake command.
 If using Anaconda, the path is probably in the environment directory `/path/to/envs/quax/lib/`.
-
-Also note that Libint recommends using Ninja to build for performance reasons. This can be done if Ninja is installed:
-`cmake . -G Ninja -DCMAKE_INSTALL_PREFIX=/path/to/libint/PREFIX/ -DCMAKE_POSITION_INDEPENDENT_CODE=ON`
 
 ### Compiling the Libint-Quax interface
 Once Libint is installed, the makefile in `quax/integrals/makefile` needs to be edited with your compiler and the proper paths specifying the locations
