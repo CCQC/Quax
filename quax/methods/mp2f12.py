@@ -93,8 +93,6 @@ def restricted_mp2_f12(*args, options, deriv_order=0):
 
     E_s = cabs_singles(f, spaces)
 
-    jax.debug.print("  Total MP2-F12/3C(FIX) Energy:         {}", E_mp2 + dE_f12 + E_s)
-
     return E_mp2 + dE_f12 + E_s
 
 # CABS Singles

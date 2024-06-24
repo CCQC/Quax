@@ -18,12 +18,12 @@ psi4.set_options({'basis': basis_name,
                   'scf_type': 'pk',
                   'mp2_type':'conv',
                   'e_convergence': 1e-10,
-                  'd_convergence':1e-10,
+                  'd_convergence': 1e-10,
                   'puream': 0,
-                  'points':5,
-                  'fd_project':False})
+                  'points': 5,
+                  'fd_project': False})
 
-options = {'damping':True, 'spectral_shift':False}
+options = {'damping': True, 'spectral_shift': False}
 
 def test_hartree_fock_gradient(method='hf'):
     psi_deriv = np.round(np.asarray(psi4.gradient(method + '/' + basis_name)), 10)
