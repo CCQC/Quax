@@ -24,7 +24,7 @@ jobs:
       shell: bash -l {0}
       run: |
         conda install python=3.10
-        conda install -c psi4 psi4
+        conda install -c conda-forge psi4
         conda install -c conda-forge jax
         conda install -c conda-forge jaxlib
         conda install -c conda-forge pybind11
