@@ -12,7 +12,7 @@ if __name__ == "__main__":
         packages=setuptools.find_packages(where="quax"),
         package_dir={"": "quax"},
         install_requires=[
-            'numpy>=1.23',
+            'numpy>=1.23,<2.0',
             'jax>=0.4.19',
             'jaxlib>=0.4.19',
             'h5py>=2.8.0',
