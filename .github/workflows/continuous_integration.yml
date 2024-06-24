@@ -23,13 +23,14 @@ jobs:
     - name: Install dependencies
       shell: bash -l {0}
       run: |
-        conda install python=3.10
+        conda install -c conda-forge python=3.10
         conda install -c conda-forge psi4
         conda install -c conda-forge jax
         conda install -c conda-forge jaxlib
         conda install -c conda-forge pybind11
         conda install -c conda-forge eigen
         conda install -c conda-forge libint
+        conda install -c conda-forge hdf5
         conda install -c conda-forge h5py
         pip install -e .
     - name: Build integrals
