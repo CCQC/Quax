@@ -4,9 +4,9 @@ CC      := g++
 # Options passed to compiler, add "-fopenmp" if intending to use OpenMP
 CFLAGS  := -O3 -fPIC -fopenmp
 # Libint prefix location (where /include, /include/libint2, /lib, /share are located) 
-LIBINT_PREFIX := /home/ecm23353/psi_env
+LIBINT_PREFIX := /usr/share/miniconda
 # Conda prefix location, it is suggested to use conda to install nearly all dependencies
-CONDA_PREFIX := /home/ecm23353/psi_env
+CONDA_PREFIX := /usr/share/miniconda
 
 I1 := $(LIBINT_PREFIX)/include
 I2 := $(LIBINT_PREFIX)/include/libint2
