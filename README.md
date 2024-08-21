@@ -128,8 +128,24 @@ To use Quax, only a few dependencies are needed. We recommend using a clean Anac
 ```
 conda create -n quax python=3.10
 conda activate quax
-conda install psi4 python=3.10 -c conda-forge/label/libint_dev -c conda-forge
-python setup.py install
+```
+
+Then install the dependencies into your new environment, all can be installed alongside Psi4:
+```
+conda install psi4 python=3.10 -c conda-forge
+```
+
+The Libint interface must be built before installing:
+```
+cd quax/integrals/
+make
+cd ../../
+```
+More can be found below if a custom Libint binary is wanted.
+
+Finally install Quax!
+```
+python -m pip install .
 ```
 
 ### Building the Libint Interface
