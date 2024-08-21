@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+# Self-descriptive entries which should always be present
+# https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
+[project]
+name = "quax"
+description = "Arbitrary order derivatives of electronic structure computations."
+dynamic = ["version"]
+readme = "README.md"
+authors = [
+  { name = "Adam Abbott", email = "adabbott@uga.edu" },
+  { name = "Erica Mitchell", email = "emitchell@uga.edu" }
+]
+license = { text = "BSD-3C" }
+# See https://pypi.org/classifiers/
+classifiers = [
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python :: 3",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research"
+]
+requires-python = ">=3.9"
+# Declare any run-time dependencies that should be installed with the package.
+dependencies = [
+  "importlib-resources;python_version=<'3.12'",
+  "numpy>=1.23,<2.0",
+  "jax>=0.4.19",
+  "jaxlib>=0.4.19",
+  "h5py>=2.8.0",
+  "scipy>=1.9"
+]
+
+# Update the urls once the hosting is set up.
+[project.urls]
+"Source" = "https://github.com/CCQC/Quax/"
+#"Documentation" = "Quax.readthedocs.io/"
+
+[project.optional-dependencies]
+test = [
+  "pytest>=6.1.2",
+  "pytest-cov"
+]
+
+[tool.setuptools]
+zip-safe = false
+# Let setuptools discover the package in the current directory,
+# but be explicit about non-Python files.
+# See also:
+#   https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html#setuptools-specific-configuration
+include-package-data = false
+
+[tool.setuptools.packages.find]
+namespaces = false
+where = ["."]
+
+[tool.setuptools-git-versioning]
+enabled = true
+dev_template = "{tag}.{ccount}+git.{sha}"
+dirty_template = "{tag}.{ccount}+git.{sha}.dirty"

@@ -1,5 +1,3 @@
-localtests/
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -7,11 +5,6 @@ __pycache__/
 
 # C extensions
 *.so
-
-# Psi4, HdF5, molecule file disk junk
-*.dat
-*.h5
-*.xyz
 
 # Distribution / packaging
 .Python
@@ -22,6 +15,7 @@ dist/
 downloads/
 eggs/
 .eggs/
+lib/
 lib64/
 parts/
 sdist/
@@ -30,7 +24,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-benchmarks/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -48,6 +41,7 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+.pytest_cache
 nosetests.xml
 coverage.xml
 *.cover
@@ -101,11 +95,31 @@ ENV/
 # Rope project settings
 .ropeproject
 
+# Pycharm settings
+.idea
+*.iml
+*.iws
+*.ipr
+
+# Ignore devcontainer
+/.devcontainer
+
+# Ignore VSCode settings
+/.vscode
+
+# Ignore Sublime Text settings
+*.sublime-workspace
+*.sublime-project
+
+# vim swap
+*.swp
+
 # mkdocs documentation
 /site
 
 # mypy
 .mypy_cache/
 
-#misc files
-project_notes.txt
+# profraw files from LLVM? Unclear exactly what triggers this
+# There are reports this comes from LLVM profiling, but also Xcode 9.
+*profraw

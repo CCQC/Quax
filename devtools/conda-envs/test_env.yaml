@@ -1,0 +1,19 @@
+name: test-quax
+channels:
+  - conda-forge
+dependencies:
+  # Libint dependencies
+  - libint
+  - pybind11
+  - eigen
+  - boost
+  - hdf5
+  # Quax dependencies
+  - psi4
+  - jax
+  - jaxlib
+  - h5py
+  # Testing
+  - pytest
+  - pytest-cov
+  - codecov
