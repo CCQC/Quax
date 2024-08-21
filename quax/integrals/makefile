@@ -13,7 +13,7 @@ I1 := $(LIBINT_PREFIX)/include
 I2 := $(LIBINT_PREFIX)/include/libint2
 L1 := $(LIBINT_PREFIX)/lib
 # Eigen headers location 
-I3 := $(CONDA_PREFIX)/eigen3
+I3 := $(CONDA_PREFIX)/include/eigen3
 # HDF5 headers, static and shared libraries 
 I6 := $(CONDA_PREFIX)/include
 L2 := $(CONDA_PREFIX)/lib
