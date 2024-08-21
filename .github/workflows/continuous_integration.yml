@@ -7,6 +7,12 @@ on:
   pull_request:
     branches:
       - master
+  schedule:
+    # Weekly tests run on main by default:
+    #   Scheduled workflows run on the latest commit on the default or base branch.
+    #   (from https://help.github.com/en/actions/reference/events-that-trigger-workflows#scheduled-events-schedule)
+    - cron: "0 0 * * 0"
+    #   Scheduled workflows are automatically disabled when no repository activity has occurred in 60 day.
 
 jobs:
   test:
@@ -15,7 +21,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
