@@ -1,5 +1,7 @@
-from . import basis_utils
-from . import integrals_utils
-from . import oei
 from . import tei
+from . import oei
+from . import libint_interface
+
+from .tei import TEI 
+from .oei import OEI 
 

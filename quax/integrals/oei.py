@@ -1,198 +1,523 @@
-import jax 
-from jax.config import config; config.update("jax_enable_x64", True)
+import jax
 import jax.numpy as jnp
-from jax.experimental import loops
-from functools import partial
+import numpy as np
+import h5py
+import os
+import psi4
+from . import libint_interface
+from ..utils import get_deriv_vec_idx, how_many_derivs
 
-from .integrals_utils import gaussian_product, boys, binomial_prefactor, factorials, double_factorials, neg_one_pow, cartesian_product, am_leading_indices, angular_momentum_combinations
-from .basis_utils import flatten_basis_data, get_nbf
+jax.config.update("jax_enable_x64", True)
 
-# Useful resources: Fundamentals of Molecular Integrals Evaluation, Fermann, Valeev https://arxiv.org/abs/2007.12057
-#                   Gaussian-Expansion methods of molecular integrals Taketa, Huzinaga, O-ohata 
+class OEI(object):
 
-def overlap(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor):
-    """
-    Computes a single overlap integral. Taketa, Huzinaga, Oohata 2.12
-    P = gaussian product of aa,A; bb,B
-    PA_pow, PB_pow
-        All powers of Pi-Ai or Pi-Bi packed into an array
-        [[(Px-Ax)^0, (Px-Ax)^1, ... (Px-Ax)^max_am]
-         [(Py-Ay)^0, (Py-Ay)^1, ... (Py-Ay)^max_am]
-         [(Pz-Az)^0, (Pz-Az)^1, ... (Pz-Az)^max_am]]
-    prefactor = jnp.exp(-aa * bb * jnp.dot(A-B,A-B) / gamma)
-    """
-    gamma = aa + bb
-    prefactor *= (jnp.pi / gamma)**1.5
+    def __init__(self, basis1, basis2, xyz_path, max_deriv_order, mode):
+        with open(xyz_path, 'r') as f:
+            tmp = f.read()
+        mol = psi4.core.Molecule.from_string(tmp, 'xyz+')
+        natoms = mol.natom()
 
-    wx = overlap_component(la,lb,PA_pow[0],PB_pow[0],gamma)
-    wy = overlap_component(ma,mb,PA_pow[1],PB_pow[1],gamma)
-    wz = overlap_component(na,nb,PA_pow[2],PB_pow[2],gamma)
-    return prefactor * wx * wy * wz
+        nbf1 = basis1.nbf()
+        nbf2 = basis2.nbf()
 
-def overlap_component(l1,l2,PAx,PBx,gamma):
-    """
-    The 1d overlap integral component. Taketa, Huzinaga, Oohata 2.12
-    """
-    K = 1 + (l1 + l2) // 2  
-    with loops.Scope() as s:
-      s.total = 0.
-      s.i = 0
-      for _ in s.while_range(lambda: s.i < K):
-        s.total += binomial_prefactor(2*s.i,l1,l2,PAx,PBx) * double_factorials[2*s.i-1] / (2*gamma)**s.i
-        s.i += 1
-      return s.total
+        if mode == 'core' and max_deriv_order > 0:
+            # A list of OEI derivative tensors, containing only unique elements
+            # corresponding to upper hypertriangle (since derivative tensors are symmetric)
+            # Length of tuple is maximum deriv order, each array is (upper triangle derivatives,nbf,nbf)
+            # Then when JAX calls JVP, read appropriate slice
+            self.overlap_derivatives = []
+            self.kinetic_derivatives = []
+            self.potential_derivatives = []
+            for i in range(max_deriv_order):
+                n_unique_derivs = how_many_derivs(natoms, i + 1)
+                oei_deriv = libint_interface.oei_deriv_core(i + 1)
+                self.overlap_derivatives.append(oei_deriv[0].reshape(n_unique_derivs, nbf1, nbf2))
+                self.kinetic_derivatives.append(oei_deriv[1].reshape(n_unique_derivs, nbf1, nbf2))
+                self.potential_derivatives.append(oei_deriv[2].reshape(n_unique_derivs, nbf1, nbf2))
 
-def kinetic(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor):
-    """
-    Computes a single kinetic energy integral.
-    """
-    gamma = aa + bb
-    prefactor *= (jnp.pi / gamma)**1.5
-    wx = overlap_component(la,lb,PA_pow[0],PB_pow[0],gamma)
-    wy = overlap_component(ma,mb,PA_pow[1],PB_pow[1],gamma)
-    wz = overlap_component(na,nb,PA_pow[2],PB_pow[2],gamma)
-    wx_plus2 = overlap_component(la,lb+2,PA_pow[0],PB_pow[0],gamma)
-    wy_plus2 = overlap_component(ma,mb+2,PA_pow[1],PB_pow[1],gamma)
-    wz_plus2 = overlap_component(na,nb+2,PA_pow[2],PB_pow[2],gamma)
-    wx_minus2 = overlap_component(la,lb-2,PA_pow[0],PB_pow[0],gamma)
-    wy_minus2 = overlap_component(ma,mb-2,PA_pow[1],PB_pow[1],gamma)
-    wz_minus2 = overlap_component(na,nb-2,PA_pow[2],PB_pow[2],gamma)
 
-    term1 = bb*(2*(lb+mb+nb)+3) * wx * wy * wz 
+        self.mode = mode
+        self.nbf1 = nbf1
+        self.nbf2 = nbf2
 
-    term2 = -2 * bb**2 * (wx_plus2*wy*wz + wx*wy_plus2*wz + wx*wy*wz_plus2)
+        com = mol.center_of_mass()
+        self.com = list([com[0], com[1], com[2]])
 
-    term3 = -0.5 * (lb * (lb-1) * wx_minus2 * wy * wz \
-                  + mb * (mb-1) * wx * wy_minus2 * wz \
-                  + nb * (nb-1) * wx * wy * wz_minus2)
-    return prefactor * (term1 + term2 + term3)
+        # Create new JAX primitives for overlap, kinetic, potential evaluation and their derivatives
+        self.overlap_p = jax.core.Primitive("overlap")
+        self.overlap_deriv_p = jax.core.Primitive("overlap_deriv")
+        self.kinetic_p = jax.core.Primitive("kinetic")
+        self.kinetic_deriv_p = jax.core.Primitive("kinetic_deriv")
+        self.potential_p = jax.core.Primitive("potential")
+        self.potential_deriv_p = jax.core.Primitive("potential_deriv")
+        self.dipole_p = jax.core.Primitive("dipole")
+        self.dipole_deriv_p = jax.core.Primitive("dipole_deriv")
+        self.quadrupole_p = jax.core.Primitive("quadrupole")
+        self.quadrupole_deriv_p = jax.core.Primitive("quadrupole_deriv")
 
-def A_array(l1,l2,PA,PB,CP,g,A_vals):
-    with loops.Scope() as s:
-      # Hard code only up to f functions (fxxx | fxxx) => l1 + l2 + 1 = 7
-      s.A = A_vals
-      s.i = 0
-      s.r = 0
-      s.u = 0 
+        # Register primitive evaluation rules
+        self.overlap_p.def_impl(self.overlap_impl)
+        self.overlap_deriv_p.def_impl(self.overlap_deriv_impl)
+        self.kinetic_p.def_impl(self.kinetic_impl)
+        self.kinetic_deriv_p.def_impl(self.kinetic_deriv_impl)
+        self.potential_p.def_impl(self.potential_impl)
+        self.potential_deriv_p.def_impl(self.potential_deriv_impl)
+        self.dipole_p.def_impl(self.dipole_impl)
+        self.dipole_deriv_p.def_impl(self.dipole_deriv_impl)
+        self.quadrupole_p.def_impl(self.quadrupole_impl)
+        self.quadrupole_deriv_p.def_impl(self.quadrupole_deriv_impl)
 
-      s.i = l1 + l2  
-      for _ in s.while_range(lambda: s.i > -1):   
-        Aterm = neg_one_pow[s.i] * binomial_prefactor(s.i,l1,l2,PA,PB) * factorials[s.i]
-        s.r = s.i // 2
-        for _ in s.while_range(lambda: s.r > -1):
-          s.u = (s.i - 2 * s.r) // 2 
-          for _ in s.while_range(lambda: s.u > -1):
-            I = s.i - 2 * s.r - s.u 
-            tmp = I - s.u
-            fact_ratio = 1 / (factorials[s.r] * factorials[s.u] * factorials[tmp])
-            Aterm *= neg_one_pow[s.u]  * CP[tmp] * (0.25 / g)**(s.r+s.u) * fact_ratio 
-            s.A = jax.ops.index_add(s.A, I, Aterm)
-            s.u -= 1
-          s.r -= 1
-        s.i -= 1
-      return s.A
+        # Register the JVP rules with JAX
+        jax.interpreters.ad.primitive_jvps[self.overlap_p] = self.overlap_jvp
+        jax.interpreters.ad.primitive_jvps[self.overlap_deriv_p] = self.overlap_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.kinetic_p] = self.kinetic_jvp
+        jax.interpreters.ad.primitive_jvps[self.kinetic_deriv_p] = self.kinetic_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.potential_p] = self.potential_jvp
+        jax.interpreters.ad.primitive_jvps[self.potential_deriv_p] = self.potential_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.dipole_p] = self.dipole_jvp
+        jax.interpreters.ad.primitive_jvps[self.dipole_deriv_p] = self.dipole_deriv_jvp
+        jax.interpreters.ad.primitive_jvps[self.quadrupole_p] = self.quadrupole_jvp
+        jax.interpreters.ad.primitive_jvps[self.quadrupole_deriv_p] = self.quadrupole_deriv_jvp
 
-def potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefactor,charges,A_vals):
-    """
-    Computes a single electron-nuclear attraction integral
-    """
-    gamma = aa + bb
-    prefactor *= -2 * jnp.pi / gamma
+        # Register the batching rules with JAX
+        jax.interpreters.batching.primitive_batchers[self.overlap_deriv_p] = self.overlap_deriv_batch
+        jax.interpreters.batching.primitive_batchers[self.kinetic_deriv_p] = self.kinetic_deriv_batch
+        jax.interpreters.batching.primitive_batchers[self.potential_deriv_p] = self.potential_deriv_batch
+        jax.interpreters.batching.primitive_batchers[self.dipole_deriv_p] = self.dipole_deriv_batch
+        jax.interpreters.batching.primitive_batchers[self.quadrupole_deriv_p] = self.quadrupole_deriv_batch
 
-    with loops.Scope() as s:
-      s.val = 0.
-      for i in s.range(Pgeom_pow.shape[0]):
-        Ax = A_array(la,lb,PA_pow[0],PB_pow[0],Pgeom_pow[i,0,:],gamma,A_vals)
-        Ay = A_array(ma,mb,PA_pow[1],PB_pow[1],Pgeom_pow[i,1,:],gamma,A_vals)
-        Az = A_array(na,nb,PA_pow[2],PB_pow[2],Pgeom_pow[i,2,:],gamma,A_vals)
+    # Create functions to call primitives
+    def overlap(self, geom):
+        return self.overlap_p.bind(geom)
 
-        with loops.Scope() as S:
-          S.total = 0.
-          S.I = 0
-          S.J = 0
-          S.K = 0
-          for _ in S.while_range(lambda: S.I < la + lb + 1):
-            S.J = 0 
-            for _ in S.while_range(lambda: S.J < ma + mb + 1):
-              S.K = 0 
-              for _ in S.while_range(lambda: S.K < na + nb + 1):
-                S.total += Ax[S.I] * Ay[S.J] * Az[S.K] * boys_eval[S.I + S.J + S.K, i]
-                S.K += 1
-              S.J += 1
-            S.I += 1
-        s.val += charges[i] * prefactor * S.total
-      return s.val
+    def overlap_deriv(self, geom, deriv_vec):
+        return self.overlap_deriv_p.bind(geom, deriv_vec)
 
-def oei_arrays(geom, basis, charges):
-    """
-    Build one electron integral arrays (overlap, kinetic, and potential integrals)
-    """
-    coeffs, exps, atoms, ams, indices, dims = flatten_basis_data(basis)
-    nbf = get_nbf(basis)
-    nprim = coeffs.shape[0]
-    max_am = jnp.max(ams)
-    A_vals = jnp.zeros(2*max_am+1)
+    def kinetic(self, geom):
+        return self.kinetic_p.bind(geom)
 
-    # Save various AM distributions for indexing
-    # Obtain all possible primitive quartet index combinations 
-    primitive_duets = cartesian_product(jnp.arange(nprim), jnp.arange(nprim))
+    def kinetic_deriv(self, geom, deriv_vec):
+        return self.kinetic_deriv_p.bind(geom, deriv_vec)
 
-    with loops.Scope() as s:
-      s.oei = jnp.zeros((3,nbf,nbf))
-      s.a = 0  # center A angular momentum iterator 
-      s.b = 0  # center B angular momentum iterator 
+    def potential(self, geom):
+        return self.potential_p.bind(geom)
 
-      for prim_duet in s.range(primitive_duets.shape[0]):
-        p1,p2 = primitive_duets[prim_duet]
-        coef = coeffs[p1] * coeffs[p2]
-        aa, bb = exps[p1], exps[p2]
-        atom1, atom2 = atoms[p1], atoms[p2]
-        am1, am2 = ams[p1], ams[p2]
-        A, B = geom[atom1], geom[atom2]
-        ld1, ld2 = am_leading_indices[am1], am_leading_indices[am2]
+    def potential_deriv(self, geom, deriv_vec):
+        return self.potential_deriv_p.bind(geom, deriv_vec)
 
-        gamma = aa + bb
-        prefactor = jnp.exp(-aa * bb * jnp.dot(A-B,A-B) / gamma)
-        P = (aa * A + bb * B) / gamma
-        # Maximum angular momentum: hard coded
-        #max_am = 3 # f function support
-        # Precompute all powers up to 2+max_am of Pi-Ai, Pi-Bi. 
-        # We need 2+max_am since kinetic requires incrementing angluar momentum by +2
-        PA_pow = jnp.power(jnp.broadcast_to(P-A, (max_am+3,3)).T, jnp.arange(max_am+3))
-        PB_pow = jnp.power(jnp.broadcast_to(P-B, (max_am+3,3)).T, jnp.arange(max_am+3))
+    def dipole(self, geom):
+        return self.dipole_p.bind(geom)
 
-        # For potential integrals, we need the difference between 
-        # the gaussian product center P and ALL atoms in the molecule, 
-        # and then take all possible powers up to 2*max_am. 
-        # We pre-collect this into a 3d array, and then just pull out what we need via indexing in the loops, so they need not be recomputed.
-        # The resulting array has dimensions (atom, cartesian component, power) so index (0, 1, 3) would return (Py - atom0_y)^3
-        P_minus_geom = jnp.broadcast_to(P, geom.shape) - geom
-        Pgeom_pow = jnp.power(jnp.transpose(jnp.broadcast_to(P_minus_geom, (2*max_am + 1,geom.shape[0],geom.shape[1])), (1,2,0)), jnp.arange(2*max_am + 1))
-        # All possible jnp.dot(P-atom,P-atom) 
-        rcp2 = jnp.einsum('ij,ij->i', P_minus_geom, P_minus_geom)
-        # All needed (and unneeded, for am < max_am) boys function evaluations
-        boys_arg = jnp.broadcast_to(rcp2 * gamma, (2*max_am+1, geom.shape[0]))
-        boys_nu = jnp.tile(jnp.arange(2*max_am+1), (geom.shape[0],1)).T
-        boys_eval = boys(boys_nu,boys_arg)
+    def dipole_deriv(self, geom, deriv_vec):
+        return self.dipole_deriv_p.bind(geom, deriv_vec)
+    
+    def quadrupole(self, geom):
+        return self.quadrupole_p.bind(geom)
 
-        s.a = 0
-        for _ in s.while_range(lambda: s.a < dims[p1]):
-          s.b = 0
-          for _ in s.while_range(lambda: s.b < dims[p2]):
-            # Gather angular momentum and index
-            la,ma,na = angular_momentum_combinations[s.a + ld1]
-            lb,mb,nb = angular_momentum_combinations[s.b + ld2]
-            # To only create unique indices, need to have separate indices arrays for i and j.
-            i = indices[p1] + s.a
-            j = indices[p2] + s.b
-            # Compute one electron integrals and add to appropriate index
-            overlap_int = overlap(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
-            kinetic_int = kinetic(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,prefactor) * coef
-            potential_int = potential(la,ma,na,lb,mb,nb,aa,bb,PA_pow,PB_pow,Pgeom_pow,boys_eval,prefactor,charges,A_vals) * coef
-            s.oei = jax.ops.index_add(s.oei, ([0,1,2],[i,i,i],[j,j,j]), (overlap_int, kinetic_int, potential_int))
+    def quadrupole_deriv(self, geom, deriv_vec):
+        return self.quadrupole_deriv_p.bind(geom, deriv_vec)
 
-            s.b += 1
-          s.a += 1
-    S, T, V = s.oei[0], s.oei[1], s.oei[2]
-    return S, T, V
+    # Create primitive evaluation rules
+    def overlap_impl(self, geom):
+        S = libint_interface.compute_1e_int("overlap")
+        S = S.reshape(self.nbf1, self.nbf2)
+        return jnp.asarray(S)
+
+    def kinetic_impl(self, geom):
+        T = libint_interface.compute_1e_int("kinetic")
+        T = T.reshape(self.nbf1, self.nbf2)
+        return jnp.asarray(T)
+
+    def potential_impl(self, geom):
+        V = libint_interface.compute_1e_int("potential")
+        V = V.reshape(self.nbf1, self.nbf2)
+        return jnp.asarray(V)
+
+    def dipole_impl(self, geom):
+        Mu_X, Mu_Y, Mu_Z = libint_interface.compute_dipole_ints(self.com)
+        Mu_X = Mu_X.reshape(self.nbf1, self.nbf2)
+        Mu_Y = Mu_Y.reshape(self.nbf1, self.nbf2)
+        Mu_Z = Mu_Z.reshape(self.nbf1, self.nbf2)
+        return jnp.stack([Mu_X, Mu_Y, Mu_Z])
+    
+    def quadrupole_impl(self, geom):
+        Mu_X, Mu_Y, Mu_Z, Th_XX, Th_XY,\
+            Th_XZ, Th_YY, Th_YZ, Th_ZZ = libint_interface.compute_quadrupole_ints(self.com)
+        Mu_X = Mu_X.reshape(self.nbf1, self.nbf2)
+        Mu_Y = Mu_Y.reshape(self.nbf1, self.nbf2)
+        Mu_Z = Mu_Z.reshape(self.nbf1, self.nbf2)
+        Th_XX = Th_XX.reshape(self.nbf1, self.nbf2)
+        Th_XY = Th_XY.reshape(self.nbf1, self.nbf2)
+        Th_XZ = Th_XZ.reshape(self.nbf1, self.nbf2)
+        Th_YY = Th_YY.reshape(self.nbf1, self.nbf2)
+        Th_YZ = Th_YZ.reshape(self.nbf1, self.nbf2)
+        Th_ZZ = Th_ZZ.reshape(self.nbf1, self.nbf2)
+        return jnp.stack([Mu_X, Mu_Y, Mu_Z, Th_XX, Th_XY, Th_XZ, Th_YY, Th_YZ, Th_ZZ])
+
+    def overlap_deriv_impl(self, geom, deriv_vec):
+        deriv_vec = np.asarray(deriv_vec, int)
+        deriv_order = np.sum(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
+
+        if self.mode == 'core':
+            S = self.overlap_derivatives[deriv_order-1][idx,:,:]
+            return jnp.asarray(S)
+        if self.mode == 'f12':
+            S = libint_interface.compute_1e_deriv("overlap", deriv_vec)
+            return jnp.asarray(S).reshape(self.nbf1,self.nbf2)
+        elif self.mode == 'disk':
+            if os.path.exists("oei_derivs.h5"):
+                file_name = "oei_derivs.h5"
+                dataset_name = "overlap_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+            elif os.path.exists("oei_partials.h5"):
+                file_name = "oei_partials.h5"
+                dataset_name = "overlap_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+            else:
+                raise Exception("Something went wrong reading integral derivative file")
+            with h5py.File(file_name, 'r') as f:
+                data_set = f[dataset_name]
+                if len(data_set.shape) == 3:
+                    S = data_set[:,:,idx]
+                elif len(data_set.shape) == 2:
+                    S = data_set[:,:]
+                else:
+                    raise Exception("Something went wrong reading integral derivative file")
+            return jnp.asarray(S)
+
+    def kinetic_deriv_impl(self, geom, deriv_vec):
+        deriv_vec = np.asarray(deriv_vec, int)
+        deriv_order = np.sum(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
+
+        if self.mode == 'core':
+            T = self.kinetic_derivatives[deriv_order-1][idx,:,:]
+            return jnp.asarray(T)
+        if self.mode == 'f12':
+            T = libint_interface.compute_1e_deriv("kinetic", deriv_vec)
+            return jnp.asarray(T).reshape(self.nbf1,self.nbf2)
+        elif self.mode == 'disk':
+            if os.path.exists("oei_derivs.h5"):
+                file_name = "oei_derivs.h5"
+                dataset_name = "kinetic_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+            elif os.path.exists("oei_partials.h5"):
+                file_name = "oei_partials.h5"
+                dataset_name = "kinetic_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+            else:
+                raise Exception("Something went wrong reading integral derivative file")
+            with h5py.File(file_name, 'r') as f:
+                data_set = f[dataset_name]
+                if len(data_set.shape) == 3:
+                    T = data_set[:,:,idx]
+                elif len(data_set.shape) == 2:
+                    T = data_set[:,:]
+                else:
+                    raise Exception("Something went wrong reading integral derivative file")
+            return jnp.asarray(T)
+
+    def potential_deriv_impl(self, geom, deriv_vec):
+        deriv_vec = np.asarray(deriv_vec, int)
+        deriv_order = np.sum(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
+
+        if self.mode == 'core':
+            V = self.potential_derivatives[deriv_order-1][idx,:,:]
+            return jnp.asarray(V)
+        if self.mode == 'f12':
+            V = libint_interface.compute_1e_deriv("potential", deriv_vec)
+            return jnp.asarray(V).reshape(self.nbf1,self.nbf2)
+        elif self.mode == 'disk':
+            if os.path.exists("oei_derivs.h5"):
+                file_name = "oei_derivs.h5"
+                dataset_name = "potential_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+            elif os.path.exists("oei_partials.h5"):
+                file_name = "oei_partials.h5"
+                dataset_name = "potential_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+            else:
+                raise Exception("Something went wrong reading integral derivative file")
+            with h5py.File(file_name, 'r') as f:
+                data_set = f[dataset_name]
+                if len(data_set.shape) == 3:
+                    V = data_set[:,:,idx]
+                elif len(data_set.shape) == 2:
+                    V = data_set[:,:]
+                else:
+                    raise Exception("Something went wrong reading integral derivative file")
+            return jnp.asarray(V)
+
+    def dipole_deriv_impl(self, geom, deriv_vec):
+        deriv_vec = np.asarray(deriv_vec, int)
+        deriv_order = np.sum(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
+
+        if self.mode == 'dipole':
+            Mu_X, Mu_Y, Mu_Z = libint_interface.compute_dipole_derivs(self.com, deriv_vec)
+            Mu_X = Mu_X.reshape(self.nbf1, self.nbf2)
+            Mu_Y = Mu_Y.reshape(self.nbf1, self.nbf2)
+            Mu_Z = Mu_Z.reshape(self.nbf1, self.nbf2)
+            return jnp.stack([Mu_X, Mu_Y, Mu_Z])
+        elif self.mode == 'disk':
+            if os.path.exists("dipole_derivs.h5"):
+                file_name = "dipole_derivs.h5"
+                dataset1_name = "mu_x_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset2_name = "mu_y_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset3_name = "mu_z_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+            elif os.path.exists("dipole_partials.h5"):
+                file_name = "dipole_partials.h5"
+                dataset1_name = "mu_x_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset2_name = "mu_y_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset3_name = "mu_z_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+            else:
+                raise Exception("Something went wrong reading integral derivative file")
+            with h5py.File(file_name, 'r') as f:
+                mu_x_set = f[dataset1_name]
+                mu_y_set = f[dataset2_name]
+                mu_z_set = f[dataset3_name]
+                if len(mu_x_set.shape) == 3:
+                    Mu_X = mu_x_set[:,:,idx]
+                    Mu_Y = mu_y_set[:,:,idx]
+                    Mu_Z = mu_z_set[:,:,idx]
+                elif len(mu_x_set.shape) == 2:
+                    Mu_X = mu_x_set[:,:]
+                    Mu_Y = mu_y_set[:,:]
+                    Mu_Z = mu_z_set[:,:]
+                else:
+                    raise Exception("Something went wrong reading integral derivative file")
+            return jnp.stack([Mu_X, Mu_Y, Mu_Z])
+
+    def quadrupole_deriv_impl(self, geom, deriv_vec):
+        deriv_vec = np.asarray(deriv_vec, int)
+        deriv_order = np.sum(deriv_vec)
+        idx = get_deriv_vec_idx(deriv_vec)
+
+        if self.mode == 'quadrupole':
+            Mu_X, Mu_Y, Mu_Z, Th_XX, Th_XY,\
+                Th_XZ, Th_YY, Th_YZ, Th_ZZ = libint_interface.compute_quadrupole_derivs()
+            Mu_X = Mu_X.reshape(self.nbf1, self.nbf2)
+            Mu_Y = Mu_Y.reshape(self.nbf1, self.nbf2)
+            Mu_Z = Mu_Z.reshape(self.nbf1, self.nbf2)
+            Th_XX = Th_XX.reshape(self.nbf1, self.nbf2)
+            Th_XY = Th_XY.reshape(self.nbf1, self.nbf2)
+            Th_XZ = Th_XZ.reshape(self.nbf1, self.nbf2)
+            Th_YY = Th_YY.reshape(self.nbf1, self.nbf2)
+            Th_YZ = Th_YZ.reshape(self.nbf1, self.nbf2)
+            Th_ZZ = Th_ZZ.reshape(self.nbf1, self.nbf2)
+            return jnp.stack([Mu_X, Mu_Y, Mu_Z, Th_XX, Th_XY, Th_XZ, Th_YY, Th_YZ, Th_ZZ])
+        elif self.mode == 'disk':
+            if os.path.exists("quadrupole_derivs.h5"):
+                file_name = "quadrupole_derivs.h5"
+                dataset1_name = "mu_x_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset2_name = "mu_y_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset3_name = "mu_z_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset4_name = "th_xx_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset5_name = "th_xy_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset6_name = "th_xz_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset7_name = "th_yy_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset8_name = "th_yz_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+                dataset9_name = "th_zz_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order)
+            elif os.path.exists("quadrupole_partials.h5"):
+                file_name = "quadrupole_partials.h5"
+                dataset1_name = "mu_x_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset2_name = "mu_y_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset3_name = "mu_z_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset4_name = "th_xx_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset5_name = "th_xy_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset6_name = "th_xz_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset7_name = "th_yy_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset8_name = "th_yz_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+                dataset9_name = "th_zz_" + str(self.nbf1) + "_" + str(self.nbf2)\
+                                          + "_deriv" + str(deriv_order) + "_" + str(idx)
+            else:
+                raise Exception("Something went wrong reading integral derivative file")
+            with h5py.File(file_name, 'r') as f:
+                mu_x_set = f[dataset1_name]
+                mu_y_set = f[dataset2_name]
+                mu_z_set = f[dataset3_name]
+                th_xx_set = f[dataset1_name]
+                th_xy_set = f[dataset2_name]
+                th_xz_set = f[dataset3_name]
+                th_yy_set = f[dataset1_name]
+                th_yz_set = f[dataset2_name]
+                th_zz_set = f[dataset3_name]
+                if len(mu_x_set.shape) == 3:
+                    Mu_X = mu_x_set[:,:,idx]
+                    Mu_Y = mu_y_set[:,:,idx]
+                    Mu_Z = mu_z_set[:,:,idx]
+                    Th_XX = th_xx_set[:,:,idx]
+                    Th_XY = th_xy_set[:,:,idx]
+                    Th_XZ = th_xz_set[:,:,idx]
+                    Th_YY = th_yy_set[:,:,idx]
+                    Th_YZ = th_yz_set[:,:,idx]
+                    Th_ZZ = th_zz_set[:,:,idx]
+                elif len(mu_x_set.shape) == 2:
+                    Mu_X = mu_x_set[:,:]
+                    Mu_Y = mu_y_set[:,:]
+                    Mu_Z = mu_z_set[:,:]
+                    Th_XX = th_xx_set[:,:]
+                    Th_XY = th_xy_set[:,:]
+                    Th_XZ = th_xz_set[:,:]
+                    Th_YY = th_yy_set[:,:]
+                    Th_YZ = th_yz_set[:,:]
+                    Th_ZZ = th_zz_set[:,:]
+                else:
+                    raise Exception("Something went wrong reading integral derivative file")
+            return jnp.stack([Mu_X, Mu_Y, Mu_Z, Th_XX, Th_XY, Th_XZ, Th_YY, Th_YZ, Th_ZZ])
+
+    def overlap_jvp(self, primals, tangents):
+        geom, = primals
+        primals_out = self.overlap(geom)
+        tangents_out = self.overlap_deriv(geom, tangents[0])
+        return primals_out, tangents_out
+
+    def overlap_deriv_jvp(self, primals, tangents):
+        geom, deriv_vec = primals
+        primals_out = self.overlap_deriv(geom, deriv_vec)
+        tangents_out = self.overlap_deriv(geom, deriv_vec + tangents[0])
+        return primals_out, tangents_out
+
+    def kinetic_jvp(self, primals, tangents):
+        geom, = primals
+        primals_out = self.kinetic(geom)
+        tangents_out = self.kinetic_deriv(geom, tangents[0])
+        return primals_out, tangents_out
+
+    def kinetic_deriv_jvp(self, primals, tangents):
+        geom, deriv_vec = primals
+        primals_out = self.kinetic_deriv(geom, deriv_vec)
+        tangents_out = self.kinetic_deriv(geom, deriv_vec + tangents[0])
+        return primals_out, tangents_out
+
+    def potential_jvp(self, primals, tangents):
+        geom, = primals
+        primals_out = self.potential(geom)
+        tangents_out = self.potential_deriv(geom, tangents[0])
+        return primals_out, tangents_out
+
+    def potential_deriv_jvp(self, primals, tangents):
+        geom, deriv_vec = primals
+        primals_out = self.potential_deriv(geom, deriv_vec)
+        tangents_out = self.potential_deriv(geom, deriv_vec + tangents[0])
+        return primals_out, tangents_out
+
+    def dipole_jvp(self, primals, tangents):
+        geom, = primals
+        primals_out = self.dipole(geom)
+        tangents_out = self.dipole_deriv(geom, tangents[0])
+        return primals_out, tangents_out
+
+    def dipole_deriv_jvp(self, primals, tangents):
+        geom, deriv_vec = primals
+        primals_out = self.dipole_deriv(geom, deriv_vec)
+        tangents_out = self.dipole_deriv(geom, deriv_vec + tangents[0])
+        return primals_out, tangents_out
+
+    def quadrupole_jvp(self, primals, tangents):
+        geom, = primals
+        primals_out = self.quadrupole(geom)
+        tangents_out = self.quadrupole_deriv(geom, tangents[0])
+        return primals_out, tangents_out
+
+    def quadrupole_deriv_jvp(self, primals, tangents):
+        geom, deriv_vec = primals
+        primals_out = self.quadrupole_deriv(geom, deriv_vec)
+        tangents_out = self.quadrupole_deriv(geom, deriv_vec + tangents[0])
+        return primals_out, tangents_out
+
+    # Define Batching rules, this is only needed since jax.jacfwd will call vmap on the JVP's
+    # of each oei function
+    # When the input argument of deriv_batch is batched along the 0'th axis
+    # we want to evaluate every 2d slice, gather up a (ncart, n,n) array,
+    # (expand dims at 0 and concatenate at 0)
+    # and then return the results, indicating the out batch axis
+    # is in the 0th position (return results, 0)
+
+    def overlap_deriv_batch(self, batched_args, batch_dims):
+        geom_batch, deriv_batch = batched_args
+        geom_dim, deriv_dim = batch_dims
+        results = []
+        for i in deriv_batch:
+            tmp = self.overlap_deriv(geom_batch, i)
+            results.append(jnp.expand_dims(tmp, axis=0))
+        results = jnp.concatenate(results, axis=0)
+        return results, 0
+
+    def kinetic_deriv_batch(self, batched_args, batch_dims):
+        geom_batch, deriv_batch = batched_args
+        geom_dim, deriv_dim = batch_dims
+        results = []
+        for i in deriv_batch:
+            tmp = self.kinetic_deriv(geom_batch, i)
+            results.append(jnp.expand_dims(tmp, axis=0))
+        results = jnp.concatenate(results, axis=0)
+        return results, 0
+
+    def potential_deriv_batch(self, batched_args, batch_dims):
+        geom_batch, deriv_batch = batched_args
+        geom_dim, deriv_dim = batch_dims
+        results = []
+        for i in deriv_batch:
+            tmp = self.potential_deriv(geom_batch, i)
+            results.append(jnp.expand_dims(tmp, axis=0))
+        results = jnp.concatenate(results, axis=0)
+        return results, 0
+
+    def dipole_deriv_batch(self, batched_args, batch_dims):
+        geom_batch, deriv_batch = batched_args
+        geom_dim, deriv_dim = batch_dims
+        results = []
+        for i in deriv_batch:
+            tmp1, tmp2, tmp3 = self.dipole_deriv(geom_batch, i)
+            mu_x = jnp.expand_dims(tmp1, axis=0)
+            mu_y = jnp.expand_dims(tmp2, axis=0)
+            mu_z = jnp.expand_dims(tmp3, axis=0)
+            results.append(jnp.stack([mu_x, mu_y, mu_z], axis=1))
+        results = jnp.concatenate(results, axis=0)
+        return results, 0
+
+    def quadrupole_deriv_batch(self, batched_args, batch_dims):
+        geom_batch, deriv_batch = batched_args
+        geom_dim, deriv_dim = batch_dims
+        results = []
+        for i in deriv_batch:
+            tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, tmp9 = self.quadrupole_deriv(geom_batch, i)
+            mu_x = jnp.expand_dims(tmp1, axis=0)
+            mu_y = jnp.expand_dims(tmp2, axis=0)
+            mu_z = jnp.expand_dims(tmp3, axis=0)
+            th_xx = jnp.expand_dims(tmp4, axis=0)
+            th_xy = jnp.expand_dims(tmp5, axis=0)
+            th_xz = jnp.expand_dims(tmp6, axis=0)
+            th_yy = jnp.expand_dims(tmp7, axis=0)
+            th_yz = jnp.expand_dims(tmp8, axis=0)
+            th_zz = jnp.expand_dims(tmp9, axis=0)
+            results.append(jnp.stack([mu_x, mu_y, mu_z, th_xx, th_xy, th_xz, th_yy, th_yz, th_zz], axis=1))
+        results = jnp.concatenate(results, axis=0)
+        return results, 0
 

@@ -7,231 +7,375 @@ import h5py
 import psi4
 import os
 
-from ..integrals.basis_utils import build_basis_set
-from ..integrals.tei import tei_array 
-from ..integrals.oei import oei_arrays
-
-from ..utils import get_deriv_vec_idx, get_required_deriv_vecs
-
-# Check for Libint interface 
-from ..constants import libint_imported
-if libint_imported:
-    from ..external_integrals import TEI 
-    from ..external_integrals import OEI 
-    from ..external_integrals import libint_interface
-    from ..external_integrals import tmp_potential
+# Check for Libint interface
+from ..integrals import TEI
+from ..integrals import OEI
+from ..integrals import libint_interface
      
 
-def compute_integrals(geom, basis_name, xyz_path, nuclear_charges, charge, deriv_order, options):
-    # Load integral algo, decides to compute integrals in memory or use disk 
+def compute_integrals(geom, basis_set, xyz_path, deriv_order, options):
+    # Load integral algo, decides to compute integrals in memory or use disk
     algo = options['integral_algo']
+    basis_name = basis_set.name()
+    libint_interface.initialize(xyz_path, basis_name, basis_name, basis_name, basis_name, options['ints_tolerance'])
 
-    if libint_imported and libint_interface.LIBINT2_MAX_DERIV_ORDER >= deriv_order:
-        if algo == 'libint_core':
-            libint_interface.initialize(xyz_path, basis_name)
-            # Precompute TEI derivatives 
-            tei_obj = TEI(basis_name, xyz_path, deriv_order, 'core')
-            oei_obj = OEI(basis_name, xyz_path, deriv_order, 'core')
-            # Compute integrals
-            S = oei_obj.overlap(geom)
-            T = oei_obj.kinetic(geom)
-            # Since Libint does not support potentials beyond 2nd order,
-            # don't use Libint in that case. 
-            # TODO revert if Libint ever changes
-            if deriv_order <= 2:
-                V = oei_obj.potential(geom)
-            else:
-                with open(xyz_path, 'r') as f:
-                    tmp = f.read()
-                molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-                basis_dict = build_basis_set(molecule, basis_name)
-                V = tmp_potential(geom.reshape(-1,3),basis_dict,nuclear_charges)
-            G = tei_obj.tei(geom)
-            libint_interface.finalize()
-            return S, T, V, G
+    if algo == 'libint_disk':
+        # Check disk for currently existing integral derivatives
+        check_oei = check_oei_disk("all", basis_set, basis_set, deriv_order)
+        check_tei = check_tei_disk("eri", basis_set, basis_set, basis_set, basis_set, deriv_order)
 
-        elif algo == 'libint_disk' and deriv_order > 0:
-            # Check disk for currently existing integral derivatives 
-            check = check_disk(geom,basis_name,xyz_path,deriv_order)
-
-            tei_obj = TEI(basis_name, xyz_path, deriv_order, 'disk')
-            oei_obj = OEI(basis_name, xyz_path, deriv_order, 'disk')
-            # If disk integral derivs are right, nothing to do
-            if check:
-                libint_interface.initialize(xyz_path, basis_name)
-                S = oei_obj.overlap(geom)
-                T = oei_obj.kinetic(geom)
-                V = oei_obj.potential(geom)
-                G = tei_obj.tei(geom)
-                libint_interface.finalize()
-            else:
-                # Else write integral derivs to disk
-                if deriv_order <= 2:
-                    libint_interface.initialize(xyz_path, basis_name)
-                    libint_interface.oei_deriv_disk(deriv_order)
-                    libint_interface.eri_deriv_disk(deriv_order)
-                    S = oei_obj.overlap(geom)
-                    T = oei_obj.kinetic(geom)
-                    V = oei_obj.potential(geom)
-                    G = tei_obj.tei(geom)
-                    libint_interface.finalize()
-                else:
-                    # If higher order than 2, LIBINT api does not support potentials 
-                    # In this case, use Libint to write TEI's to disk, and do OEI's with Quax
-                    libint_interface.initialize(xyz_path, basis_name)
-                    libint_interface.eri_deriv_disk(deriv_order)
-                    G = tei_obj.tei(geom)
-                    libint_interface.finalize()
-    
-                    with open(xyz_path, 'r') as f:
-                        tmp = f.read()
-                    molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-                    basis_dict = build_basis_set(molecule, basis_name)
-                    S, T, V = oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
-        elif deriv_order == 0:
-            libint_interface.initialize(xyz_path, basis_name)
-            tei_obj = TEI(basis_name, xyz_path, deriv_order, 'core')
-            oei_obj = OEI(basis_name, xyz_path, deriv_order, 'core')
-            # Compute integrals
+        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'disk')
+        tei_obj = TEI(basis_set, basis_set, basis_set, basis_set, xyz_path, deriv_order, options, 'disk')
+        # If disk integral derivs are right, nothing to do
+        if check_oei:
             S = oei_obj.overlap(geom)
             T = oei_obj.kinetic(geom)
             V = oei_obj.potential(geom)
-            G = tei_obj.tei(geom)
-            libint_interface.finalize()
+        else:
+            libint_interface.oei_deriv_disk(deriv_order)
+            S = oei_obj.overlap(geom)
+            T = oei_obj.kinetic(geom)
+            V = oei_obj.potential(geom)
 
-        # TODO
-        #elif algo == 'quax_disk':
+        if check_tei:
+            G = tei_obj.eri(geom)
+        else:
+            libint_interface.compute_2e_deriv_disk("eri", 0., deriv_order)
+            G = tei_obj.eri(geom)
 
-        elif algo == 'quax_core':
-            with open(xyz_path, 'r') as f:
-                tmp = f.read()
-            molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-            basis_dict = build_basis_set(molecule, basis_name)
-            S, T, V = oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
-            G = tei_array(geom.reshape(-1,3),basis_dict)
-
-    # If Libint not imported or Libint version doesnt support requested deriv order, use Quax integrals
     else:
-        with open(xyz_path, 'r') as f:
-            tmp = f.read()
-        molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-        basis_dict = build_basis_set(molecule, basis_name)
-        S, T, V = oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
-        G = tei_array(geom.reshape(-1,3),basis_dict)
+        # Precompute TEI derivatives
+        oei_obj = OEI(basis_set, basis_set, xyz_path, deriv_order, 'core')
+        tei_obj = TEI(basis_set, basis_set, basis_set, basis_set, xyz_path, deriv_order, options, 'core')
+        # Compute integrals
+        S = oei_obj.overlap(geom)
+        T = oei_obj.kinetic(geom)
+        V = oei_obj.potential(geom)
+        G = tei_obj.eri(geom)
+
+    libint_interface.finalize()
     return S, T, V, G
 
-def check_disk(geom,basis_name,xyz_path,deriv_order,address=None):
-    # TODO need to check geometry and basis set name in addition to nbf
-    # First check TEI's, then OEI's, return separately, check separately in compute_integrals
+def compute_dipole_ints(geom, basis1, basis2, xyz_path, deriv_order, options):
+    # Load integral algo, decides to compute integrals in memory or use disk
+    algo = options['integral_algo']
+    basis1_name = basis1.name()
+    basis2_name = basis2.name()
+    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis1_name, basis2_name, options['ints_tolerance'])
+
+    if algo == 'libint_disk':
+        # Check disk for currently existing integral derivatives
+        check_multipole = check_multipole_disk('dipole', basis1, basis2, deriv_order)
+
+        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'disk')
+        # If disk integral derivs are right, nothing to do
+        if check_multipole:
+            Mu_ = oei_obj.dipole(geom)
+        else:
+            with open(xyz_path, 'r') as f:
+                tmp = f.read()
+            com = psi4.core.Molecule.from_string(tmp, 'xyz+').center_of_mass()
+            com = list([com[0], com[1], com[2]])
+
+            libint_interface.compute_dipole_deriv_disk(com, deriv_order)
+            Mu_ = oei_obj.dipole(geom)
+    else:
+        # Precompute TEI derivatives
+        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'dipole')
+        # Compute integrals
+        Mu_ = oei_obj.dipole(geom)
+
+    libint_interface.finalize()
+    return Mu_
+
+def compute_quadrupole_ints(geom, basis1, basis2, xyz_path, deriv_order, options):
+    # Load integral algo, decides to compute integrals in memory or use disk
+    algo = options['integral_algo']
+    basis1_name = basis1.name()
+    basis2_name = basis2.name()
+    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis1_name, basis2_name, options['ints_tolerance'])
+
+    if algo == 'libint_disk':
+        # Check disk for currently existing integral derivatives
+        check_multipole = check_multipole_disk('quadrupole', basis1, basis2, deriv_order)
+
+        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'disk')
+        # If disk integral derivs are right, nothing to do
+        if check_multipole:
+            Mu_Th = oei_obj.quadrupole(geom)
+        else:
+            libint_interface.compute_quadrupole_deriv_disk(deriv_order)
+            Mu_Th = oei_obj.quadrupole(geom)
+    else:
+        # Precompute TEI derivatives
+        oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'dipole')
+        # Compute integrals
+        Mu_Th = oei_obj.quadrupole(geom)
+
+    libint_interface.finalize()
+    return Mu_Th
+
+def compute_f12_oeints(geom, basis1, basis2, xyz_path, deriv_order, options, cabs):
+    # Load integral algo, decides to compute integrals in memory or use disk
+    algo = options['integral_algo']
+    basis1_name = basis1.name()
+    basis2_name = basis2.name()
+    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis1_name, basis2_name, options['ints_tolerance'])
+
+    if cabs:
+        if algo == 'libint_disk':
+            # Check disk for currently existing integral derivatives
+            check = check_oei_disk("overlap", basis1, basis2, deriv_order)
+    
+            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'disk')
+            # If disk integral derivs are right, nothing to do
+            if check:
+                S = oei_obj.overlap(geom)
+            else:
+                libint_interface.compute_1e_deriv_disk("overlap", deriv_order)
+                S = oei_obj.overlap(geom)
+
+        else:
+            # Precompute OEI derivatives
+            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'f12')
+            # Compute integrals
+            S = oei_obj.overlap(geom)
+        
+        libint_interface.finalize()
+        return S
+
+    else:
+        if algo == 'libint_disk':
+            # Check disk for currently existing integral derivatives
+            check_T = check_oei_disk("kinetic", basis1, basis2, deriv_order)
+            check_V = check_oei_disk("potential", basis1, basis2, deriv_order)
+
+            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'disk')
+            # If disk integral derivs are right, nothing to do
+            if check_T:
+                T = oei_obj.kinetic(geom)
+            else:
+                libint_interface.compute_1e_deriv_disk("kinetic",deriv_order)
+                T = oei_obj.kinetic(geom)
+
+            if check_V:
+                V = oei_obj.potential(geom)
+            else:
+                libint_interface.compute_1e_deriv_disk("potential", deriv_order)
+                V = oei_obj.potential(geom)
+
+        else:
+            # Precompute OEI derivatives
+            oei_obj = OEI(basis1, basis2, xyz_path, deriv_order, 'f12')
+            # Compute integrals
+            T = oei_obj.kinetic(geom)
+            V = oei_obj.potential(geom)
+        
+        libint_interface.finalize()
+        return T, V
+
+def compute_f12_teints(geom, basis1, basis2, basis3, basis4, int_type, xyz_path, deriv_order, options):
+    # Load integral algo, decides to compute integrals in memory or use disk
+    algo = options['integral_algo']
+    beta = options['beta']
+    basis1_name = basis1.name()
+    basis2_name = basis2.name()
+    basis3_name = basis3.name()
+    basis4_name = basis4.name()
+    libint_interface.initialize(xyz_path, basis1_name, basis2_name, basis3_name, basis4_name, options['ints_tolerance'])
+
+    if algo == 'libint_disk':
+        # Check disk for currently existing integral derivatives
+        check = check_tei_disk(int_type, basis1, basis2, basis3, basis4, deriv_order)
+
+        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, options, 'disk')
+        # If disk integral derivs are right, nothing to do
+        if check:
+            match int_type:
+                case "f12":
+                    F = tei_obj.f12(geom, beta)
+                case "f12_squared":
+                    F = tei_obj.f12_squared(geom, beta)
+                case "f12g12":
+                    F = tei_obj.f12g12(geom, beta)
+                case "f12_double_commutator":
+                    F = tei_obj.f12_double_commutator(geom, beta)
+                case "eri":
+                    F = tei_obj.eri(geom)
+        else:
+            match int_type:
+                case "f12":
+                    libint_interface.compute_2e_deriv_disk(int_type, beta, deriv_order)
+                    F = tei_obj.f12(geom, beta)
+                case "f12_squared":
+                    libint_interface.compute_2e_deriv_disk(int_type, beta, deriv_order)
+                    F = tei_obj.f12_squared(geom, beta)
+                case "f12g12":
+                    libint_interface.compute_2e_deriv_disk(int_type, beta, deriv_order)
+                    F = tei_obj.f12g12(geom, beta)
+                case "f12_double_commutator":
+                    libint_interface.compute_2e_deriv_disk(int_type, beta, deriv_order)
+                    F = tei_obj.f12_double_commutator(geom, beta)
+                case "eri":
+                    libint_interface.compute_2e_deriv_disk(int_type, 0., deriv_order)
+                    F = tei_obj.eri(geom)
+
+    else:
+        # Precompute TEI derivatives
+        tei_obj = TEI(basis1, basis2, basis3, basis4, xyz_path, deriv_order, options, 'f12')
+        # Compute integrals
+        match int_type:
+            case "f12":
+                F = tei_obj.f12(geom, beta)
+            case "f12_squared":
+                F = tei_obj.f12_squared(geom, beta)
+            case "f12g12":
+                F = tei_obj.f12g12(geom, beta)
+            case "f12_double_commutator":
+                F = tei_obj.f12_double_commutator(geom, beta)
+            case "eri":
+                F = tei_obj.eri(geom)
+
+    libint_interface.finalize()
+    return F
+
+def check_oei_disk(int_type, basis1, basis2, deriv_order, address=None):
+    # Check OEI's in compute_integrals
     correct_int_derivs = False
+    correct_nbf1 = correct_nbf2 = correct_deriv_order = False
 
-    if ((os.path.exists("eri_derivs.h5") and os.path.exists("oei_derivs.h5"))):
-        print("Found currently existing integral derivatives in your working directory. Trying to use them.")
+    if ((os.path.exists("oei_derivs.h5"))):
+        print("Found currently existing one-electron integral derivatives in your working directory. Trying to use them.")
         oeifile = h5py.File('oei_derivs.h5', 'r')
-        erifile = h5py.File('eri_derivs.h5', 'r')
-        with open(xyz_path, 'r') as f:
-            tmp = f.read()
-        molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-        basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
-        nbf = basis_set.nbf()
-        # Check if there are `deriv_order` datasets in the eri file
-        correct_deriv_order = len(erifile) == deriv_order
-        # Check nbf dimension of integral arrays
-        sample_dataset_name = list(oeifile.keys())[0]
-        correct_nbf = oeifile[sample_dataset_name].shape[0] == nbf
-        oeifile.close()
-        erifile.close()
-        correct_int_derivs = correct_deriv_order and correct_nbf
-        if correct_int_derivs:
-            print("Integral derivatives appear to be correct. Avoiding recomputation.")
+        nbf1 = basis1.nbf()
+        nbf2 = basis2.nbf()
 
-    # TODO flesh out this logic for determining if partials file contains all integrals needed
-    # for particular address
-    elif ((os.path.exists("eri_partials.h5") and os.path.exists("oei_partials.h5"))):
-        print("Found currently existing partial derivatives in working directory. Assuming they are correct.") 
-        oeifile = h5py.File('oei_partials.h5', 'r')
-        erifile = h5py.File('eri_partials.h5', 'r')
-        with open(xyz_path, 'r') as f:
-            tmp = f.read()
-        molecule = psi4.core.Molecule.from_string(tmp, 'xyz+')
-        basis_set = psi4.core.BasisSet.build(molecule, 'BASIS', basis_name, puream=0)
-        nbf = basis_set.nbf()
-        sample_dataset_name = list(oeifile.keys())[0]
-        correct_nbf = oeifile[sample_dataset_name].shape[0] == nbf
-        correct_int_derivs = correct_nbf
+        if int_type == "all":
+            oei_name = ["overlap_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),\
+                        "kinetic_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),\
+                        "potential_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order)]
+        else:
+            oei_name = int_type + "_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order)
+
+        for name in list(oeifile.keys()):
+            if name in oei_name:
+                correct_nbf1 = oeifile[name].shape[0] == nbf1
+                correct_nbf2 = oeifile[name].shape[1] == nbf2
+                correct_deriv_order = True
+        oeifile.close()
+
+        correct_int_derivs = correct_deriv_order and correct_nbf1 and correct_nbf2
+
+    if correct_int_derivs:
+        print("Integral derivatives appear to be correct. Avoiding recomputation.")
     return correct_int_derivs
 
-def write_integrals(molecule, basis_name, deriv_order, address):
-    geom = jnp.asarray(np.asarray(molecule.geometry()))
-    natoms = geom.shape[0]
-    geom_list = np.asarray(molecule.geometry()).reshape(-1).tolist()
-    charge = molecule.molecular_charge()
-    nuclear_charges = jnp.asarray([molecule.charge(i) for i in range(geom.shape[0])])
-    basis_dict = build_basis_set(molecule,basis_name)
-    kwargs = {"basis_dict":basis_dict,"nuclear_charges":nuclear_charges}
+"""     # TODO flesh out this logic for determining if partials file contains all integrals needed
+    # for particular address
+    elif (os.path.exists("oei_partials.h5")):
+        print("Found currently existing partial oei derivatives in working directory. Assuming they are correct.")
+        oeifile = h5py.File('oei_partials.h5', 'r')
+        with open(xyz_path, 'r') as f:
+        nbf1 = basis1.nbf()
+        nbf2 = basis2.nbf()
+        # Check if there are `deriv_order` datasets in the eri file
+        correct_deriv_order = len(oeifile) == deriv_order
+        # Check nbf dimension of integral arrays
+        sample_dataset_name = list(oeifile.keys())[0]
+        correct_nbf1 = oeifile[sample_dataset_name].shape[0] == nbf1
+        correct_nbf2 = oeifile[sample_dataset_name].shape[1] == nbf2
+        oeifile.close()
+        correct_int_derivs = correct_deriv_order and correct_nbf1 and correct_nbf2 """
 
-    # Define wrapper functions for computing partial derivatives
-    def oei_wrapper(*args, **kwargs):
-        geom = jnp.asarray(args)
-        basis_dict = kwargs['basis_dict']
-        nuclear_charges = kwargs['nuclear_charges']
-        S, T, V = oei_arrays(geom.reshape(-1,3),basis_dict,nuclear_charges)
-        return S, T, V
+def check_multipole_disk(int_type, basis1, basis2, deriv_order, address=None):
+    # Check OEI's in compute_integrals
+    correct_int_derivs = False
+    correct_nbf1 = correct_nbf2 = correct_deriv_order = False
 
-    def tei_wrapper(*args, **kwargs):
-        geom = jnp.asarray(args)
-        basis_dict = kwargs['basis_dict']
-        G = tei_array(geom.reshape(-1,3),basis_dict)
-        return G
+    if ((os.path.exists(int_type + "_derivs.h5"))):
+        print("Found currently existing multipole integral derivatives in your working directory. Trying to use them.")
+        oeifile = h5py.File(int_type + '_derivs.h5', 'r')
+        nbf1 = basis1.nbf()
+        nbf2 = basis2.nbf()
 
-    # Determine the set of all integral derivatives that need to be written 
-    # to disk for this computation
-    deriv_vecs = get_required_deriv_vecs(natoms, deriv_order, address)
-    for deriv_vec in deriv_vecs:
-        flat_idx = get_deriv_vec_idx(deriv_vec)
-        order = np.sum(deriv_vec)
-        # Compute partial derivative integral arrays corresponding to this deriv vec
-        if order == 1:
-            i = address[0]
-            dS, dT, dV = jacfwd(oei_wrapper, i)(*geom_list, **kwargs)
-            dG = jacfwd(tei_wrapper, i)(*geom_list, **kwargs)
-        elif order == 2:
-            i,j = address[0], address[1]
-            dS, dT, dV = jacfwd(jacfwd(oei_wrapper, i), j)(*geom_list, **kwargs)
-            dG = jacfwd(jacfwd(tei_wrapper, i), j)(*geom_list, **kwargs)
-        elif order == 3:
-            i,j,k = address[0], address[1], address[2]
-            dS, dT, dV = jacfwd(jacfwd(jacfwd(oei_wrapper, i), j), k)(*geom_list, **kwargs)
-            dG = jacfwd(jacfwd(jacfwd(tei_wrapper, i), j), k)(*geom_list, **kwargs)
-        elif order == 4:
-            i,j,k,l = address[0], address[1], address[2], address[3]
-            dS, dT, dV= jacfwd(jacfwd(jacfwd(jacfwd(oei_wrapper, i), j), k), l)(*geom_list, **kwargs)
-            dG = jacfwd(jacfwd(jacfwd(jacfwd(tei_wrapper, i), j), k), l)(*geom_list, **kwargs)
-        elif order == 5:
-            i,j,k,l,m = address[0], address[1], address[2], address[3], address[4]
-            dS, dT, dV= jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(oei_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
-            dG = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(tei_wrapper, i), j), k), l), m)(*geom_list, **kwargs)
-        elif order == 6:
-            i,j,k,l,m,n = address[0], address[1], address[2], address[3], address[4], address[5]
-            dS, dT, dV= jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(oei_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
-            dG = jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(jacfwd(tei_wrapper, i), j), k), l), m), n)(*geom_list, **kwargs)
-        # Save partial derivative arrays to disk
-        f = h5py.File("oei_partials.h5","a")
-        f.create_dataset("overlap_deriv"+str(order)+"_"+str(flat_idx), data=dS)
-        f.create_dataset("kinetic_deriv"+str(order)+"_"+str(flat_idx), data=dT)
-        f.create_dataset("potential_deriv"+str(order)+"_"+str(flat_idx), data=dV)
-        f.close()
+        if int_type == "dipole":
+            oei_name = ["mu_x_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "mu_y_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "mu_z_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order)]
+        elif int_type == "quadrupole":
+            oei_name = ["mu_x_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "mu_y_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "mu_z_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_xx_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_xy_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_xz_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_yy_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_yz_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order),
+                        "th_zz_" + str(nbf1) + "_" + str(nbf2) + "_deriv" + str(deriv_order)]
+        else:
+            raise Exception("Integral type not recognized.")
 
-        f = h5py.File("eri_partials.h5","a")
-        f.create_dataset("eri_deriv"+str(order)+"_"+str(flat_idx), data=dG)
-        f.close()
+        for name in list(oeifile.keys()):
+            if name in oei_name:
+                correct_nbf1 = oeifile[name].shape[0] == nbf1
+                correct_nbf2 = oeifile[name].shape[1] == nbf2
+                correct_deriv_order = True
+        oeifile.close()
 
+        correct_int_derivs = correct_deriv_order and correct_nbf1 and correct_nbf2
 
+    if correct_int_derivs:
+        print("Integral derivatives appear to be correct. Avoiding recomputation.")
+    return correct_int_derivs
 
-              
+def check_tei_disk(int_type, basis1, basis2, basis3, basis4, deriv_order, address=None):
+    # Check TEI's in compute_integrals
+    correct_int_derivs = False
+    correct_nbf1 = correct_nbf2 = correct_nbf3 = correct_nbf4 = correct_deriv_order = False
 
+    if ((os.path.exists(int_type + "_derivs.h5"))):
+        print("Found currently existing " + int_type + " integral derivatives in your working directory. Trying to use them.")
+        erifile = h5py.File(int_type + '_derivs.h5', 'r')
+        nbf1 = basis1.nbf()
+        nbf2 = basis2.nbf()
+        nbf3 = basis3.nbf()
+        nbf4 = basis4.nbf()
 
-
+        tei_name = int_type + "_" + str(nbf1) + "_" + str(nbf2)\
+                            + "_" + str(nbf3) + "_" + str(nbf4) + "_deriv" + str(deriv_order)
+        
+        # Check nbf dimension of integral arrays
+        for name in list(erifile.keys()):
+            if name in tei_name:
+                correct_nbf1 = erifile[name].shape[0] == nbf1
+                correct_nbf2 = erifile[name].shape[1] == nbf2
+                correct_nbf3 = erifile[name].shape[2] == nbf3
+                correct_nbf4 = erifile[name].shape[3] == nbf4
+                correct_deriv_order = True
+        erifile.close()
+        correct_int_derivs = correct_deriv_order and correct_nbf1 and correct_nbf2 and correct_nbf3 and correct_nbf4
     
+    if correct_int_derivs:
+        print("Integral derivatives appear to be correct. Avoiding recomputation.")
+    return correct_int_derivs
 
-
+"""     # TODO flesh out this logic for determining if partials file contains all integrals needed
+    # for particular address
+    elif ((os.path.exists("eri_partials.h5"))):
+        print("Found currently existing partial tei derivatives in working directory. Assuming they are correct.")
+        erifile = h5py.File('eri_partials.h5', 'r')
+        nbf1 = basis1.nbf()
+        nbf2 = basis2.nbf()
+        nbf3 = basis3.nbf()
+        nbf4 = basis4.nbf()
+        sample_dataset_name = list(erifile.keys())[0]
+        correct_nbf1 = erifile[sample_dataset_name].shape[0] == nbf1
+        correct_nbf2 = erifile[sample_dataset_name].shape[1] == nbf2
+        correct_nbf3 = erifile[sample_dataset_name].shape[2] == nbf3
+        correct_nbf4 = erifile[sample_dataset_name].shape[3] == nbf4
+        erifile.close()
+        correct_int_derivs = correct_deriv_order and correct_nbf1 and correct_nbf2 and correct_nbf3 and correct_nbf4
+        if correct_int_derivs:
+            print("Integral derivatives appear to be correct. Avoiding recomputation.")
+        return correct_int_derivs
+ """
