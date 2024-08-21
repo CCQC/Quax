@@ -1,3 +1,6 @@
 include CODE_OF_CONDUCT.md
+include MANIFEST.in
+include LICENSE
 
+graft quax
 global-exclude *.py[cod] __pycache__ *.so

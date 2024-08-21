@@ -6,6 +6,9 @@ import psi4
 import pytest
 import numpy as np
 
+# Comment out if you have an installation of Libint with Cartesian multipole derivatives
+pytestmark = pytest.mark.skip("Requires Libint Cartesian multipole derivatives")  
+
 molecule = psi4.geometry("""
 0 1
 O   -0.000007070942     0.125146536460     0.000000000000

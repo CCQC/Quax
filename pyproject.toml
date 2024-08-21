@@ -24,7 +24,7 @@ classifiers = [
 requires-python = ">=3.9"
 # Declare any run-time dependencies that should be installed with the package.
 dependencies = [
-  "importlib-resources;python_version=<'3.12'",
+  "importlib-resources;python_version>'3.8'",
   "numpy>=1.23,<2.0",
   "jax>=0.4.19",
   "jaxlib>=0.4.19",
@@ -45,15 +45,13 @@ test = [
 
 [tool.setuptools]
 zip-safe = false
-# Let setuptools discover the package in the current directory,
-# but be explicit about non-Python files.
-# See also:
-#   https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html#setuptools-specific-configuration
-include-package-data = false
 
 [tool.setuptools.packages.find]
 namespaces = false
 where = ["."]
+
+[tool.setuptools.package-data]
+quax = ["integrals/*.so"]
 
 [tool.setuptools-git-versioning]
 enabled = true
